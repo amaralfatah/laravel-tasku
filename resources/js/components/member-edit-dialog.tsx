@@ -24,7 +24,7 @@ import type { MemberRow, Option, OrgUnitOption } from '@/types/members';
 const NONE = 'none';
 
 /**
- * Edits everything about a membership except the person: role (Owner only),
+ * Edits everything about a membership except the person: role (BOD-1 only),
  * unit assignment and monitoring scope.
  */
 export function MemberEditDialog({
@@ -43,7 +43,7 @@ export function MemberEditDialog({
     onClose: () => void;
 }) {
     const form = useForm({
-        role: member?.role ?? 'member',
+        role: member?.role ?? 'bod_4',
         org_unit_id: member?.org_unit?.id ?? null,
         scope_type: member?.scope_type ?? 'project_only',
         scope_org_unit_id: member?.scope_org_unit?.id ?? null,
@@ -68,7 +68,7 @@ export function MemberEditDialog({
     }
 
     const isSubtree = form.data.scope_type === 'unit_subtree';
-    const roleLocked = !canChangeRole || member.is_last_owner;
+    const roleLocked = !canChangeRole || member.is_last_top_role;
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -106,17 +106,22 @@ export function MemberEditDialog({
                                         key={role.value}
                                         value={role.value}
                                     >
-                                        {role.label}
+                                        <span className="flex items-center gap-2">
+                                            <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                                                {role.code}
+                                            </span>
+                                            {role.label}
+                                        </span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                            {member.is_last_owner
-                                ? 'Owner terakhir tidak bisa diturunkan rolenya.'
+                            {member.is_last_top_role
+                                ? 'Kepala Divisi terakhir tidak bisa diturunkan rolenya.'
                                 : canChangeRole
-                                  ? 'Role menentukan hak akses sistem.'
-                                  : 'Hanya Owner yang dapat mengubah role.'}
+                                  ? 'Role menentukan posisi di jenjang BOD dan hak aksesnya.'
+                                  : 'Hanya Kepala Divisi yang dapat mengubah role.'}
                         </p>
                         <InputError message={form.errors.role} />
                     </div>

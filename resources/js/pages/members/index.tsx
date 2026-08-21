@@ -73,7 +73,7 @@ export default function Members({
     const [inviteOpen, setInviteOpen] = useState(false);
     const [copied, copy] = useClipboard();
 
-    const inviteForm = useForm({ email: '', role: 'member' });
+    const inviteForm = useForm({ email: '', role: 'bod_4' });
 
     return (
         <>
@@ -340,15 +340,17 @@ export default function Members({
                                     </TableCell>
 
                                     <TableCell>
-                                        <Badge
-                                            variant={
-                                                member.role === 'member'
-                                                    ? 'secondary'
-                                                    : 'default'
-                                            }
-                                        >
-                                            {member.role_label}
-                                        </Badge>
+                                        <div className="flex items-center gap-1.5">
+                                            <Badge
+                                                variant="outline"
+                                                className="font-mono text-[10px] tabular-nums"
+                                            >
+                                                {member.role_code}
+                                            </Badge>
+                                            <span className="text-sm">
+                                                {member.role_label}
+                                            </span>
+                                        </div>
                                     </TableCell>
 
                                     <TableCell className="text-sm">
@@ -407,7 +409,7 @@ export default function Members({
                                                         <DropdownMenuItem
                                                             variant="destructive"
                                                             disabled={
-                                                                member.is_last_owner ||
+                                                                member.is_last_top_role ||
                                                                 member.is_self
                                                             }
                                                             onSelect={() => {

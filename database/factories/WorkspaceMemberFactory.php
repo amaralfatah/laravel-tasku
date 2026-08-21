@@ -23,23 +23,23 @@ class WorkspaceMemberFactory extends Factory
         return [
             'workspace_id' => Workspace::factory(),
             'user_id' => User::factory(),
-            'role' => WorkspaceRole::Member,
+            'role' => WorkspaceRole::Bod4,
             'scope_type' => ScopeType::ProjectOnly,
             'joined_at' => now(),
         ];
     }
 
-    public function owner(): static
+    public function kepalaDivisi(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'role' => WorkspaceRole::Owner,
+            'role' => WorkspaceRole::Bod1,
         ]);
     }
 
-    public function admin(): static
+    public function kepalaSubDivisi(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'role' => WorkspaceRole::Admin,
+            'role' => WorkspaceRole::Bod2,
         ]);
     }
 

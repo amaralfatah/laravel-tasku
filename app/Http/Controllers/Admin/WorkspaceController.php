@@ -71,7 +71,7 @@ class WorkspaceController extends Controller
             'active' => $active,
             'inactive' => $inactive,
             'pending_owner' => Invitation::withoutGlobalScopes()
-                ->where('role', WorkspaceRole::Owner)
+                ->where('role', WorkspaceRole::Bod1)
                 ->whereNull('accepted_at')
                 ->distinct('workspace_id')
                 ->count('workspace_id'),
@@ -88,7 +88,7 @@ class WorkspaceController extends Controller
         $owner = WorkspaceMember::withoutGlobalScopes()
             ->with('user:id,name,email')
             ->where('workspace_id', $workspace->id)
-            ->where('role', WorkspaceRole::Owner)
+            ->where('role', WorkspaceRole::Bod1)
             ->orderBy('id')
             ->first();
 
@@ -110,7 +110,7 @@ class WorkspaceController extends Controller
         $inviter->handle(
             $workspace,
             $request->validated('owner_email'),
-            WorkspaceRole::Owner,
+            WorkspaceRole::Bod1,
             $request->user(),
         );
 
@@ -148,7 +148,7 @@ class WorkspaceController extends Controller
 
         abort_if($pending === null, 404, 'Tidak ada undangan Owner yang tertunda.');
 
-        $inviter->handle($workspace, $pending['email'], WorkspaceRole::Owner, $request->user());
+        $inviter->handle($workspace, $pending['email'], WorkspaceRole::Bod1, $request->user());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Undangan Owner dikirim ulang.']);
 
@@ -164,7 +164,7 @@ class WorkspaceController extends Controller
     {
         $invitation = Invitation::withoutGlobalScopes()
             ->where('workspace_id', $workspace->id)
-            ->where('role', WorkspaceRole::Owner)
+            ->where('role', WorkspaceRole::Bod1)
             ->whereNull('accepted_at')
             ->latest('id')
             ->first();

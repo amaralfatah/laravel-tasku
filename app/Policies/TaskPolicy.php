@@ -10,7 +10,7 @@ use App\Support\Tenancy;
  * Task access (7.1).
  *
  * Reading follows the project; creating and editing require project
- * membership. A plain member may only delete tasks they created themselves.
+ * membership. An ODS may only delete tasks they created themselves.
  */
 class TaskPolicy
 {
@@ -34,7 +34,7 @@ class TaskPolicy
             return false;
         }
 
-        if ($this->tenancy->member()?->role->isManager()) {
+        if ($this->tenancy->member()?->role->managesProjects()) {
             return true;
         }
 

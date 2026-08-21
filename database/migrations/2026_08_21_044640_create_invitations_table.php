@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('workspace_id')->constrained()->cascadeOnDelete();
             $table->string('email');
-            $table->string('role')->default('member');
+            $table->string('role')->default('bod_4');
             $table->string('token', 64)->unique();
             $table->foreignId('invited_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('expires_at');

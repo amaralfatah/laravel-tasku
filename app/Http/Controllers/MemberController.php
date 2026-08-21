@@ -46,11 +46,12 @@ class MemberController extends Controller
                     ],
                     'role' => $member->role->value,
                     'role_label' => $member->role->label(),
+                    'role_code' => $member->role->code(),
                     'org_unit' => $member->orgUnit?->only(['id', 'name']),
                     'scope_type' => $member->scope_type->value,
                     'scope_org_unit' => $member->scopeOrgUnit?->only(['id', 'name']),
                     'manager_id' => $member->manager_id,
-                    'is_last_owner' => $policy->isLastOwner($member),
+                    'is_last_top_role' => $policy->isLastTopRole($member),
                     'is_self' => $member->user_id === $request->user()->id,
                 ])
                 ->all(),
@@ -65,7 +66,11 @@ class MemberController extends Controller
                 ])
                 ->all(),
             'roles' => array_map(
-                fn (WorkspaceRole $role): array => ['value' => $role->value, 'label' => $role->label()],
+                fn (WorkspaceRole $role): array => [
+                    'value' => $role->value,
+                    'label' => $role->label(),
+                    'code' => $role->code(),
+                ],
                 WorkspaceRole::cases(),
             ),
             'scopeTypes' => array_map(
@@ -74,7 +79,7 @@ class MemberController extends Controller
             ),
             'can' => [
                 'manage' => $canManage,
-                'change_role' => $this->tenancy->member()?->role === WorkspaceRole::Owner,
+                'change_role' => (bool) $this->tenancy->member()?->role->isTop(),
             ],
         ]);
     }

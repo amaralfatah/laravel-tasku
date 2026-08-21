@@ -10,7 +10,7 @@ use App\Support\Tenancy;
  * Comment access (CMT-1, CMT-2).
  *
  * Anyone who can work on the task may comment; editing and deleting are
- * limited to the author, plus managers for moderation.
+ * limited to the author, plus BOD-3 and above for moderation.
  */
 class CommentPolicy
 {
@@ -28,7 +28,7 @@ class CommentPolicy
         }
 
         return $comment->user_id === $user->id
-            || (bool) $this->tenancy->member()?->role->isManager();
+            || (bool) $this->tenancy->member()?->role->managesProjects();
     }
 
     protected function inActiveWorkspace(Comment $comment): bool

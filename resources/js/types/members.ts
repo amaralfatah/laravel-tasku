@@ -12,11 +12,12 @@ export type MemberRow = {
     };
     role: WorkspaceRole;
     role_label: string;
+    role_code: string;
     org_unit: NamedRef | null;
     scope_type: ScopeType;
     scope_org_unit: NamedRef | null;
     manager_id: number | null;
-    is_last_owner: boolean;
+    is_last_top_role: boolean;
     is_self: boolean;
 };
 
@@ -33,4 +34,4 @@ export type InvitationRow = {
 
 export type OrgUnitOption = { id: number; name: string; depth: number };
 
-export type Option = { value: string; label: string };
+export type Option = { value: string; label: string; code?: string };

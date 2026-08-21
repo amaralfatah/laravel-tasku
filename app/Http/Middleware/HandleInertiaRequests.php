@@ -70,6 +70,7 @@ class HandleInertiaRequests extends Middleware
                 'role_label' => $tenancy->actingAsSuperAdmin()
                     ? 'Super Admin'
                     : $member->role->label(),
+                'role_code' => $tenancy->actingAsSuperAdmin() ? 'SA' : $member->role->code(),
                 'scope_type' => $member->scope_type->value,
                 'can_manage' => $member->role->isManager(),
                 'can_monitor_division' => $member->role->isManager() || $member->monitorsSubtree(),

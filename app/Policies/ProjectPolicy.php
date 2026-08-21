@@ -10,7 +10,7 @@ use App\Support\Tenancy;
  * Project access (7.1, 7.2).
  *
  * Viewing follows Project::visibleTo — project membership, a subtree scope, or
- * a manager role. Creating, editing and deleting are manager-only.
+ * a manager role. Creating, editing and deleting need BOD-3 or above.
  */
 class ProjectPolicy
 {
@@ -32,7 +32,7 @@ class ProjectPolicy
 
     public function create(User $user): bool
     {
-        return (bool) $this->tenancy->member()?->role->isManager();
+        return (bool) $this->tenancy->member()?->role->managesProjects();
     }
 
     public function update(User $user, Project $project): bool

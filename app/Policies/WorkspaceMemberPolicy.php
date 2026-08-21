@@ -10,8 +10,8 @@ use App\Support\Tenancy;
 /**
  * Membership management (7.1).
  *
- * Owner and Admin invite, remove and set scope; only an Owner may change
- * someone's role, and the last Owner can neither be demoted nor removed
+ * BOD-1 and BOD-2 invite, remove and set scope; only BOD-1 may change
+ * someone's role, and the last BOD-1 can neither be demoted nor removed
  * (7.2 rule 6).
  */
 class WorkspaceMemberPolicy
@@ -33,9 +33,9 @@ class WorkspaceMemberPolicy
      */
     public function changeRole(User $user, WorkspaceMember $member): bool
     {
-        return $this->tenancy->member()?->role === WorkspaceRole::Owner
+        return (bool) $this->tenancy->member()?->role->isTop()
             && $member->workspace_id === $this->tenancy->id()
-            && ! $this->isLastOwner($member);
+            && ! $this->isLastTopRole($member);
     }
 
     public function update(User $user, WorkspaceMember $member): bool
@@ -45,7 +45,7 @@ class WorkspaceMemberPolicy
 
     public function delete(User $user, WorkspaceMember $member): bool
     {
-        return $this->update($user, $member) && ! $this->isLastOwner($member);
+        return $this->update($user, $member) && ! $this->isLastTopRole($member);
     }
 
     /**
@@ -69,16 +69,16 @@ class WorkspaceMemberPolicy
     }
 
     /**
-     * A workspace must always keep at least one Owner.
+     * A workspace must always keep at least one BOD-1.
      */
-    public function isLastOwner(WorkspaceMember $member): bool
+    public function isLastTopRole(WorkspaceMember $member): bool
     {
-        if ($member->role !== WorkspaceRole::Owner) {
+        if (! $member->role->isTop()) {
             return false;
         }
 
         return WorkspaceMember::query()
-            ->where('role', WorkspaceRole::Owner)
+            ->where('role', WorkspaceRole::Bod1)
             ->where('id', '!=', $member->id)
             ->doesntExist();
     }

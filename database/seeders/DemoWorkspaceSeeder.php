@@ -23,8 +23,9 @@ use Illuminate\Support\Facades\Hash;
  * Worked example based on a plantation company's in-house software team.
  *
  * Perkebunan Nusantara
- *   └── Divisi Transformasi Digital   ← Kepala Divisi, the Owner
- *         └── Pengembangan Digital    ← Kepala Sub Divisi + six programmers
+ *   └── Divisi Transformasi Digital   ← Kepala Divisi (BOD-1)
+ *         └── Pengembangan Digital    ← Kepala Sub Divisi (BOD-2), Asisten
+ *                                        (BOD-3) and five ODS (BOD-4)
  *
  * The history runs from June 2025 to the present: three delivered projects,
  * two in flight, and one just starting. Finished work carries its real
@@ -85,7 +86,7 @@ class DemoWorkspaceSeeder extends Seeder
     }
 
     /**
-     * Six programmers plus the two people above them.
+     * Six programmers — one Asisten and five ODS — plus the two above them.
      *
      * The platform operator is not seeded here; they belong to no workspace.
      *
@@ -94,26 +95,26 @@ class DemoWorkspaceSeeder extends Seeder
      */
     protected function seedMembers(Workspace $workspace, array $units, Tenancy $tenancy): array
     {
-        // Kepala Divisi sits at the top of the entity, so they hold the Owner
-        // role. There is no separate account above them inside the workspace.
+        // Kepala Divisi is BOD-1, the top of the entity. There is no account
+        // above them inside the workspace.
         $kadiv = $this->seedMember(
             $workspace,
             'Agus Setiawan',
             'kadiv@perkebunan.test',
-            WorkspaceRole::Owner,
+            WorkspaceRole::Bod1,
             $units['transformasi'],
         );
 
         $people = [
             'kadiv' => $kadiv['user'],
 
-            // Kepala Sub Divisi: a plain member who monitors the whole
-            // Pengembangan Digital subtree read-only (7.2 rule 2).
+            // Kepala Sub Divisi is BOD-2 and also monitors the whole
+            // Pengembangan Digital subtree (7.2 rule 2).
             'kasubdiv' => $this->seedMember(
                 $workspace,
                 'Ratna Kusuma',
                 'kasubdiv@perkebunan.test',
-                WorkspaceRole::Member,
+                WorkspaceRole::Bod2,
                 $units['pengembangan'],
                 $units['pengembangan'],
             )['user'],
@@ -122,7 +123,7 @@ class DemoWorkspaceSeeder extends Seeder
                 $workspace,
                 'Amar',
                 'amar@perkebunan.test',
-                WorkspaceRole::Member,
+                WorkspaceRole::Bod3,
                 $units['pengembangan'],
             )['user'],
 
@@ -130,7 +131,7 @@ class DemoWorkspaceSeeder extends Seeder
                 $workspace,
                 'Heru',
                 'heru@perkebunan.test',
-                WorkspaceRole::Member,
+                WorkspaceRole::Bod4,
                 $units['pengembangan'],
             )['user'],
 
@@ -138,7 +139,7 @@ class DemoWorkspaceSeeder extends Seeder
                 $workspace,
                 'Vino',
                 'vino@perkebunan.test',
-                WorkspaceRole::Member,
+                WorkspaceRole::Bod4,
                 $units['pengembangan'],
             )['user'],
 
@@ -146,7 +147,7 @@ class DemoWorkspaceSeeder extends Seeder
                 $workspace,
                 'Yogi',
                 'yogi@perkebunan.test',
-                WorkspaceRole::Member,
+                WorkspaceRole::Bod4,
                 $units['pengembangan'],
             )['user'],
 
@@ -154,7 +155,7 @@ class DemoWorkspaceSeeder extends Seeder
                 $workspace,
                 'Adit',
                 'adit@perkebunan.test',
-                WorkspaceRole::Member,
+                WorkspaceRole::Bod4,
                 $units['pengembangan'],
             )['user'],
 
@@ -162,7 +163,7 @@ class DemoWorkspaceSeeder extends Seeder
                 $workspace,
                 'Adhi',
                 'adhi@perkebunan.test',
-                WorkspaceRole::Member,
+                WorkspaceRole::Bod4,
                 $units['pengembangan'],
             )['user'],
         ];
@@ -615,17 +616,17 @@ class DemoWorkspaceSeeder extends Seeder
     {
         $this->command->info("Workspace {$workspace->name} dibuat. Kata sandi semua akun: password");
         $this->command->table(
-            ['Nama', 'Email', 'Role', 'Unit', 'Cakupan pemantauan'],
+            ['Nama', 'Email', 'Jenjang', 'Role', 'Unit', 'Cakupan pemantauan'],
             [
-                ['Super Admin', 'admin@perkebunan.test', 'super admin', '— (di luar workspace)', 'kelola workspace, tanpa akses task'],
-                ['Agus Setiawan', 'kadiv@perkebunan.test', 'owner', 'Divisi Transformasi Digital', 'seluruh workspace'],
-                ['Ratna Kusuma', 'kasubdiv@perkebunan.test', 'member', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
-                ['Amar', 'amar@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
-                ['Heru', 'heru@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
-                ['Vino', 'vino@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
-                ['Yogi', 'yogi@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
-                ['Adit', 'adit@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
-                ['Adhi', 'adhi@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
+                ['Super Admin', 'admin@perkebunan.test', 'SA', 'Super Admin', '— (di luar workspace)', 'semua workspace'],
+                ['Agus Setiawan', 'kadiv@perkebunan.test', 'BOD-1', 'Kepala Divisi', 'Divisi Transformasi Digital', 'seluruh workspace'],
+                ['Ratna Kusuma', 'kasubdiv@perkebunan.test', 'BOD-2', 'Kepala Sub Divisi', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
+                ['Amar', 'amar@perkebunan.test', 'BOD-3', 'Asisten', 'Pengembangan Digital', 'project yang diikuti'],
+                ['Heru', 'heru@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
+                ['Vino', 'vino@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
+                ['Yogi', 'yogi@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
+                ['Adit', 'adit@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
+                ['Adhi', 'adhi@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
             ],
         );
     }

@@ -88,7 +88,7 @@ class EnsureWorkspaceAccess
 
         $member->workspace_id = $workspace->id;
         $member->user_id = $user->id;
-        $member->role = WorkspaceRole::Owner;
+        $member->role = WorkspaceRole::Bod1;
         $member->scope_type = ScopeType::ProjectOnly;
 
         return $member;
