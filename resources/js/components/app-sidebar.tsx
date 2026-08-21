@@ -1,5 +1,11 @@
 import { usePage } from '@inertiajs/react';
-import { FolderKanban, LayoutGrid, Network, Users } from 'lucide-react';
+import {
+    FolderKanban,
+    ListChecks,
+    Network,
+    Users,
+    UserSearch,
+} from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -9,8 +15,8 @@ import {
     SidebarHeader,
 } from '@/components/ui/sidebar';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
-import { dashboard } from '@/routes';
 import { index as membersIndex } from '@/routes/members';
+import { me, people } from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
 import { index as projectsIndex } from '@/routes/projects';
 import type { NavItem } from '@/types';
@@ -20,24 +26,26 @@ export function AppSidebar() {
 
     const mainNavItems: NavItem[] = [
         {
-            title: 'Dashboard',
-            href: dashboard(),
-            icon: LayoutGrid,
+            title: 'Task saya',
+            href: me(),
+            icon: ListChecks,
         },
-    ];
-
-    mainNavItems.push(
         {
             title: 'Project',
             href: projectsIndex(),
             icon: FolderKanban,
         },
         {
+            title: 'Monitoring orang',
+            href: people(),
+            icon: UserSearch,
+        },
+        {
             title: 'Anggota',
             href: membersIndex(),
             icon: Users,
         },
-    );
+    ];
 
     if (tenancy?.membership?.can_manage) {
         mainNavItems.push({

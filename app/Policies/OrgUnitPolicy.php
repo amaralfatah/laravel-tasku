@@ -40,6 +40,32 @@ class OrgUnitPolicy
     }
 
     /**
+     * Open the division monitoring page (DIV-6): managers, or a member with a
+     * subtree scope.
+     */
+    public function monitor(User $user): bool
+    {
+        $member = $this->tenancy->member();
+
+        return $member !== null
+            && ($member->role->isManager() || $member->monitorsSubtree());
+    }
+
+    /**
+     * Drill into one org unit's summary.
+     */
+    public function monitorUnit(User $user, OrgUnit $orgUnit): bool
+    {
+        $member = $this->tenancy->member();
+
+        if ($member === null || ! $this->belongsToActiveWorkspace($orgUnit)) {
+            return false;
+        }
+
+        return $member->role->isManager() || $member->scopeCoversUnit($orgUnit->id);
+    }
+
+    /**
      * Guards against reaching another tenant's row by changing the id in the URL (7.2 rule 5).
      */
     protected function belongsToActiveWorkspace(OrgUnit $orgUnit): bool

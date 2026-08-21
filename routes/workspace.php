@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MemberController;
+use App\Http\Controllers\Monitoring\PersonController;
 use App\Http\Controllers\OrgUnitController;
 use App\Http\Controllers\PositionController;
 use App\Http\Controllers\ProjectController;
@@ -42,6 +43,10 @@ Route::middleware(['auth', 'workspace'])->group(function () {
 
     Route::post('projects/{project}/anggota', [ProjectMemberController::class, 'store'])->name('project-members.store');
     Route::delete('projects/{project}/anggota/{user}', [ProjectMemberController::class, 'destroy'])->name('project-members.destroy');
+
+    Route::get('monitoring/orang', [PersonController::class, 'index'])->name('monitoring.people');
+    Route::get('monitoring/saya', [PersonController::class, 'me'])->name('monitoring.me');
+    Route::get('monitoring/orang/{member}', [PersonController::class, 'show'])->name('monitoring.person');
 
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');

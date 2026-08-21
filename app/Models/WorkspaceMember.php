@@ -63,6 +63,23 @@ class WorkspaceMember extends Model
     }
 
     /**
+     * Whether an org unit sits inside this member's monitoring subtree.
+     */
+    public function scopeCoversUnit(?int $orgUnitId): bool
+    {
+        if (! $this->monitorsSubtree() || $orgUnitId === null) {
+            return false;
+        }
+
+        $scopePath = OrgUnit::query()->whereKey($this->scope_org_unit_id)->value('path');
+        $unitPath = OrgUnit::query()->whereKey($orgUnitId)->value('path');
+
+        return $scopePath !== null
+            && $unitPath !== null
+            && str_starts_with($unitPath, $scopePath);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

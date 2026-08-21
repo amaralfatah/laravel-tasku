@@ -49,6 +49,26 @@ class WorkspaceMemberPolicy
     }
 
     /**
+     * View another member's cross-project workload (MON-2, MON-6).
+     *
+     * Everyone can always open their own page; managers see the whole
+     * workspace, and a member with a subtree scope sees the people placed in
+     * that subtree.
+     */
+    public function viewMember(User $user, WorkspaceMember $target): bool
+    {
+        $viewer = $this->tenancy->member();
+
+        if ($viewer === null || $target->workspace_id !== $this->tenancy->id()) {
+            return false;
+        }
+
+        return $viewer->user_id === $target->user_id
+            || $viewer->role->isManager()
+            || $viewer->scopeCoversUnit($target->org_unit_id);
+    }
+
+    /**
      * A workspace must always keep at least one Owner.
      */
     public function isLastOwner(WorkspaceMember $member): bool

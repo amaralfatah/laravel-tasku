@@ -4,7 +4,7 @@ use App\Http\Controllers\InvitationAcceptController;
 use App\Http\Controllers\WorkspaceContextController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/dashboard')->name('home');
+Route::redirect('/', '/monitoring/saya')->name('home');
 
 Route::get('undangan/{token}', [InvitationAcceptController::class, 'show'])->name('invitation.show');
 Route::post('undangan/{token}', [InvitationAcceptController::class, 'store'])
@@ -17,7 +17,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'workspace'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    // MON-7: "Task saya" is the landing page after login.
+    Route::redirect('dashboard', '/monitoring/saya')->name('dashboard');
 });
 
 require __DIR__.'/admin.php';
