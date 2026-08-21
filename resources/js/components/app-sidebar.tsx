@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import {
+    Building2,
     FolderKanban,
     ListChecks,
     Network,
@@ -16,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { index as membersIndex } from '@/routes/members';
-import { me, people } from '@/routes/monitoring';
+import { divisions, me, people } from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
 import { index as projectsIndex } from '@/routes/projects';
 import type { NavItem } from '@/types';
@@ -47,11 +48,19 @@ export function AppSidebar() {
         },
     ];
 
+    if (tenancy?.membership?.can_monitor_division) {
+        mainNavItems.push({
+            title: 'Monitoring divisi',
+            href: divisions(),
+            icon: Network,
+        });
+    }
+
     if (tenancy?.membership?.can_manage) {
         mainNavItems.push({
             title: 'Organisasi',
             href: organizationIndex(),
-            icon: Network,
+            icon: Building2,
         });
     }
 
