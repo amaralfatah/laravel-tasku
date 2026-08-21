@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Hash;
  * Worked example based on a plantation company's in-house software team.
  *
  * Perkebunan Nusantara
- *   └── Divisi Transformasi Digital
- *         └── Pengembangan Digital   ← six programmers, six projects
+ *   └── Divisi Transformasi Digital   ← Kepala Divisi, the Owner
+ *         └── Pengembangan Digital    ← Kepala Sub Divisi + six programmers
  *
  * The history runs from June 2025 to the present: three delivered projects,
  * two in flight, and one just starting. Finished work carries its real
@@ -85,40 +85,35 @@ class DemoWorkspaceSeeder extends Seeder
     }
 
     /**
-     * Six programmers plus the three people above them.
+     * Six programmers plus the two people above them.
+     *
+     * The platform operator is not seeded here; they belong to no workspace.
      *
      * @param  array<string, OrgUnit>  $units
      * @return array<string, User>
      */
     protected function seedMembers(Workspace $workspace, array $units, Tenancy $tenancy): array
     {
-        $owner = $this->seedMember(
+        // Kepala Divisi sits at the top of the entity, so they hold the Owner
+        // role. There is no separate account above them inside the workspace.
+        $kadiv = $this->seedMember(
             $workspace,
-            'Hendra Wijaya',
-            'admin@perkebunan.test',
+            'Agus Setiawan',
+            'kadiv@perkebunan.test',
             WorkspaceRole::Owner,
             $units['transformasi'],
         );
 
         $people = [
-            'owner' => $owner['user'],
+            'kadiv' => $kadiv['user'],
 
-            // Monitors the whole Divisi Transformasi Digital subtree, read-only.
-            'kadiv' => $this->seedMember(
-                $workspace,
-                'Agus Setiawan',
-                'kadiv@perkebunan.test',
-                WorkspaceRole::Member,
-                $units['transformasi'],
-                $units['transformasi'],
-            )['user'],
-
-            // Runs the sub division: admin rights plus its own subtree scope.
+            // Kepala Sub Divisi: a plain member who monitors the whole
+            // Pengembangan Digital subtree read-only (7.2 rule 2).
             'kasubdiv' => $this->seedMember(
                 $workspace,
                 'Ratna Kusuma',
                 'kasubdiv@perkebunan.test',
-                WorkspaceRole::Admin,
+                WorkspaceRole::Member,
                 $units['pengembangan'],
                 $units['pengembangan'],
             )['user'],
@@ -173,7 +168,7 @@ class DemoWorkspaceSeeder extends Seeder
         ];
 
         // The owner's membership drives creator attribution for the projects.
-        $tenancy->set($workspace, $owner['membership']);
+        $tenancy->set($workspace, $kadiv['membership']);
 
         return $people;
     }
@@ -622,9 +617,9 @@ class DemoWorkspaceSeeder extends Seeder
         $this->command->table(
             ['Nama', 'Email', 'Role', 'Unit', 'Cakupan pemantauan'],
             [
-                ['Hendra Wijaya', 'admin@perkebunan.test', 'owner', 'Divisi Transformasi Digital', 'seluruh workspace'],
-                ['Agus Setiawan', 'kadiv@perkebunan.test', 'member', 'Divisi Transformasi Digital', 'Divisi Transformasi Digital & turunannya'],
-                ['Ratna Kusuma', 'kasubdiv@perkebunan.test', 'admin', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
+                ['Hendra Wijaya', 'admin@perkebunan.test', 'super admin', '— (di luar workspace)', 'kelola workspace, tanpa akses task'],
+                ['Agus Setiawan', 'kadiv@perkebunan.test', 'owner', 'Divisi Transformasi Digital', 'seluruh workspace'],
+                ['Ratna Kusuma', 'kasubdiv@perkebunan.test', 'member', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
                 ['Amar', 'amar@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
                 ['Heru', 'heru@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
                 ['Vino', 'vino@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
