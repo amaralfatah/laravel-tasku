@@ -7,7 +7,10 @@ use App\Http\Requests\Project\ProjectStoreRequest;
 use App\Http\Requests\Project\ProjectUpdateRequest;
 use App\Models\OrgUnit;
 use App\Models\Project;
+use App\Models\Task;
 use App\Models\WorkspaceMember;
+use App\Support\TaskFilters;
+use App\Support\TaskPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -65,20 +68,28 @@ class ProjectController extends Controller
         ]);
     }
 
+    /**
+     * Hierarchical list view of the project's tasks (6.8).
+     */
     public function show(Request $request, Project $project): Response
+    {
+        $this->authorize('view', $project);
+
+        return Inertia::render('projects/list', $this->taskWorkspaceProps($request, $project));
+    }
+
+    /**
+     * Project settings and membership.
+     */
+    public function settings(Request $request, Project $project): Response
     {
         $this->authorize('view', $project);
 
         $project->load(['orgUnit:id,name', 'members:id,name,email,avatar_path', 'creator:id,name']);
 
-        return Inertia::render('projects/show', [
+        return Inertia::render('projects/settings', [
             'project' => [
-                'id' => $project->id,
-                'name' => $project->name,
-                'description' => $project->description,
-                'status' => $project->status->value,
-                'status_label' => $project->status->label(),
-                'org_unit' => $project->orgUnit->only(['id', 'name']),
+                ...$this->projectSummary($project),
                 'created_by' => $project->creator?->name,
                 'members' => $project->members
                     ->map(fn ($user): array => [
@@ -141,6 +152,76 @@ class ProjectController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Project dihapus.']);
 
         return to_route('projects.index');
+    }
+
+    /**
+     * Props every task view of a project shares: the task set, the filters
+     * applied to it, and the options its controls need.
+     *
+     * @return array<string, mixed>
+     */
+    protected function taskWorkspaceProps(Request $request, Project $project): array
+    {
+        $project->load('orgUnit:id,name');
+
+        $filters = TaskFilters::fromRequest($request);
+        $canEdit = $request->user()->can('contribute', $project);
+
+        $query = Task::query()
+            ->where('project_id', $project->id)
+            ->with('assignee:id,name,avatar_path');
+
+        $filters->apply($query);
+        $filters->applySort($query);
+
+        $tasks = $query->get();
+
+        return [
+            'project' => $this->projectSummary($project),
+            'tasks' => TaskPresenter::collection($tasks, $request->user(), $canEdit),
+            'filters' => $filters->toArray(),
+            'statuses' => TaskPresenter::statusOptions(),
+            'priorities' => TaskPresenter::priorityOptions(),
+            'assignees' => $this->assigneeOptions($project),
+            'maxDepth' => Task::MAX_DEPTH,
+            'can' => [
+                'contribute' => $canEdit,
+                'edit_project' => $request->user()->can('update', $project),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function projectSummary(Project $project): array
+    {
+        return [
+            'id' => $project->id,
+            'name' => $project->name,
+            'description' => $project->description,
+            'status' => $project->status->value,
+            'status_label' => $project->status->label(),
+            'org_unit' => $project->orgUnit->only(['id', 'name']),
+        ];
+    }
+
+    /**
+     * People a task may be assigned to: the project's own members (TSK-4).
+     *
+     * @return array<int, array{id: int, name: string, avatar: string|null}>
+     */
+    protected function assigneeOptions(Project $project): array
+    {
+        return $project->members()
+            ->orderBy('name')
+            ->get(['users.id', 'users.name', 'users.avatar_path'])
+            ->map(fn ($user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar' => $user->avatar,
+            ])
+            ->all();
     }
 
     /**

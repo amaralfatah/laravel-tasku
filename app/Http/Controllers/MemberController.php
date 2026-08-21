@@ -9,7 +9,7 @@ use App\Models\Invitation;
 use App\Models\OrgUnit;
 use App\Models\Position;
 use App\Models\WorkspaceMember;
-use App\Policies\MemberPolicy;
+use App\Policies\WorkspaceMemberPolicy;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +24,7 @@ class MemberController extends Controller
     /**
      * Members page: the roster plus outstanding invitations (ORG-6..ORG-12).
      */
-    public function index(Request $request, MemberPolicy $policy): Response
+    public function index(Request $request, WorkspaceMemberPolicy $policy): Response
     {
         $this->authorize('viewAny', WorkspaceMember::class);
 

@@ -14,7 +14,7 @@ use App\Support\Tenancy;
  * someone's role, and the last Owner can neither be demoted nor removed
  * (7.2 rule 6).
  */
-class MemberPolicy
+class WorkspaceMemberPolicy
 {
     public function __construct(protected Tenancy $tenancy) {}
 

@@ -1,3 +1,22 @@
+import type { ProjectStatus } from '@/types/projects';
+
+export type ProjectSummary = {
+    id: number;
+    name: string;
+    description: string | null;
+    status: ProjectStatus;
+    status_label: string;
+    org_unit: { id: number; name: string };
+};
+
+export type TaskFilterState = {
+    assignee_id: number | null;
+    status: TaskStatus | null;
+    priority: TaskPriority | null;
+    search: string | null;
+    sort: 'wbs' | 'due_date' | 'priority' | 'created_at';
+};
+
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';

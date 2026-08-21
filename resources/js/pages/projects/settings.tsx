@@ -2,7 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
-import { Badge } from '@/components/ui/badge';
+import { ProjectHeader } from '@/components/project/project-header';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -34,10 +34,9 @@ import {
 } from '@/routes/projects';
 import type { User } from '@/types';
 import type { Option, OrgUnitOption } from '@/types/members';
-import { PROJECT_STATUS_VARIANT  } from '@/types/projects';
-import type {ProjectDetail} from '@/types/projects';
+import type { ProjectDetail } from '@/types/projects';
 
-export default function ProjectShow({
+export default function ProjectSettings({
     project,
     orgUnits,
     statuses,
@@ -65,30 +64,18 @@ export default function ProjectShow({
             <Head title={project.name} />
 
             <div className="space-y-6 p-4">
+                <ProjectHeader project={project} active="settings" />
+
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-semibold">
-                                {project.name}
-                            </h1>
-                            <Badge
-                                variant={
-                                    PROJECT_STATUS_VARIANT[project.status]
-                                }
-                            >
-                                {project.status_label}
-                            </Badge>
-                        </div>
-
-                        <p className="text-sm text-muted-foreground">
-                            {project.org_unit.name}
-                            {project.created_by &&
-                                ` · dibuat oleh ${project.created_by}`}
-                        </p>
-
                         {project.description && (
-                            <p className="max-w-2xl pt-2 text-sm">
+                            <p className="max-w-2xl text-sm">
                                 {project.description}
+                            </p>
+                        )}
+                        {project.created_by && (
+                            <p className="text-sm text-muted-foreground">
+                                Dibuat oleh {project.created_by}
                             </p>
                         )}
                     </div>
@@ -348,7 +335,7 @@ export default function ProjectShow({
     );
 }
 
-ProjectShow.layout = ({ project }: { project: ProjectDetail }) => ({
+ProjectSettings.layout = ({ project }: { project: ProjectDetail }) => ({
     breadcrumbs: [
         { title: 'Project', href: projectsIndex() },
         { title: project.name, href: show(project.id) },
