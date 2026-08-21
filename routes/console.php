@@ -1,8 +1,13 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Daily due reminders, early enough to be waiting when the team starts (6.14).
+Schedule::command('notifications:due-soon')
+    ->dailyAt('07:00')
+    ->timezone('Asia/Jakarta');
+
+// Retention window for in-app notifications (NTF-6).
+Schedule::command('notifications:prune')
+    ->dailyAt('01:00')
+    ->timezone('Asia/Jakarta');

@@ -5,6 +5,7 @@ use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\Monitoring\DivisionController;
 use App\Http\Controllers\Monitoring\PersonController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgUnitController;
 use App\Http\Controllers\PositionController;
 use App\Http\Controllers\ProjectController;
@@ -46,6 +47,10 @@ Route::middleware(['auth', 'workspace'])->group(function () {
 
     Route::post('projects/{project}/anggota', [ProjectMemberController::class, 'store'])->name('project-members.store');
     Route::delete('projects/{project}/anggota/{user}', [ProjectMemberController::class, 'destroy'])->name('project-members.destroy');
+
+    Route::get('notifikasi', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('notifikasi/{notification}/baca', [NotificationController::class, 'read'])->name('notifications.read');
+    Route::post('notifikasi/baca-semua', [NotificationController::class, 'readAll'])->name('notifications.read-all');
 
     Route::get('monitoring/orang', [PersonController::class, 'index'])->name('monitoring.people');
     Route::get('monitoring/saya', [PersonController::class, 'me'])->name('monitoring.me');
