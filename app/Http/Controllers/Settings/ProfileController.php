@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Models\User;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,17 +32,40 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->fill($request->safe()->only(['name', 'email']));
+
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $this->syncAvatar($request, $user);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile updated.')]);
+        $user->save();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Profil diperbarui.']);
 
         return to_route('profile.edit');
+    }
+
+    /**
+     * Store a newly uploaded avatar, or clear the current one.
+     */
+    protected function syncAvatar(ProfileUpdateRequest $request, User $user): void
+    {
+        $upload = $request->file('avatar');
+        $shouldRemove = $request->boolean('remove_avatar');
+
+        if ($upload === null && ! $shouldRemove) {
+            return;
+        }
+
+        if ($user->avatar_path !== null) {
+            Storage::disk('public')->delete($user->avatar_path);
+        }
+
+        $user->avatar_path = $upload?->store('avatars', 'public');
     }
 
     /**

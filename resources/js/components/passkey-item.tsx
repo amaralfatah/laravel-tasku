@@ -68,7 +68,7 @@ export default function PasskeyItem({ passkey, onDelete }: Props) {
                     </Button>
                 </DialogTrigger>
                 <DialogContent>
-                    <DialogTitle>Remove passkey</DialogTitle>
+                    <DialogTitle>Hapus passkey</DialogTitle>
                     <DialogDescription>
                         Are you sure you want to remove the "{passkey.name}"
                         passkey? You will no longer be able to use it to sign
@@ -76,14 +76,14 @@ export default function PasskeyItem({ passkey, onDelete }: Props) {
                     </DialogDescription>
                     <DialogFooter className="gap-2">
                         <DialogClose asChild>
-                            <Button variant="secondary">Cancel</Button>
+                            <Button variant="secondary">Batal</Button>
                         </DialogClose>
                         <Button
                             variant="destructive"
                             onClick={handleDelete}
                             disabled={isDeleting}
                         >
-                            {isDeleting ? 'Removing...' : 'Remove passkey'}
+                            {isDeleting ? 'Menghapus…' : 'Hapus passkey'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -3,7 +3,7 @@
 use App\Http\Controllers\WorkspaceContextController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::redirect('/', '/dashboard')->name('home');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('workspace/none', [WorkspaceContextController::class, 'none'])->name('workspace.none');

@@ -10,14 +10,14 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->boolean('is_super_admin')->default(false)->after('email');
-            $table->string('avatar')->nullable()->after('is_super_admin');
+            $table->string('avatar_path')->nullable()->after('is_super_admin');
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['is_super_admin', 'avatar']);
+            $table->dropColumn(['is_super_admin', 'avatar_path']);
         });
     }
 };
