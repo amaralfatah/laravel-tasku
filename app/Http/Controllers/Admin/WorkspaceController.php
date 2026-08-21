@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\WorkspaceStoreRequest;
 use App\Http\Requests\Admin\WorkspaceUpdateRequest;
 use App\Models\Invitation;
 use App\Models\Workspace;
+use App\Models\WorkspaceMember;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,9 +27,12 @@ class WorkspaceController extends Controller
     public function index(Request $request): Response
     {
         $search = trim((string) $request->query('search', ''));
+        $status = $request->string('status')->toString();
 
         $workspaces = Workspace::query()
             ->when($search !== '', fn ($query) => $query->where('name', 'ilike', "%{$search}%"))
+            ->when($status === 'active', fn ($query) => $query->where('is_active', true))
+            ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
             ->withCount('members')
             ->orderBy('name')
             ->paginate(20)
@@ -40,13 +44,58 @@ class WorkspaceController extends Controller
                 'is_active' => $workspace->is_active,
                 'members_count' => $workspace->members_count,
                 'created_at' => $workspace->created_at->toDateString(),
+                'owner' => $this->owner($workspace),
                 'pending_owner_invite' => $this->pendingOwnerInvite($workspace),
             ]);
 
         return Inertia::render('admin/workspaces/index', [
             'workspaces' => $workspaces,
-            'filters' => ['search' => $search],
+            'filters' => ['search' => $search, 'status' => $status],
+            'stats' => $this->stats(),
         ]);
+    }
+
+    /**
+     * Headline counts for the operator, so the state of the platform is
+     * readable without scanning the table.
+     *
+     * @return array{total: int, active: int, inactive: int, pending_owner: int}
+     */
+    protected function stats(): array
+    {
+        $active = Workspace::query()->where('is_active', true)->count();
+        $inactive = Workspace::query()->where('is_active', false)->count();
+
+        return [
+            'total' => $active + $inactive,
+            'active' => $active,
+            'inactive' => $inactive,
+            'pending_owner' => Invitation::withoutGlobalScopes()
+                ->where('role', WorkspaceRole::Owner)
+                ->whereNull('accepted_at')
+                ->distinct('workspace_id')
+                ->count('workspace_id'),
+        ];
+    }
+
+    /**
+     * The workspace's Owner, once someone has accepted the invitation.
+     *
+     * @return array{name: string, email: string}|null
+     */
+    protected function owner(Workspace $workspace): ?array
+    {
+        $owner = WorkspaceMember::withoutGlobalScopes()
+            ->with('user:id,name,email')
+            ->where('workspace_id', $workspace->id)
+            ->where('role', WorkspaceRole::Owner)
+            ->orderBy('id')
+            ->first();
+
+        return $owner?->user === null ? null : [
+            'name' => $owner->user->name,
+            'email' => $owner->user->email,
+        ];
     }
 
     /**
