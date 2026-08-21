@@ -38,6 +38,7 @@ Route::middleware(['auth', 'workspace'])->group(function () {
     Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
     Route::get('projects/{project}/daftar', [ProjectController::class, 'list'])->name('projects.list');
+    Route::get('projects/{project}/timeline', [ProjectController::class, 'timeline'])->name('projects.timeline');
     Route::get('projects/{project}/pengaturan', [ProjectController::class, 'settings'])->name('projects.settings');
     Route::patch('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
     Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');

@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { list, settings, show } from '@/routes/projects';
+import { list, settings, show, timeline } from '@/routes/projects';
 import { PROJECT_STATUS_VARIANT } from '@/types/projects';
 import type { ProjectSummary } from '@/types/tasks';
 
@@ -21,6 +21,7 @@ export function ProjectHeader({
     const tabs: { key: Tab; label: string; href: string }[] = [
         { key: 'board', label: 'Papan', href: show(project.id).url },
         { key: 'list', label: 'Daftar', href: list(project.id).url },
+        { key: 'timeline', label: 'Timeline', href: timeline(project.id).url },
         { key: 'settings', label: 'Pengaturan', href: settings(project.id).url },
     ];
 

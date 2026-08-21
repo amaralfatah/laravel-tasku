@@ -89,6 +89,16 @@ class ProjectController extends Controller
     }
 
     /**
+     * Weekly gantt timeline of the project's tasks (6.9).
+     */
+    public function timeline(Request $request, Project $project): Response
+    {
+        $this->authorize('view', $project);
+
+        return Inertia::render('projects/timeline', $this->taskWorkspaceProps($request, $project));
+    }
+
+    /**
      * Project settings and membership.
      */
     public function settings(Request $request, Project $project): Response

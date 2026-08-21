@@ -3,11 +3,11 @@ import { CalendarOff, ClipboardList } from 'lucide-react';
 import { useMemo } from 'react';
 import { ProgressBar } from '@/components/task/progress-bar';
 import {
-    TodayMarker,
-    WeekBar,
-    WeekStripHeader,
-    useWeekColumns,
-} from '@/components/task/week-strip';
+    TimelineBar,
+    TimelineHeader,
+    TimelineToday,
+    useTimelineScale,
+} from '@/components/task/timeline-scale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,6 @@ import { formatWeek } from '@/lib/week';
 import { people, person as personRoute } from '@/routes/monitoring';
 import { show as showProject } from '@/routes/projects';
 import type { TaskNode } from '@/types/tasks';
-
-const COLUMN_WIDTH = 44;
 
 type ProjectGroup = {
     project: { id: number; name: string };
@@ -69,8 +67,7 @@ export default function MonitoringPerson({
         [allTasks],
     );
 
-    const columns = useWeekColumns(ranges);
-    const stripWidth = columns.length * COLUMN_WIDTH;
+    const scale = useTimelineScale(ranges, 'week');
 
     const unscheduled = allTasks.filter(
         (task) => !task.start_date || !task.due_date,
@@ -182,17 +179,14 @@ export default function MonitoringPerson({
                             className="min-w-max"
                             style={{
                                 // Left column is sticky while the weeks scroll (TML-2).
-                                width: `calc(22rem + ${stripWidth}px)`,
+                                width: `calc(22rem + ${scale.width}px)`,
                             }}
                         >
                             <div className="flex border-b bg-muted/40">
                                 <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
                                     WBS · Judul · Progress
                                 </div>
-                                <WeekStripHeader
-                                    columns={columns}
-                                    columnWidth={COLUMN_WIDTH}
-                                />
+                                <TimelineHeader scale={scale} />
                             </div>
 
                             {tasks.map((group) => (
@@ -209,7 +203,7 @@ export default function MonitoringPerson({
                                             </Link>
                                         </div>
                                         <div
-                                            style={{ width: `${stripWidth}px` }}
+                                            style={{ width: `${scale.width}px` }}
                                         />
                                     </div>
 
@@ -244,16 +238,12 @@ export default function MonitoringPerson({
                                             <div
                                                 className="relative h-9"
                                                 style={{
-                                                    width: `${stripWidth}px`,
+                                                    width: `${scale.width}px`,
                                                 }}
                                             >
-                                                <TodayMarker
-                                                    columns={columns}
-                                                    columnWidth={COLUMN_WIDTH}
-                                                />
-                                                <WeekBar
-                                                    columns={columns}
-                                                    columnWidth={COLUMN_WIDTH}
+                                                <TimelineToday scale={scale} />
+                                                <TimelineBar
+                                                    scale={scale}
                                                     start={task.start_date}
                                                     end={task.due_date}
                                                     progress={task.progress}
