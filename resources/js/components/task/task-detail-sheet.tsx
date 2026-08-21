@@ -2,6 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
 import InputError from '@/components/input-error';
+import { CommentBox } from '@/components/task/comment-box';
 import { ProgressBar } from '@/components/task/progress-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -310,6 +311,14 @@ export function TaskDetailSheet({
                             className="min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
                         />
                         <InputError message={form.errors.description} />
+                    </div>
+
+                    <div className="border-t pt-4">
+                        <CommentBox
+                            key={task.id}
+                            taskId={task.id}
+                            canComment={!readOnly}
+                        />
                     </div>
 
                     <SheetFooter className="flex-row justify-between px-0">

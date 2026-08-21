@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\Monitoring\DivisionController;
@@ -55,4 +56,9 @@ Route::middleware(['auth', 'workspace'])->group(function () {
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('tasks/{task}/pindah', [TaskController::class, 'move'])->name('tasks.move');
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
+
+    Route::get('tasks/{task}/komentar', [CommentController::class, 'index'])->name('comments.index');
+    Route::post('tasks/{task}/komentar', [CommentController::class, 'store'])->name('comments.store');
+    Route::patch('komentar/{comment}', [CommentController::class, 'update'])->name('comments.update');
+    Route::delete('komentar/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
 });
