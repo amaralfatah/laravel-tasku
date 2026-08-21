@@ -4,6 +4,7 @@ import {
     FolderKanban,
     ListChecks,
     Network,
+    ShieldCheck,
     Users,
     UserSearch,
 } from 'lucide-react';
@@ -16,6 +17,7 @@ import {
     SidebarHeader,
 } from '@/components/ui/sidebar';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
+import { index as adminWorkspaces } from '@/routes/admin/workspaces';
 import { index as membersIndex } from '@/routes/members';
 import { divisions, me, people } from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
@@ -25,12 +27,19 @@ import type { NavItem } from '@/types';
 export function AppSidebar() {
     const { tenancy } = usePage().props;
 
+    const isSuperAdmin = Boolean(tenancy?.membership?.is_super_admin);
+
     const mainNavItems: NavItem[] = [
-        {
-            title: 'Task saya',
-            href: me(),
-            icon: ListChecks,
-        },
+        // A super admin has no tasks of their own in this workspace.
+        ...(isSuperAdmin
+            ? []
+            : [
+                  {
+                      title: 'Task saya',
+                      href: me(),
+                      icon: ListChecks,
+                  },
+              ]),
         {
             title: 'Project',
             href: projectsIndex(),
@@ -61,6 +70,14 @@ export function AppSidebar() {
             title: 'Organisasi',
             href: organizationIndex(),
             icon: Building2,
+        });
+    }
+
+    if (isSuperAdmin) {
+        mainNavItems.push({
+            title: 'Panel operator',
+            href: adminWorkspaces(),
+            icon: ShieldCheck,
         });
     }
 

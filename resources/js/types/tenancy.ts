@@ -14,6 +14,8 @@ export type Membership = {
     scope_type: ScopeType;
     can_manage: boolean;
     can_monitor_division: boolean;
+    /** True when a super admin is looking into a workspace they do not belong to. */
+    is_super_admin: boolean;
 };
 
 export type Tenancy = {

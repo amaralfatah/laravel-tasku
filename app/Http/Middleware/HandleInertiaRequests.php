@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Workspace;
 use App\Support\Tenancy;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -66,22 +67,47 @@ class HandleInertiaRequests extends Middleware
             ],
             'membership' => $member === null ? null : [
                 'role' => $member->role->value,
-                'role_label' => $member->role->label(),
+                'role_label' => $tenancy->actingAsSuperAdmin()
+                    ? 'Super Admin'
+                    : $member->role->label(),
                 'scope_type' => $member->scope_type->value,
                 'can_manage' => $member->role->isManager(),
                 'can_monitor_division' => $member->role->isManager() || $member->monitorsSubtree(),
+                'is_super_admin' => $tenancy->actingAsSuperAdmin(),
             ],
-            'workspaces' => $request->user() === null ? [] : $request->user()
-                ->workspaces()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['workspaces.id', 'workspaces.name', 'workspaces.slug'])
-                ->map(fn ($item): array => [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'slug' => $item->slug,
-                ])
-                ->all(),
+            'workspaces' => $this->switchableWorkspaces($request),
         ];
+    }
+
+    /**
+     * Workspaces the switcher may offer.
+     *
+     * A super admin belongs to none of them but may open any, so they get the
+     * full list instead of their own memberships.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function switchableWorkspaces(Request $request): array
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return [];
+        }
+
+        $query = $user->is_super_admin
+            ? Workspace::query()
+            : $user->workspaces();
+
+        return $query
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['workspaces.id', 'workspaces.name', 'workspaces.slug'])
+            ->map(fn ($item): array => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'slug' => $item->slug,
+            ])
+            ->all();
     }
 }

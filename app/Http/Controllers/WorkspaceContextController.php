@@ -16,8 +16,12 @@ class WorkspaceContextController extends Controller
      */
     public function change(Request $request, Workspace $workspace): RedirectResponse
     {
+        $user = $request->user();
+
+        // A super admin belongs to no workspace but may open any active one.
         abort_unless(
-            $workspace->is_active && $request->user()->membershipIn($workspace) !== null,
+            $workspace->is_active
+            && ($user->is_super_admin || $user->membershipIn($workspace) !== null),
             403,
         );
 

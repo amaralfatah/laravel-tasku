@@ -617,7 +617,7 @@ class DemoWorkspaceSeeder extends Seeder
         $this->command->table(
             ['Nama', 'Email', 'Role', 'Unit', 'Cakupan pemantauan'],
             [
-                ['Hendra Wijaya', 'admin@perkebunan.test', 'super admin', '— (di luar workspace)', 'kelola workspace, tanpa akses task'],
+                ['Super Admin', 'admin@perkebunan.test', 'super admin', '— (di luar workspace)', 'kelola workspace, tanpa akses task'],
                 ['Agus Setiawan', 'kadiv@perkebunan.test', 'owner', 'Divisi Transformasi Digital', 'seluruh workspace'],
                 ['Ratna Kusuma', 'kasubdiv@perkebunan.test', 'member', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
                 ['Amar', 'amar@perkebunan.test', 'member', 'Pengembangan Digital', 'project yang diikuti'],
