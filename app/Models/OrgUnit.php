@@ -1,0 +1,83 @@
+<?php
+
+namespace App\Models;
+
+use App\Concerns\BelongsToWorkspace;
+use Database\Factories\OrgUnitFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+
+/**
+ * @property int $id
+ * @property int $workspace_id
+ * @property int|null $parent_id
+ * @property string $name
+ * @property string $type
+ * @property string $path materialized path, e.g. /1/5/12/
+ * @property int $depth
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ */
+#[Fillable(['parent_id', 'name', 'type'])]
+class OrgUnit extends Model
+{
+    /** @use HasFactory<OrgUnitFactory> */
+    use BelongsToWorkspace, HasFactory;
+
+    /**
+     * Root unit is depth 0, so ORG-2 allows depth 0 through 5.
+     */
+    public const MAX_DEPTH = 5;
+
+    /** @return BelongsTo<OrgUnit, $this> */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(OrgUnit::class, 'parent_id');
+    }
+
+    /** @return HasMany<OrgUnit, $this> */
+    public function children(): HasMany
+    {
+        return $this->hasMany(OrgUnit::class, 'parent_id');
+    }
+
+    /** @return HasMany<Project, $this> */
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class);
+    }
+
+    /** @return HasMany<WorkspaceMember, $this> */
+    public function assignedMembers(): HasMany
+    {
+        return $this->hasMany(WorkspaceMember::class);
+    }
+
+    /**
+     * The unit itself plus every descendant.
+     *
+     * `path` includes the unit's own id, so `/1/5/` matches both `/1/5/` and
+     * every deeper path below it.
+     *
+     * @param  Builder<OrgUnit>  $query
+     */
+    public function scopeInSubtree(Builder $query, OrgUnit $root): void
+    {
+        $query->where('path', 'like', $root->path.'%');
+    }
+
+    /**
+     * Ids of this unit and all of its descendants.
+     *
+     * @return array<int, int>
+     */
+    public function subtreeIds(): array
+    {
+        return static::query()->inSubtree($this)->pluck('id')->all();
+    }
+}

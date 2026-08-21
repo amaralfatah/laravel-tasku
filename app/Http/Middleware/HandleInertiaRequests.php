@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Tenancy;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,7 +42,46 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'tenancy' => fn (): array => $this->tenancyProps($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+        ];
+    }
+
+    /**
+     * Active workspace, membership and the list used by the workspace switcher.
+     *
+     * @return array{workspace: array<string, mixed>|null, membership: array<string, mixed>|null, workspaces: array<int, array<string, mixed>>}
+     */
+    protected function tenancyProps(Request $request): array
+    {
+        $tenancy = app(Tenancy::class);
+        $workspace = $tenancy->workspace();
+        $member = $tenancy->member();
+
+        return [
+            'workspace' => $workspace === null ? null : [
+                'id' => $workspace->id,
+                'name' => $workspace->name,
+                'slug' => $workspace->slug,
+            ],
+            'membership' => $member === null ? null : [
+                'role' => $member->role->value,
+                'role_label' => $member->role->label(),
+                'scope_type' => $member->scope_type->value,
+                'can_manage' => $member->role->isManager(),
+                'can_monitor_division' => $member->role->isManager() || $member->monitorsSubtree(),
+            ],
+            'workspaces' => $request->user() === null ? [] : $request->user()
+                ->workspaces()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['workspaces.id', 'workspaces.name', 'workspaces.slug'])
+                ->map(fn ($item): array => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'slug' => $item->slug,
+                ])
+                ->all(),
         ];
     }
 }

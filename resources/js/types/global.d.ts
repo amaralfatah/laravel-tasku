@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { Tenancy } from '@/types/tenancy';
 
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -12,6 +13,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            tenancy: Tenancy;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
