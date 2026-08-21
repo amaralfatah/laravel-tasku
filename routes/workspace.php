@@ -4,6 +4,8 @@ use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\OrgUnitController;
 use App\Http\Controllers\PositionController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectMemberController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'workspace'])->group(function () {
@@ -28,4 +30,13 @@ Route::middleware(['auth', 'workspace'])->group(function () {
         ->middleware('throttle:20,1')
         ->name('invitations.resend');
     Route::delete('undangan/{invitation:id}', [InvitationController::class, 'destroy'])->name('invitations.destroy');
+
+    Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
+    Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
+    Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+    Route::patch('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
+    Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+
+    Route::post('projects/{project}/anggota', [ProjectMemberController::class, 'store'])->name('project-members.store');
+    Route::delete('projects/{project}/anggota/{user}', [ProjectMemberController::class, 'destroy'])->name('project-members.destroy');
 });

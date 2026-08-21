@@ -1,0 +1,213 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\ProjectStatus;
+use App\Http\Requests\Project\ProjectStoreRequest;
+use App\Http\Requests\Project\ProjectUpdateRequest;
+use App\Models\OrgUnit;
+use App\Models\Project;
+use App\Models\WorkspaceMember;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class ProjectController extends Controller
+{
+    /**
+     * Project list, filtered by org unit subtree (PRJ-5).
+     */
+    public function index(Request $request): Response
+    {
+        $this->authorize('viewAny', Project::class);
+
+        $unitFilter = $request->integer('org_unit_id') ?: null;
+        $statusFilter = $request->string('status')->toString();
+
+        $projects = Project::query()
+            ->visibleTo($request->user())
+            ->with(['orgUnit:id,name'])
+            ->withCount('members')
+            ->when($unitFilter, function ($query, int $unitId): void {
+                $path = OrgUnit::query()->whereKey($unitId)->value('path');
+
+                $query->whereHas(
+                    'orgUnit',
+                    fn ($unit) => $unit->where('path', 'like', $path.'%'),
+                );
+            })
+            ->when($statusFilter !== '', fn ($query) => $query->where('status', $statusFilter))
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Project $project): array => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+                'status' => $project->status->value,
+                'status_label' => $project->status->label(),
+                'org_unit' => $project->orgUnit->only(['id', 'name']),
+                'members_count' => $project->members_count,
+                'can_edit' => $request->user()->can('update', $project),
+            ])
+            ->all();
+
+        return Inertia::render('projects/index', [
+            'projects' => $projects,
+            'orgUnits' => $this->orgUnitOptions(),
+            'statuses' => $this->statusOptions(),
+            'filters' => [
+                'org_unit_id' => $unitFilter,
+                'status' => $statusFilter,
+            ],
+            'can' => ['create' => $request->user()->can('create', Project::class)],
+        ]);
+    }
+
+    public function show(Request $request, Project $project): Response
+    {
+        $this->authorize('view', $project);
+
+        $project->load(['orgUnit:id,name', 'members:id,name,email,avatar_path', 'creator:id,name']);
+
+        return Inertia::render('projects/show', [
+            'project' => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+                'status' => $project->status->value,
+                'status_label' => $project->status->label(),
+                'org_unit' => $project->orgUnit->only(['id', 'name']),
+                'created_by' => $project->creator?->name,
+                'members' => $project->members
+                    ->map(fn ($user): array => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'avatar' => $user->avatar,
+                    ])
+                    ->all(),
+            ],
+            'orgUnits' => $this->orgUnitOptions(),
+            'statuses' => $this->statusOptions(),
+            'candidates' => $this->memberCandidates($project),
+            'can' => [
+                'edit' => $request->user()->can('update', $project),
+                'contribute' => $request->user()->can('contribute', $project),
+            ],
+        ]);
+    }
+
+    public function store(ProjectStoreRequest $request): RedirectResponse
+    {
+        $this->authorize('create', Project::class);
+
+        $project = DB::transaction(function () use ($request): Project {
+            $project = new Project($request->safe()->only(['name', 'description', 'org_unit_id', 'status']));
+            $project->created_by = $request->user()->id;
+            $project->save();
+
+            $project->members()->sync($this->workspaceUserIds($request->input('member_ids', [])));
+
+            return $project;
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Project {$project->name} dibuat."]);
+
+        return to_route('projects.show', $project);
+    }
+
+    public function update(ProjectUpdateRequest $request, Project $project): RedirectResponse
+    {
+        $this->authorize('update', $project);
+
+        $project->update($request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Project diperbarui.']);
+
+        return back();
+    }
+
+    /**
+     * Soft delete so history and tasks can be recovered (PRJ-6).
+     */
+    public function destroy(Project $project): RedirectResponse
+    {
+        $this->authorize('delete', $project);
+
+        $project->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Project dihapus.']);
+
+        return to_route('projects.index');
+    }
+
+    /**
+     * Restrict a list of user ids to actual members of the active workspace.
+     *
+     * @param  array<int, mixed>  $ids
+     * @return array<int, int>
+     */
+    protected function workspaceUserIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return WorkspaceMember::query()
+            ->whereIn('user_id', $ids)
+            ->pluck('user_id')
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id: int, name: string, depth: int}>
+     */
+    protected function orgUnitOptions(): array
+    {
+        return OrgUnit::query()
+            ->orderBy('path')
+            ->get(['id', 'name', 'depth'])
+            ->map(fn (OrgUnit $unit): array => [
+                'id' => $unit->id,
+                'name' => $unit->name,
+                'depth' => $unit->depth,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{value: string, label: string}>
+     */
+    protected function statusOptions(): array
+    {
+        return array_map(
+            fn (ProjectStatus $status): array => ['value' => $status->value, 'label' => $status->label()],
+            ProjectStatus::cases(),
+        );
+    }
+
+    /**
+     * Workspace members who are not on the project yet (PRJ-3).
+     *
+     * @return array<int, array{id: int, name: string, email: string}>
+     */
+    protected function memberCandidates(Project $project): array
+    {
+        $existing = $project->members->pluck('id')->all();
+
+        return WorkspaceMember::query()
+            ->with('user:id,name,email')
+            ->whereNotIn('user_id', $existing)
+            ->get()
+            ->map(fn (WorkspaceMember $member): array => [
+                'id' => $member->user->id,
+                'name' => $member->user->name,
+                'email' => $member->user->email,
+            ])
+            ->sortBy('name')
+            ->values()
+            ->all();
+    }
+}

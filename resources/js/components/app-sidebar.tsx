@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { LayoutGrid, Network, Users } from 'lucide-react';
+import { FolderKanban, LayoutGrid, Network, Users } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -12,6 +12,7 @@ import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { dashboard } from '@/routes';
 import { index as membersIndex } from '@/routes/members';
 import { index as organizationIndex } from '@/routes/organization';
+import { index as projectsIndex } from '@/routes/projects';
 import type { NavItem } from '@/types';
 
 export function AppSidebar() {
@@ -25,11 +26,18 @@ export function AppSidebar() {
         },
     ];
 
-    mainNavItems.push({
-        title: 'Anggota',
-        href: membersIndex(),
-        icon: Users,
-    });
+    mainNavItems.push(
+        {
+            title: 'Project',
+            href: projectsIndex(),
+            icon: FolderKanban,
+        },
+        {
+            title: 'Anggota',
+            href: membersIndex(),
+            icon: Users,
+        },
+    );
 
     if (tenancy?.membership?.can_manage) {
         mainNavItems.push({
