@@ -3,70 +3,87 @@
 namespace Database\Seeders;
 
 use App\Enums\ScopeType;
-use App\Enums\TaskPriority;
+use App\Enums\TaskStatus;
 use App\Enums\WorkspaceRole;
+use App\Models\Comment;
 use App\Models\OrgUnit;
 use App\Models\Position;
 use App\Models\Project;
+use App\Models\Task;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Services\OrgUnitTree;
 use App\Services\TaskHierarchy;
 use App\Support\Tenancy;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * A worked example of the whole model: nested org units, positions, members
- * with different scopes, projects, and a four level task tree.
+ * Worked example based on a plantation company's in-house software team.
  *
- * Every account uses the password `password`.
+ * Perkebunan Nusantara
+ *   └── Divisi Transformasi Digital
+ *         └── Pengembangan Digital   ← six programmers, six projects
+ *
+ * The history runs from June 2025 to the present: three delivered projects,
+ * two in flight, and one just starting. Finished work carries its real
+ * historical dates; work still in flight is anchored to `now()` so the overdue
+ * flags, the today marker and the "due soon" reminders always have something
+ * live to show.
+ *
+ * Every account uses the password `password`, and every address is on a
+ * `.test` domain so a stray email can never reach a real inbox.
  */
 class DemoWorkspaceSeeder extends Seeder
 {
     public function run(): void
     {
         $tenancy = app(Tenancy::class);
-        $tree = app(OrgUnitTree::class);
-        $hierarchy = app(TaskHierarchy::class);
 
-        $workspace = Workspace::create(['name' => 'PT Nusantara Digital']);
+        $workspace = Workspace::create(['name' => 'Perkebunan Nusantara']);
         $tenancy->set($workspace);
 
-        $units = $this->seedUnits($tree);
+        $units = $this->seedUnits(app(OrgUnitTree::class));
         $positions = $this->seedPositions();
         $people = $this->seedMembers($workspace, $units, $positions, $tenancy);
 
-        $this->seedProjects($units, $people, $hierarchy);
+        $projects = $this->seedProjects($units['pengembangan'], $people);
+
+        // Tasks are created with model events off: otherwise every historical
+        // assignment from 2025 would raise a notification dated today.
+        Model::withoutEvents(function () use ($projects, $people): void {
+            $this->seedTasks($projects, $people);
+        });
+
+        // Comments run with events on, so the mention and comment
+        // notifications they raise are genuinely recent.
+        $this->seedComments($projects, $people);
 
         $tenancy->forget();
 
-        $this->command->info("Workspace {$workspace->name} dibuat. Login dengan salah satu email di bawah, kata sandi: password");
-        $this->command->table(
-            ['Nama', 'Email', 'Role', 'Cakupan'],
-            [
-                ['Owner', 'owner@nusantara.test', 'owner', 'seluruh workspace'],
-                ['Kepala Engineering', 'kepala.eng@nusantara.test', 'member', 'subtree Engineering'],
-                ['Lead Backend', 'lead.be@nusantara.test', 'member', 'project yang diikuti'],
-                ['Programmer', 'dev1@nusantara.test', 'member', 'project yang diikuti'],
-                ['Programmer', 'dev2@nusantara.test', 'member', 'project yang diikuti'],
-            ],
-        );
+        $this->report($workspace);
     }
 
     /**
+     * Divisi Transformasi Digital, with Pengembangan Digital beneath it.
+     *
      * @return array<string, OrgUnit>
      */
     protected function seedUnits(OrgUnitTree $tree): array
     {
-        $engineering = $tree->create(['name' => 'Engineering', 'type' => 'division']);
-        $backend = $tree->create(['name' => 'Backend', 'type' => 'sub_division'], $engineering);
-        $frontend = $tree->create(['name' => 'Frontend', 'type' => 'sub_division'], $engineering);
-        $qa = $tree->create(['name' => 'QA', 'type' => 'sub_division'], $engineering);
-        $marketing = $tree->create(['name' => 'Marketing', 'type' => 'division']);
+        $transformasi = $tree->create([
+            'name' => 'Divisi Transformasi Digital',
+            'type' => 'division',
+        ]);
 
-        return compact('engineering', 'backend', 'frontend', 'qa', 'marketing');
+        $pengembangan = $tree->create([
+            'name' => 'Pengembangan Digital',
+            'type' => 'sub_division',
+        ], $transformasi);
+
+        return compact('transformasi', 'pengembangan');
     }
 
     /**
@@ -75,60 +92,112 @@ class DemoWorkspaceSeeder extends Seeder
     protected function seedPositions(): array
     {
         return [
-            'head' => Position::create(['name' => 'Kepala Divisi', 'level' => 1]),
-            'lead' => Position::create(['name' => 'Lead', 'level' => 2]),
-            'programmer' => Position::create(['name' => 'Programmer', 'level' => 3]),
+            'kadiv' => Position::create(['name' => 'Kepala Divisi', 'level' => 1]),
+            'kasubdiv' => Position::create(['name' => 'Kepala Sub Divisi', 'level' => 2]),
+            'lead' => Position::create(['name' => 'Lead Programmer', 'level' => 3]),
+            'programmer' => Position::create(['name' => 'Programmer', 'level' => 4]),
         ];
     }
 
     /**
+     * Six programmers plus the three people above them.
+     *
      * @param  array<string, OrgUnit>  $units
      * @param  array<string, Position>  $positions
      * @return array<string, User>
      */
     protected function seedMembers(Workspace $workspace, array $units, array $positions, Tenancy $tenancy): array
     {
-        $owner = $this->seedMember($workspace, 'Sari Owner', 'owner@nusantara.test', WorkspaceRole::Owner);
+        $owner = $this->seedMember(
+            $workspace,
+            'Hendra Wijaya',
+            'admin@perkebunan.test',
+            WorkspaceRole::Owner,
+            $positions['kadiv'],
+            $units['transformasi'],
+        );
 
         $people = [
             'owner' => $owner['user'],
-            // Given the whole Engineering subtree to monitor, read-only.
-            'head' => $this->seedMember(
+
+            // Monitors the whole Divisi Transformasi Digital subtree, read-only.
+            'kadiv' => $this->seedMember(
                 $workspace,
-                'Bagas Kepala Engineering',
-                'kepala.eng@nusantara.test',
+                'Agus Setiawan',
+                'kadiv@perkebunan.test',
                 WorkspaceRole::Member,
-                $positions['head'],
-                $units['engineering'],
-                $units['engineering'],
+                $positions['kadiv'],
+                $units['transformasi'],
+                $units['transformasi'],
             )['user'],
-            'lead' => $this->seedMember(
+
+            // Runs the sub division: admin rights plus its own subtree scope.
+            'kasubdiv' => $this->seedMember(
                 $workspace,
-                'Rina Lead Backend',
-                'lead.be@nusantara.test',
+                'Ratna Kusuma',
+                'kasubdiv@perkebunan.test',
+                WorkspaceRole::Admin,
+                $positions['kasubdiv'],
+                $units['pengembangan'],
+                $units['pengembangan'],
+            )['user'],
+
+            'amar' => $this->seedMember(
+                $workspace,
+                'Amar',
+                'amar@perkebunan.test',
                 WorkspaceRole::Member,
                 $positions['lead'],
-                $units['backend'],
+                $units['pengembangan'],
             )['user'],
-            'dev1' => $this->seedMember(
+
+            'heru' => $this->seedMember(
                 $workspace,
-                'Andi Pratama',
-                'dev1@nusantara.test',
+                'Heru',
+                'heru@perkebunan.test',
                 WorkspaceRole::Member,
                 $positions['programmer'],
-                $units['backend'],
+                $units['pengembangan'],
             )['user'],
-            'dev2' => $this->seedMember(
+
+            'vino' => $this->seedMember(
                 $workspace,
-                'Maya Sari',
-                'dev2@nusantara.test',
+                'Vino',
+                'vino@perkebunan.test',
                 WorkspaceRole::Member,
                 $positions['programmer'],
-                $units['frontend'],
+                $units['pengembangan'],
+            )['user'],
+
+            'yogi' => $this->seedMember(
+                $workspace,
+                'Yogi',
+                'yogi@perkebunan.test',
+                WorkspaceRole::Member,
+                $positions['programmer'],
+                $units['pengembangan'],
+            )['user'],
+
+            'adit' => $this->seedMember(
+                $workspace,
+                'Adit',
+                'adit@perkebunan.test',
+                WorkspaceRole::Member,
+                $positions['programmer'],
+                $units['pengembangan'],
+            )['user'],
+
+            'adhi' => $this->seedMember(
+                $workspace,
+                'Adhi',
+                'adhi@perkebunan.test',
+                WorkspaceRole::Member,
+                $positions['programmer'],
+                $units['pengembangan'],
             )['user'],
         ];
 
-        // The owner's membership drives creator attribution below.
+        // The owner's membership drives creator attribution for the projects.
         $tenancy->set($workspace, $owner['membership']);
 
         return $people;
@@ -166,147 +235,430 @@ class DemoWorkspaceSeeder extends Seeder
     }
 
     /**
-     * @param  array<string, OrgUnit>  $units
-     * @param  array<string, User>  $people
-     */
-    protected function seedProjects(array $units, array $people, TaskHierarchy $hierarchy): void
-    {
-        $api = Project::create([
-            'org_unit_id' => $units['backend']->id,
-            'name' => 'API Absensi',
-            'description' => 'Layanan absensi karyawan berbasis REST.',
-        ]);
-        $api->members()->sync([$people['lead']->id, $people['dev1']->id]);
-
-        $portal = Project::create([
-            'org_unit_id' => $units['frontend']->id,
-            'name' => 'Portal Karyawan',
-            'description' => 'Portal internal untuk karyawan.',
-        ]);
-        $portal->members()->sync([$people['dev2']->id]);
-
-        Project::create([
-            'org_unit_id' => $units['marketing']->id,
-            'name' => 'Kampanye Rekrutmen',
-            'description' => 'Kampanye rekrutmen kuartal ini.',
-        ]);
-
-        $this->seedApiTasks($api, $people, $hierarchy);
-        $this->seedPortalTasks($portal, $people, $hierarchy);
-    }
-
-    /**
-     * A four level tree, so WBS numbering and the depth limit are both visible.
+     * Six projects spanning June 2025 to now: three delivered, two running,
+     * one just kicked off.
      *
      * @param  array<string, User>  $people
+     * @return array<string, Project>
      */
-    protected function seedApiTasks(Project $project, array $people, TaskHierarchy $hierarchy): void
+    protected function seedProjects(OrgUnit $unit, array $people): array
     {
-        $analysis = $hierarchy->create($project, [
-            'title' => 'Analisis kebutuhan',
-            'assignee_id' => $people['lead']->id,
-            'priority' => TaskPriority::High,
-            'start_date' => now()->subWeeks(3)->startOfWeek()->toDateString(),
-            'due_date' => now()->subWeeks(2)->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'done',
-            'progress' => 100,
-        ]);
+        $definitions = [
+            'sik' => [
+                'Sistem Informasi Kebun',
+                'Pencatatan blok, luas tanam, dan realisasi panen per afdeling menggantikan buku mandor.',
+                'completed',
+                ['amar', 'heru', 'vino'],
+            ],
+            'mandor' => [
+                'Aplikasi Mobile Mandor',
+                'Aplikasi Android untuk mandor mencatat kehadiran pemanen dan hasil panen harian langsung dari kebun.',
+                'completed',
+                ['amar', 'yogi', 'adhi'],
+            ],
+            'timbang' => [
+                'Sistem Timbang TBS Digital',
+                'Integrasi jembatan timbang pabrik kelapa sawit dengan pencatatan tiket TBS elektronik.',
+                'completed',
+                ['amar', 'vino', 'adit'],
+            ],
+            'dashboard' => [
+                'Dashboard Produksi & Rendemen',
+                'Dashboard manajemen untuk memantau produksi TBS, rendemen CPO, dan produktivitas per afdeling.',
+                'active',
+                ['amar', 'heru', 'adit', 'adhi'],
+            ],
+            'procurement' => [
+                'e-Procurement Sarana Produksi',
+                'Pengadaan pupuk, bibit, dan pestisida secara elektronik dengan alur persetujuan berjenjang.',
+                'active',
+                ['amar', 'vino', 'yogi'],
+            ],
+            'hris' => [
+                'Portal HRIS Karyawan',
+                'Portal mandiri karyawan untuk slip gaji, cuti, dan data kepegawaian.',
+                'active',
+                ['heru', 'adit'],
+            ],
+        ];
 
-        $hierarchy->create($project, [
-            'title' => 'Wawancara HRD',
-            'assignee_id' => $people['lead']->id,
-            'start_date' => now()->subWeeks(3)->startOfWeek()->toDateString(),
-            'due_date' => now()->subWeeks(3)->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'done',
-            'progress' => 100,
-        ], $analysis);
+        $projects = [];
 
-        $build = $hierarchy->create($project, [
-            'title' => 'Implementasi',
-            'assignee_id' => $people['dev1']->id,
-            'priority' => TaskPriority::Urgent,
-            'start_date' => now()->subWeek()->startOfWeek()->toDateString(),
-            'due_date' => now()->addWeeks(3)->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'in_progress',
-            'progress' => 45,
-        ]);
+        foreach ($definitions as $key => [$name, $description, $status, $memberKeys]) {
+            $project = Project::create([
+                'org_unit_id' => $unit->id,
+                'name' => $name,
+                'description' => $description,
+                'status' => $status,
+            ]);
 
-        $schema = $hierarchy->create($project, [
-            'title' => 'Skema database',
-            'assignee_id' => $people['dev1']->id,
-            'start_date' => now()->subWeek()->startOfWeek()->toDateString(),
-            'due_date' => now()->subWeek()->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'done',
-            'progress' => 100,
-        ], $build);
+            $project->members()->sync(
+                array_map(fn (string $memberKey): int => $people[$memberKey]->id, $memberKeys),
+            );
 
-        $endpoints = $hierarchy->create($project, [
-            'title' => 'Endpoint REST',
-            'assignee_id' => $people['dev1']->id,
-            'priority' => TaskPriority::High,
-            'start_date' => now()->startOfWeek()->toDateString(),
-            'due_date' => now()->addWeeks(2)->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'in_progress',
-            'progress' => 30,
-        ], $build);
+            $projects[$key] = $project;
+        }
 
-        $hierarchy->create($project, [
-            'title' => 'Validasi input',
-            'assignee_id' => $people['dev1']->id,
-            'start_date' => now()->startOfWeek()->toDateString(),
-            'due_date' => now()->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'in_progress',
-            'progress' => 60,
-        ], $endpoints);
-
-        // An overdue task, so the red flags on the board have something to show.
-        $hierarchy->create($project, [
-            'title' => 'Dokumentasi API',
-            'assignee_id' => $people['lead']->id,
-            'priority' => TaskPriority::Low,
-            'start_date' => now()->subWeeks(2)->startOfWeek()->toDateString(),
-            'due_date' => now()->subWeek()->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'in_progress',
-            'progress' => 20,
-        ]);
-
-        // An unscheduled task for the "Belum dijadwalkan" sections.
-        $hierarchy->create($project, [
-            'title' => 'Riset rate limiting',
-            'assignee_id' => $people['dev1']->id,
-        ]);
+        return $projects;
     }
 
     /**
+     * @param  array<string, Project>  $projects
      * @param  array<string, User>  $people
      */
-    protected function seedPortalTasks(Project $project, array $people, TaskHierarchy $hierarchy): void
+    protected function seedTasks(array $projects, array $people): void
     {
-        $ui = $hierarchy->create($project, [
-            'title' => 'Rancang antarmuka',
-            'assignee_id' => $people['dev2']->id,
-            'priority' => TaskPriority::Medium,
-            'start_date' => now()->startOfWeek()->toDateString(),
-            'due_date' => now()->addWeek()->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'in_progress',
-            'progress' => 50,
-        ]);
+        $hierarchy = app(TaskHierarchy::class);
 
-        $hierarchy->create($project, [
-            'title' => 'Halaman profil',
-            'assignee_id' => $people['dev2']->id,
-            'start_date' => now()->startOfWeek()->toDateString(),
-            'due_date' => now()->startOfWeek()->addDays(4)->toDateString(),
-            'status' => 'in_progress',
-            'progress' => 70,
-        ], $ui);
+        foreach ($this->taskDefinitions() as $projectKey => $nodes) {
+            $this->seedTree($hierarchy, $projects[$projectKey], $people, $nodes);
+        }
+    }
 
-        $hierarchy->create($project, [
-            'title' => 'Integrasi API absensi',
-            'assignee_id' => $people['dev2']->id,
-            'priority' => TaskPriority::High,
-            'start_date' => now()->addWeeks(2)->startOfWeek()->toDateString(),
-            'due_date' => now()->addWeeks(4)->startOfWeek()->addDays(4)->toDateString(),
-        ]);
+    /**
+     * Walk a nested task definition, creating each node under its parent.
+     *
+     * @param  array<string, User>  $people
+     * @param  array<int, array<string, mixed>>  $nodes
+     */
+    protected function seedTree(
+        TaskHierarchy $hierarchy,
+        Project $project,
+        array $people,
+        array $nodes,
+        ?Task $parent = null,
+    ): void {
+        foreach ($nodes as $node) {
+            $assigneeKey = $node['assignee'] ?? null;
+
+            $task = $hierarchy->create($project, [
+                'title' => $node['title'],
+                'assignee_id' => $assigneeKey === null ? null : $people[$assigneeKey]->id,
+                'status' => $node['status'] ?? 'todo',
+                'progress' => $node['progress'] ?? 0,
+                'priority' => $node['priority'] ?? 'medium',
+                'start_date' => $node['start'] ?? null,
+                'due_date' => $node['due'] ?? null,
+            ], $parent);
+
+            $this->backdate($task);
+
+            if (isset($node['children'])) {
+                $this->seedTree($hierarchy, $project, $people, $node['children'], $task);
+            }
+        }
+    }
+
+    /**
+     * Move a finished task's timestamps back to when it actually ran.
+     *
+     * Without this every task looks like it was created and completed today,
+     * which would make "selesai 30 hari terakhir" count the whole 2025 backlog.
+     */
+    protected function backdate(Task $task): void
+    {
+        if ($task->start_date === null || $task->due_date === null) {
+            return;
+        }
+
+        $finishedInThePast = $task->status === TaskStatus::Done && $task->due_date->isPast();
+
+        $task->forceFill([
+            'created_at' => $task->start_date,
+            'updated_at' => $finishedInThePast ? $task->due_date : now(),
+        ])->saveQuietly();
+    }
+
+    /**
+     * The task trees, one per project.
+     *
+     * Delivered projects use their real historical dates. Live projects are
+     * anchored to `now()` so the timeline, the overdue flags and the due-soon
+     * reminders always land around today.
+     *
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    protected function taskDefinitions(): array
+    {
+        $week = fn (int $offset): string => now()->startOfWeek()->addWeeks($offset)->toDateString();
+        $friday = fn (int $offset): string => now()->startOfWeek()->addWeeks($offset)->addDays(4)->toDateString();
+
+        return [
+            // Jun - Des 2025, delivered.
+            'sik' => [
+                [
+                    'title' => 'Analisis proses bisnis kebun',
+                    'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2025-06-02', 'due' => '2025-06-27',
+                    'children' => [
+                        ['title' => 'Wawancara asisten afdeling', 'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'start' => '2025-06-02', 'due' => '2025-06-13'],
+                        ['title' => 'Pemetaan alur buku mandor', 'assignee' => 'heru', 'status' => 'done', 'progress' => 100, 'start' => '2025-06-16', 'due' => '2025-06-27'],
+                    ],
+                ],
+                [
+                    'title' => 'Perancangan basis data blok & afdeling',
+                    'assignee' => 'vino', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2025-06-30', 'due' => '2025-07-25',
+                ],
+                [
+                    'title' => 'Implementasi modul inti',
+                    'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'priority' => 'urgent',
+                    'start' => '2025-07-28', 'due' => '2025-10-31',
+                    'children' => [
+                        [
+                            'title' => 'Master data blok & luas tanam',
+                            'assignee' => 'vino', 'status' => 'done', 'progress' => 100,
+                            'start' => '2025-07-28', 'due' => '2025-08-22',
+                            'children' => [
+                                ['title' => 'Impor data blok dari spreadsheet', 'assignee' => 'vino', 'status' => 'done', 'progress' => 100, 'start' => '2025-07-28', 'due' => '2025-08-08'],
+                                ['title' => 'Validasi luas tanam per afdeling', 'assignee' => 'heru', 'status' => 'done', 'progress' => 100, 'start' => '2025-08-11', 'due' => '2025-08-22'],
+                            ],
+                        ],
+                        ['title' => 'Pencatatan realisasi panen harian', 'assignee' => 'heru', 'status' => 'done', 'progress' => 100, 'priority' => 'high', 'start' => '2025-08-25', 'due' => '2025-09-26'],
+                        ['title' => 'Laporan produksi bulanan', 'assignee' => 'vino', 'status' => 'done', 'progress' => 100, 'start' => '2025-09-29', 'due' => '2025-10-31'],
+                    ],
+                ],
+                [
+                    'title' => 'Pengujian & serah terima',
+                    'assignee' => 'amar', 'status' => 'done', 'progress' => 100,
+                    'start' => '2025-11-03', 'due' => '2025-12-19',
+                    'children' => [
+                        ['title' => 'UAT bersama asisten kebun', 'assignee' => 'heru', 'status' => 'done', 'progress' => 100, 'start' => '2025-11-03', 'due' => '2025-11-28'],
+                        ['title' => 'Pelatihan mandor & operator', 'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'start' => '2025-12-01', 'due' => '2025-12-19'],
+                    ],
+                ],
+            ],
+
+            // Sep 2025 - Mar 2026, delivered.
+            'mandor' => [
+                [
+                    'title' => 'Riset kebutuhan lapangan',
+                    'assignee' => 'yogi', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2025-09-01', 'due' => '2025-09-26',
+                ],
+                [
+                    'title' => 'Pengembangan aplikasi Android',
+                    'assignee' => 'yogi', 'status' => 'done', 'progress' => 100, 'priority' => 'urgent',
+                    'start' => '2025-09-29', 'due' => '2026-01-30',
+                    'children' => [
+                        ['title' => 'Absensi pemanen dengan GPS', 'assignee' => 'yogi', 'status' => 'done', 'progress' => 100, 'priority' => 'high', 'start' => '2025-09-29', 'due' => '2025-11-07'],
+                        [
+                            'title' => 'Input hasil panen offline',
+                            'assignee' => 'yogi', 'status' => 'done', 'progress' => 100, 'priority' => 'urgent',
+                            'start' => '2025-11-10', 'due' => '2025-12-19',
+                            'children' => [
+                                ['title' => 'Penyimpanan lokal saat sinyal hilang', 'assignee' => 'yogi', 'status' => 'done', 'progress' => 100, 'start' => '2025-11-10', 'due' => '2025-11-28'],
+                                ['title' => 'Sinkronisasi otomatis saat online', 'assignee' => 'adhi', 'status' => 'done', 'progress' => 100, 'start' => '2025-12-01', 'due' => '2025-12-19'],
+                            ],
+                        ],
+                        ['title' => 'Integrasi API Sistem Informasi Kebun', 'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'start' => '2026-01-05', 'due' => '2026-01-30'],
+                    ],
+                ],
+                [
+                    'title' => 'Uji coba di Kebun Rejosari',
+                    'assignee' => 'adhi', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2026-02-02', 'due' => '2026-03-13',
+                ],
+                [
+                    'title' => 'Rilis ke Play Store internal',
+                    'assignee' => 'amar', 'status' => 'done', 'progress' => 100,
+                    'start' => '2026-03-16', 'due' => '2026-03-27',
+                ],
+            ],
+
+            // Jan - Jul 2026, delivered.
+            'timbang' => [
+                [
+                    'title' => 'Kajian integrasi jembatan timbang',
+                    'assignee' => 'adit', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2026-01-05', 'due' => '2026-02-13',
+                    'children' => [
+                        ['title' => 'Survei perangkat timbang PKS', 'assignee' => 'adit', 'status' => 'done', 'progress' => 100, 'start' => '2026-01-05', 'due' => '2026-01-23'],
+                        ['title' => 'Uji baca serial indikator timbangan', 'assignee' => 'vino', 'status' => 'done', 'progress' => 100, 'start' => '2026-01-26', 'due' => '2026-02-13'],
+                    ],
+                ],
+                [
+                    'title' => 'Modul tiket TBS elektronik',
+                    'assignee' => 'vino', 'status' => 'done', 'progress' => 100, 'priority' => 'urgent',
+                    'start' => '2026-02-16', 'due' => '2026-05-08',
+                    'children' => [
+                        ['title' => 'Pencatatan bruto, tara, netto', 'assignee' => 'vino', 'status' => 'done', 'progress' => 100, 'start' => '2026-02-16', 'due' => '2026-03-20'],
+                        ['title' => 'Potongan sortasi & denda kualitas', 'assignee' => 'adit', 'status' => 'done', 'progress' => 100, 'priority' => 'high', 'start' => '2026-03-23', 'due' => '2026-04-17'],
+                        ['title' => 'Cetak tiket timbang', 'assignee' => 'adit', 'status' => 'done', 'progress' => 100, 'start' => '2026-04-20', 'due' => '2026-05-08'],
+                    ],
+                ],
+                [
+                    'title' => 'Paralel run dengan timbangan manual',
+                    'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2026-05-11', 'due' => '2026-06-26',
+                ],
+                [
+                    'title' => 'Go-live PKS Sei Mangkei',
+                    'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'priority' => 'urgent',
+                    'start' => '2026-06-29', 'due' => '2026-07-17',
+                ],
+            ],
+
+            // Apr 2026 - berjalan.
+            'dashboard' => [
+                [
+                    'title' => 'Definisi indikator produksi',
+                    'assignee' => 'amar', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2026-04-06', 'due' => '2026-05-01',
+                ],
+                [
+                    'title' => 'Pipeline data produksi & rendemen',
+                    'assignee' => 'adit', 'status' => 'in_progress', 'progress' => 65, 'priority' => 'urgent',
+                    'start' => '2026-05-04', 'due' => $friday(3),
+                    'children' => [
+                        ['title' => 'Ekstraksi data timbang harian', 'assignee' => 'adit', 'status' => 'done', 'progress' => 100, 'start' => '2026-05-04', 'due' => '2026-06-12'],
+                        ['title' => 'Perhitungan rendemen CPO & PK', 'assignee' => 'vino', 'status' => 'done', 'progress' => 100, 'priority' => 'high', 'start' => '2026-06-15', 'due' => '2026-07-24'],
+                        [
+                            'title' => 'Agregasi produktivitas per afdeling',
+                            'assignee' => 'adit', 'status' => 'in_progress', 'progress' => 40, 'priority' => 'high',
+                            'start' => $week(-2), 'due' => $friday(3),
+                            'children' => [
+                                ['title' => 'Hitung ton per hektar', 'assignee' => 'adit', 'status' => 'in_progress', 'progress' => 70, 'start' => $week(-2), 'due' => $friday(0)],
+                                ['title' => 'Bandingkan dengan target RKAP', 'assignee' => 'adhi', 'status' => 'todo', 'progress' => 0, 'priority' => 'high', 'start' => $week(1), 'due' => $friday(3)],
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    // Overdue: sudah lewat tenggat, belum selesai.
+                    'title' => 'Antarmuka dashboard manajemen',
+                    'assignee' => 'heru', 'status' => 'in_progress', 'progress' => 55, 'priority' => 'urgent',
+                    'start' => '2026-07-06', 'due' => $friday(-2),
+                    'children' => [
+                        ['title' => 'Grafik tren produksi bulanan', 'assignee' => 'heru', 'status' => 'done', 'progress' => 100, 'start' => '2026-07-06', 'due' => '2026-07-31'],
+                        ['title' => 'Filter periode & afdeling', 'assignee' => 'heru', 'status' => 'in_progress', 'progress' => 30, 'priority' => 'high', 'start' => $week(-3), 'due' => $friday(-1)],
+                    ],
+                ],
+                [
+                    'title' => 'Ekspor laporan ke PDF',
+                    'assignee' => 'adhi', 'status' => 'todo', 'progress' => 0, 'priority' => 'low',
+                    'start' => $week(4), 'due' => $friday(6),
+                ],
+                [
+                    // Belum dijadwalkan, muncul di bagian terpisah timeline.
+                    'title' => 'Riset prediksi produksi berbasis cuaca',
+                    'assignee' => 'adit', 'status' => 'todo', 'progress' => 0, 'priority' => 'low',
+                ],
+            ],
+
+            // Jun 2026 - berjalan.
+            'procurement' => [
+                [
+                    'title' => 'Analisis alur pengadaan saprodi',
+                    'assignee' => 'yogi', 'status' => 'done', 'progress' => 100, 'priority' => 'high',
+                    'start' => '2026-06-01', 'due' => '2026-06-26',
+                ],
+                [
+                    'title' => 'Modul permintaan & persetujuan',
+                    'assignee' => 'vino', 'status' => 'in_progress', 'progress' => 50, 'priority' => 'urgent',
+                    'start' => '2026-06-29', 'due' => $friday(5),
+                    'children' => [
+                        ['title' => 'Form permintaan pupuk & bibit', 'assignee' => 'yogi', 'status' => 'done', 'progress' => 100, 'start' => '2026-06-29', 'due' => '2026-07-24'],
+                        ['title' => 'Alur persetujuan berjenjang', 'assignee' => 'vino', 'status' => 'in_progress', 'progress' => 45, 'priority' => 'urgent', 'start' => $week(-2), 'due' => $friday(2)],
+                        ['title' => 'Notifikasi ke pejabat penyetuju', 'assignee' => 'yogi', 'status' => 'todo', 'progress' => 0, 'start' => $week(3), 'due' => $friday(5)],
+                    ],
+                ],
+                [
+                    // Overdue.
+                    'title' => 'Integrasi data vendor terdaftar',
+                    'assignee' => 'vino', 'status' => 'in_progress', 'progress' => 20, 'priority' => 'high',
+                    'start' => '2026-07-27', 'due' => $friday(-1),
+                ],
+                [
+                    'title' => 'Modul evaluasi vendor',
+                    'assignee' => 'yogi', 'status' => 'todo', 'progress' => 0,
+                    'start' => $week(6), 'due' => $friday(9),
+                ],
+            ],
+
+            // Agustus 2026, baru mulai.
+            'hris' => [
+                [
+                    'title' => 'Pengumpulan kebutuhan SDM',
+                    'assignee' => 'heru', 'status' => 'in_progress', 'progress' => 35, 'priority' => 'high',
+                    'start' => $week(-1), 'due' => $friday(1),
+                ],
+                [
+                    'title' => 'Slip gaji elektronik',
+                    'assignee' => 'adit', 'status' => 'todo', 'progress' => 0, 'priority' => 'high',
+                    'start' => $week(2), 'due' => $friday(5),
+                ],
+                [
+                    'title' => 'Pengajuan cuti online',
+                    'assignee' => 'heru', 'status' => 'todo', 'progress' => 0,
+                    'start' => $week(6), 'due' => $friday(9),
+                ],
+                [
+                    'title' => 'Integrasi dengan mesin absensi kantor',
+                    'assignee' => null, 'status' => 'todo', 'progress' => 0, 'priority' => 'low',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * A few recent comments, including mentions, so the thread and the bell
+     * both have something real in them.
+     *
+     * @param  array<string, Project>  $projects
+     * @param  array<string, User>  $people
+     */
+    protected function seedComments(array $projects, array $people): void
+    {
+        $threads = [
+            ['dashboard', 'Filter periode & afdeling', 'amar', 'Progress masih 30% padahal tenggat minggu lalu. @[user:{heru}] ada kendala di query agregasinya?'],
+            ['dashboard', 'Filter periode & afdeling', 'heru', 'Query per afdeling lambat kalau rentangnya setahun. Saya coba tambah index dulu, target selesai minggu ini.'],
+            ['dashboard', 'Hitung ton per hektar', 'adhi', 'Angka ton per hektar sudah cocok dengan laporan manual Juli. @[user:{adit}] lanjut ke perbandingan RKAP ya.'],
+            ['procurement', 'Alur persetujuan berjenjang', 'yogi', 'Batas nilai persetujuan Kepala Divisi berapa? Di dokumen lama tertulis 50 juta, tapi kata bagian pengadaan sudah naik.'],
+            ['procurement', 'Integrasi data vendor terdaftar', 'amar', 'Ini sudah lewat tenggat. @[user:{vino}] tolong update estimasi barunya di panel detail.'],
+        ];
+
+        foreach ($threads as [$projectKey, $taskTitle, $authorKey, $template]) {
+            $task = Task::query()
+                ->where('project_id', $projects[$projectKey]->id)
+                ->where('title', $taskTitle)
+                ->first();
+
+            if ($task === null) {
+                continue;
+            }
+
+            // Swap the readable placeholders for the stored mention format.
+            $body = preg_replace_callback(
+                '/\{(\w+)\}/',
+                fn (array $match): string => (string) ($people[$match[1]]->id ?? 0),
+                $template,
+            );
+
+            $comment = new Comment(['body' => $body]);
+            $comment->task_id = $task->id;
+            $comment->user_id = $people[$authorKey]->id;
+            $comment->workspace_id = $task->workspace_id;
+            $comment->save();
+        }
+    }
+
+    protected function report(Workspace $workspace): void
+    {
+        $this->command->info("Workspace {$workspace->name} dibuat. Kata sandi semua akun: password");
+        $this->command->table(
+            ['Nama', 'Email', 'Role', 'Jabatan', 'Cakupan pemantauan'],
+            [
+                ['Hendra Wijaya', 'admin@perkebunan.test', 'owner', 'Kepala Divisi', 'seluruh workspace'],
+                ['Agus Setiawan', 'kadiv@perkebunan.test', 'member', 'Kepala Divisi', 'Divisi Transformasi Digital & turunannya'],
+                ['Ratna Kusuma', 'kasubdiv@perkebunan.test', 'admin', 'Kepala Sub Divisi', 'Pengembangan Digital & turunannya'],
+                ['Amar', 'amar@perkebunan.test', 'member', 'Lead Programmer', 'project yang diikuti'],
+                ['Heru', 'heru@perkebunan.test', 'member', 'Programmer', 'project yang diikuti'],
+                ['Vino', 'vino@perkebunan.test', 'member', 'Programmer', 'project yang diikuti'],
+                ['Yogi', 'yogi@perkebunan.test', 'member', 'Programmer', 'project yang diikuti'],
+                ['Adit', 'adit@perkebunan.test', 'member', 'Programmer', 'project yang diikuti'],
+                ['Adhi', 'adhi@perkebunan.test', 'member', 'Programmer', 'project yang diikuti'],
+            ],
+        );
     }
 }
