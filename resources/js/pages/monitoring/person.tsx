@@ -31,7 +31,6 @@ type Member = {
     name: string;
     email: string;
     avatar: string | null;
-    position: string | null;
     org_unit: string | null;
 };
 
@@ -109,9 +108,7 @@ export default function MonitoringPerson({
                             )}
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            {[member.position, member.org_unit]
-                                .filter(Boolean)
-                                .join(' · ') || member.email}
+                            {member.org_unit ?? member.email}
                         </p>
                     </div>
 

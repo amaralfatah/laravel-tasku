@@ -22,7 +22,6 @@ type MemberSummary = {
     name: string;
     email: string;
     avatar: string | null;
-    position: string | null;
     org_unit: string | null;
     is_self: boolean;
     active: number;
@@ -139,8 +138,7 @@ export default function MonitoringPeople({
                                                     )}
                                                 </span>
                                                 <span className="block truncate text-xs text-muted-foreground">
-                                                    {member.position ??
-                                                        member.email}
+                                                    {member.email}
                                                 </span>
                                             </span>
                                         </Link>

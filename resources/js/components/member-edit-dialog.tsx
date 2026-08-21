@@ -19,23 +19,17 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { update } from '@/routes/members';
-import type {
-    MemberRow,
-    NamedRef,
-    Option,
-    OrgUnitOption,
-} from '@/types/members';
+import type { MemberRow, Option, OrgUnitOption } from '@/types/members';
 
 const NONE = 'none';
 
 /**
  * Edits everything about a membership except the person: role (Owner only),
- * position, unit assignment and monitoring scope.
+ * unit assignment and monitoring scope.
  */
 export function MemberEditDialog({
     member,
     orgUnits,
-    positions,
     roles,
     scopeTypes,
     canChangeRole,
@@ -43,7 +37,6 @@ export function MemberEditDialog({
 }: {
     member: MemberRow | null;
     orgUnits: OrgUnitOption[];
-    positions: NamedRef[];
     roles: Option[];
     scopeTypes: Option[];
     canChangeRole: boolean;
@@ -51,7 +44,6 @@ export function MemberEditDialog({
 }) {
     const form = useForm({
         role: member?.role ?? 'member',
-        position_id: member?.position?.id ?? null,
         org_unit_id: member?.org_unit?.id ?? null,
         scope_type: member?.scope_type ?? 'project_only',
         scope_org_unit_id: member?.scope_org_unit?.id ?? null,
@@ -61,7 +53,6 @@ export function MemberEditDialog({
         if (member) {
             form.setDefaults({
                 role: member.role,
-                position_id: member.position?.id ?? null,
                 org_unit_id: member.org_unit?.id ?? null,
                 scope_type: member.scope_type,
                 scope_org_unit_id: member.scope_org_unit?.id ?? null,
@@ -102,10 +93,7 @@ export function MemberEditDialog({
                         <Select
                             value={form.data.role}
                             onValueChange={(value) =>
-                                form.setData(
-                                    'role',
-                                    value as MemberRow['role'],
-                                )
+                                form.setData('role', value as MemberRow['role'])
                             }
                             disabled={roleLocked}
                         >
@@ -131,37 +119,6 @@ export function MemberEditDialog({
                                   : 'Hanya Owner yang dapat mengubah role.'}
                         </p>
                         <InputError message={form.errors.role} />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="member-position">Jabatan</Label>
-                        <Select
-                            value={String(form.data.position_id ?? NONE)}
-                            onValueChange={(value) =>
-                                form.setData(
-                                    'position_id',
-                                    value === NONE ? null : Number(value),
-                                )
-                            }
-                        >
-                            <SelectTrigger id="member-position">
-                                <SelectValue placeholder="Tanpa jabatan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={NONE}>
-                                    Tanpa jabatan
-                                </SelectItem>
-                                {positions.map((position) => (
-                                    <SelectItem
-                                        key={position.id}
-                                        value={String(position.id)}
-                                    >
-                                        {position.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <InputError message={form.errors.position_id} />
                     </div>
 
                     <div className="grid gap-2">
@@ -197,9 +154,7 @@ export function MemberEditDialog({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="member-scope">
-                            Cakupan pemantauan
-                        </Label>
+                        <Label htmlFor="member-scope">Cakupan pemantauan</Label>
                         <Select
                             value={form.data.scope_type}
                             onValueChange={(value) =>

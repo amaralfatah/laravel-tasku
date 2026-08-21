@@ -40,7 +40,6 @@ class MemberWorkloadQuery
                     'name' => $member->user->name,
                     'email' => $member->user->email,
                     'avatar' => $member->user->avatar,
-                    'position' => $member->position?->name,
                     'org_unit' => $member->orgUnit?->name,
                     'is_self' => $member->user_id === $viewer->user_id,
                     'active' => (int) ($summary['active'] ?? 0),
@@ -83,7 +82,7 @@ class MemberWorkloadQuery
     protected function visibleMembers(WorkspaceMember $viewer): Collection
     {
         $query = WorkspaceMember::query()
-            ->with(['user:id,name,email,avatar_path', 'position:id,name', 'orgUnit:id,name']);
+            ->with(['user:id,name,email,avatar_path', 'orgUnit:id,name']);
 
         if ($viewer->role->isManager()) {
             // No extra restriction.

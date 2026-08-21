@@ -1,9 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { BriefcaseBusiness, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { OrgUnitTree } from '@/components/org-unit-tree';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -28,41 +27,28 @@ import {
     update as updateUnit,
 } from '@/routes/org-units';
 import { index as organizationIndex } from '@/routes/organization';
-import {
-    destroy as destroyPosition,
-    store as storePosition,
-    update as updatePosition,
-} from '@/routes/positions';
 import { ORG_UNIT_TYPE_LABELS } from '@/types/organization';
-import type { OrgUnitNode, PositionRow } from '@/types/organization';
+import type { OrgUnitNode } from '@/types/organization';
 
 type UnitDialogMode = 'create' | 'rename' | 'move' | null;
 
 export default function Organization({
     units,
-    positions,
     maxDepth,
     can,
 }: {
     units: OrgUnitNode[];
-    positions: PositionRow[];
     maxDepth: number;
     can: { manage: boolean };
 }) {
     const [unitDialog, setUnitDialog] = useState<UnitDialogMode>(null);
     const [target, setTarget] = useState<OrgUnitNode | null>(null);
-    const [positionDialog, setPositionDialog] = useState(false);
-    const [editingPosition, setEditingPosition] = useState<PositionRow | null>(
-        null,
-    );
 
     const unitForm = useForm({
         name: '',
         type: 'division',
         parent_id: null as number | null,
     });
-
-    const positionForm = useForm({ name: '', level: 1 });
 
     const openCreate = (parent: OrgUnitNode | null) => {
         setTarget(parent);
@@ -135,37 +121,7 @@ export default function Organization({
         router.delete(destroyUnit(unit.id).url, { preserveScroll: true });
     };
 
-    const openPosition = (position: PositionRow | null) => {
-        setEditingPosition(position);
-        positionForm.setDefaults({
-            name: position?.name ?? '',
-            level: position?.level ?? 1,
-        });
-        positionForm.reset();
-        positionForm.clearErrors();
-        setPositionDialog(true);
-    };
 
-    const submitPosition = () => {
-        const onSuccess = () => {
-            setPositionDialog(false);
-            setEditingPosition(null);
-        };
-
-        if (editingPosition) {
-            positionForm.patch(updatePosition(editingPosition.id).url, {
-                preserveScroll: true,
-                onSuccess,
-            });
-
-            return;
-        }
-
-        positionForm.post(storePosition().url, {
-            preserveScroll: true,
-            onSuccess,
-        });
-    };
 
     // A unit cannot be moved into itself or its own subtree.
     const moveTargets = units.filter(
@@ -182,12 +138,11 @@ export default function Organization({
                 <div>
                     <h1 className="text-xl font-semibold">Organisasi</h1>
                     <p className="text-sm text-muted-foreground">
-                        Struktur unit dan daftar jabatan di workspace ini.
+                        Struktur unit organisasi di workspace ini.
                     </p>
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-3">
-                    <section className="space-y-3 lg:col-span-2">
+                <section className="space-y-3">
                         <div className="flex items-center justify-between gap-3">
                             <h2 className="font-medium">Struktur unit</h2>
 
@@ -217,113 +172,6 @@ export default function Organization({
                             />
                         </div>
                     </section>
-
-                    <section className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <h2 className="font-medium">Jabatan</h2>
-
-                            {can.manage && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => openPosition(null)}
-                                >
-                                    <Plus
-                                        className="size-4"
-                                        aria-hidden="true"
-                                    />
-                                    Jabatan
-                                </Button>
-                            )}
-                        </div>
-
-                        <div className="rounded-lg border">
-                            {positions.length === 0 ? (
-                                <div className="p-8 text-center">
-                                    <BriefcaseBusiness
-                                        className="mx-auto mb-3 size-8 text-muted-foreground"
-                                        aria-hidden="true"
-                                    />
-                                    <p className="font-medium">
-                                        Belum ada jabatan
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Tambahkan jabatan seperti Kepala Divisi
-                                        atau Programmer.
-                                    </p>
-                                </div>
-                            ) : (
-                                <ul className="divide-y">
-                                    {positions.map((position) => (
-                                        <li
-                                            key={position.id}
-                                            className="flex min-h-14 items-center gap-2 px-3"
-                                        >
-                                            <div className="min-w-0 flex-1">
-                                                <p className="truncate font-medium">
-                                                    {position.name}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {position.members_count}{' '}
-                                                    anggota
-                                                </p>
-                                            </div>
-
-                                            <Badge
-                                                variant="secondary"
-                                                className="shrink-0 font-normal tabular-nums"
-                                            >
-                                                Tingkat {position.level}
-                                            </Badge>
-
-                                            {can.manage && (
-                                                <div className="flex shrink-0">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="size-8"
-                                                        aria-label={`Ubah ${position.name}`}
-                                                        onClick={() =>
-                                                            openPosition(
-                                                                position,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Pencil className="size-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="size-8 text-destructive hover:text-destructive"
-                                                        aria-label={`Hapus ${position.name}`}
-                                                        onClick={() => {
-                                                            if (
-                                                                confirm(
-                                                                    `Hapus jabatan "${position.name}"?`,
-                                                                )
-                                                            ) {
-                                                                router.delete(
-                                                                    destroyPosition(
-                                                                        position.id,
-                                                                    ).url,
-                                                                    {
-                                                                        preserveScroll: true,
-                                                                    },
-                                                                );
-                                                            }
-                                                        }}
-                                                    >
-                                                        <Trash2 className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    </section>
-                </div>
             </div>
 
             <Dialog
@@ -459,85 +307,6 @@ export default function Organization({
                                 disabled={unitForm.processing}
                             >
                                 {unitForm.processing ? 'Menyimpan…' : 'Simpan'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={positionDialog} onOpenChange={setPositionDialog}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingPosition
-                                ? 'Ubah jabatan'
-                                : 'Tambah jabatan'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Tingkat 1 adalah jabatan tertinggi. Tingkat hanya
-                            memengaruhi urutan tampilan.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <form
-                        className="space-y-4"
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            submitPosition();
-                        }}
-                    >
-                        <div className="grid gap-2">
-                            <Label htmlFor="position-name">Nama jabatan</Label>
-                            <Input
-                                id="position-name"
-                                value={positionForm.data.name}
-                                onChange={(event) =>
-                                    positionForm.setData(
-                                        'name',
-                                        event.target.value,
-                                    )
-                                }
-                                required
-                                autoFocus
-                                placeholder="Kepala Divisi"
-                            />
-                            <InputError message={positionForm.errors.name} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="position-level">Tingkat</Label>
-                            <Input
-                                id="position-level"
-                                type="number"
-                                min={1}
-                                max={20}
-                                value={positionForm.data.level}
-                                onChange={(event) =>
-                                    positionForm.setData(
-                                        'level',
-                                        Number(event.target.value),
-                                    )
-                                }
-                                required
-                            />
-                            <InputError message={positionForm.errors.level} />
-                        </div>
-
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setPositionDialog(false)}
-                            >
-                                Batal
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={positionForm.processing}
-                            >
-                                {positionForm.processing
-                                    ? 'Menyimpan…'
-                                    : 'Simpan'}
                             </Button>
                         </DialogFooter>
                     </form>

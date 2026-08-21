@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\OrgUnit\OrgUnitStoreRequest;
 use App\Http\Requests\OrgUnit\OrgUnitUpdateRequest;
 use App\Models\OrgUnit;
-use App\Models\Position;
 use App\Services\OrgUnitTree;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -16,7 +15,7 @@ class OrgUnitController extends Controller
     public function __construct(protected OrgUnitTree $tree) {}
 
     /**
-     * Structure page: the org unit tree plus the workspace's positions.
+     * Structure page: the org unit tree.
      */
     public function index(): Response
     {
@@ -37,18 +36,6 @@ class OrgUnitController extends Controller
                     'children_count' => $unit->children_count,
                     'projects_count' => $unit->projects_count,
                     'members_count' => $unit->assigned_members_count,
-                ])
-                ->all(),
-            'positions' => Position::query()
-                ->withCount('members')
-                ->orderBy('level')
-                ->orderBy('name')
-                ->get()
-                ->map(fn (Position $position): array => [
-                    'id' => $position->id,
-                    'name' => $position->name,
-                    'level' => $position->level,
-                    'members_count' => $position->members_count,
                 ])
                 ->all(),
             'maxDepth' => OrgUnit::MAX_DEPTH,

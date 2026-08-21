@@ -56,12 +56,6 @@ class Workspace extends Model
         return $this->hasMany(OrgUnit::class);
     }
 
-    /** @return HasMany<Position, $this> */
-    public function positions(): HasMany
-    {
-        return $this->hasMany(Position::class);
-    }
-
     /** @return HasMany<WorkspaceMember, $this> */
     public function members(): HasMany
     {

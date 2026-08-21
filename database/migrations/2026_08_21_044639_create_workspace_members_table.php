@@ -13,7 +13,6 @@ return new class extends Migration
             $table->foreignId('workspace_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('role')->default('member');
-            $table->foreignId('position_id')->nullable()->constrained('positions')->nullOnDelete();
             $table->foreignId('org_unit_id')->nullable()->constrained('org_units')->nullOnDelete();
             $table->string('scope_type')->default('project_only');
             $table->foreignId('scope_org_unit_id')->nullable()->constrained('org_units')->nullOnDelete();

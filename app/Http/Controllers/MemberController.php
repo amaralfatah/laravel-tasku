@@ -7,7 +7,6 @@ use App\Enums\WorkspaceRole;
 use App\Http\Requests\Member\MemberUpdateRequest;
 use App\Models\Invitation;
 use App\Models\OrgUnit;
-use App\Models\Position;
 use App\Models\WorkspaceMember;
 use App\Policies\WorkspaceMemberPolicy;
 use App\Support\Tenancy;
@@ -32,7 +31,7 @@ class MemberController extends Controller
 
         return Inertia::render('members/index', [
             'members' => WorkspaceMember::query()
-                ->with(['user:id,name,email,avatar_path', 'position:id,name', 'orgUnit:id,name', 'scopeOrgUnit:id,name'])
+                ->with(['user:id,name,email,avatar_path', 'orgUnit:id,name', 'scopeOrgUnit:id,name'])
                 ->join('users', 'users.id', '=', 'workspace_members.user_id')
                 ->orderBy('users.name')
                 ->select('workspace_members.*')
@@ -47,7 +46,6 @@ class MemberController extends Controller
                     ],
                     'role' => $member->role->value,
                     'role_label' => $member->role->label(),
-                    'position' => $member->position?->only(['id', 'name']),
                     'org_unit' => $member->orgUnit?->only(['id', 'name']),
                     'scope_type' => $member->scope_type->value,
                     'scope_org_unit' => $member->scopeOrgUnit?->only(['id', 'name']),
@@ -66,7 +64,6 @@ class MemberController extends Controller
                     'depth' => $unit->depth,
                 ])
                 ->all(),
-            'positions' => Position::query()->orderBy('level')->orderBy('name')->get(['id', 'name'])->all(),
             'roles' => array_map(
                 fn (WorkspaceRole $role): array => ['value' => $role->value, 'label' => $role->label()],
                 WorkspaceRole::cases(),
@@ -83,7 +80,7 @@ class MemberController extends Controller
     }
 
     /**
-     * Update role, position, unit assignment and monitoring scope (ORG-8, ORG-11, ORG-12).
+     * Update role, unit assignment and monitoring scope (ORG-8, ORG-12).
      */
     public function update(MemberUpdateRequest $request, WorkspaceMember $member): RedirectResponse
     {

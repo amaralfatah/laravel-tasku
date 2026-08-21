@@ -50,7 +50,6 @@ import type { User } from '@/types';
 import type {
     InvitationRow,
     MemberRow,
-    NamedRef,
     Option,
     OrgUnitOption,
 } from '@/types/members';
@@ -59,7 +58,6 @@ export default function Members({
     members,
     invitations,
     orgUnits,
-    positions,
     roles,
     scopeTypes,
     can,
@@ -67,7 +65,6 @@ export default function Members({
     members: MemberRow[];
     invitations: InvitationRow[];
     orgUnits: OrgUnitOption[];
-    positions: NamedRef[];
     roles: Option[];
     scopeTypes: Option[];
     can: { manage: boolean; change_role: boolean };
@@ -301,7 +298,6 @@ export default function Members({
                             <TableRow>
                                 <TableHead>Nama</TableHead>
                                 <TableHead>Role</TableHead>
-                                <TableHead>Jabatan</TableHead>
                                 <TableHead>Unit</TableHead>
                                 <TableHead>Cakupan</TableHead>
                                 {can.manage && (
@@ -316,7 +312,7 @@ export default function Members({
                             {members.length === 0 && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={can.manage ? 6 : 5}
+                                        colSpan={can.manage ? 5 : 4}
                                         className="py-12 text-center"
                                     >
                                         <Users
@@ -353,14 +349,6 @@ export default function Members({
                                         >
                                             {member.role_label}
                                         </Badge>
-                                    </TableCell>
-
-                                    <TableCell className="text-sm">
-                                        {member.position?.name ?? (
-                                            <span className="text-muted-foreground">
-                                                —
-                                            </span>
-                                        )}
                                     </TableCell>
 
                                     <TableCell className="text-sm">
@@ -457,7 +445,6 @@ export default function Members({
             <MemberEditDialog
                 member={editing}
                 orgUnits={orgUnits}
-                positions={positions}
                 roles={roles}
                 scopeTypes={scopeTypes}
                 canChangeRole={can.change_role}

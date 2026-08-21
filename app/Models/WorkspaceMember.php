@@ -17,14 +17,13 @@ use Illuminate\Support\Carbon;
  * @property int $workspace_id
  * @property int $user_id
  * @property WorkspaceRole $role
- * @property int|null $position_id
  * @property int|null $org_unit_id
  * @property ScopeType $scope_type
  * @property int|null $scope_org_unit_id
  * @property int|null $manager_id
  * @property Carbon|null $joined_at
  */
-#[Fillable(['user_id', 'role', 'position_id', 'org_unit_id', 'scope_type', 'scope_org_unit_id', 'manager_id', 'joined_at'])]
+#[Fillable(['user_id', 'role', 'org_unit_id', 'scope_type', 'scope_org_unit_id', 'manager_id', 'joined_at'])]
 class WorkspaceMember extends Model
 {
     /** @use HasFactory<WorkspaceMemberFactory> */
@@ -34,12 +33,6 @@ class WorkspaceMember extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    /** @return BelongsTo<Position, $this> */
-    public function position(): BelongsTo
-    {
-        return $this->belongsTo(Position::class);
     }
 
     /** @return BelongsTo<OrgUnit, $this> */

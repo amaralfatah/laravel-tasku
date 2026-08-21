@@ -12,7 +12,6 @@ export type MemberRow = {
     };
     role: WorkspaceRole;
     role_label: string;
-    position: NamedRef | null;
     org_unit: NamedRef | null;
     scope_type: ScopeType;
     scope_org_unit: NamedRef | null;

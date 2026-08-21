@@ -12,13 +12,6 @@ export type OrgUnitNode = {
     members_count: number;
 };
 
-export type PositionRow = {
-    id: number;
-    name: string;
-    level: number;
-    members_count: number;
-};
-
 export const ORG_UNIT_TYPE_LABELS: Record<string, string> = {
     company: 'Perusahaan',
     division: 'Divisi',

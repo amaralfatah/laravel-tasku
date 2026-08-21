@@ -51,7 +51,7 @@ class PersonController extends Controller
         $to = $request->date('to')?->toDateString();
 
         $tasks = $this->workload->tasksFor($member->user_id, $from, $to);
-        $member->load(['user:id,name,email,avatar_path', 'position:id,name', 'orgUnit:id,name']);
+        $member->load(['user:id,name,email,avatar_path', 'orgUnit:id,name']);
 
         return Inertia::render('monitoring/person', [
             'member' => [
@@ -60,7 +60,6 @@ class PersonController extends Controller
                 'name' => $member->user->name,
                 'email' => $member->user->email,
                 'avatar' => $member->user->avatar,
-                'position' => $member->position?->name,
                 'org_unit' => $member->orgUnit?->name,
             ],
             'tasks' => $this->groupByProject($tasks, $request),

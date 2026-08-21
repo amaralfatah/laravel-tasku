@@ -18,7 +18,6 @@ class MemberUpdateRequest extends FormRequest
     {
         return [
             'role' => ['sometimes', Rule::enum(WorkspaceRole::class)],
-            'position_id' => ['sometimes', 'nullable', 'integer', Rule::exists('positions', 'id')],
             'org_unit_id' => ['sometimes', 'nullable', 'integer', Rule::exists('org_units', 'id')],
             'scope_type' => ['sometimes', Rule::enum(ScopeType::class)],
             'scope_org_unit_id' => ['sometimes', 'nullable', 'integer', Rule::exists('org_units', 'id')],
@@ -54,7 +53,6 @@ class MemberUpdateRequest extends FormRequest
     {
         return [
             'role' => 'role',
-            'position_id' => 'jabatan',
             'org_unit_id' => 'unit',
             'scope_type' => 'cakupan pemantauan',
             'scope_org_unit_id' => 'unit cakupan',

@@ -7,8 +7,8 @@ use App\Models\User;
 use App\Support\Tenancy;
 
 /**
- * Org units and positions are structural: only Owner and Admin may change
- * them, while every member of the workspace can read the tree (7.1).
+ * Org units are structural: only Owner and Admin may change them, while
+ * every member of the workspace can read the tree (7.1).
  */
 class OrgUnitPolicy
 {
