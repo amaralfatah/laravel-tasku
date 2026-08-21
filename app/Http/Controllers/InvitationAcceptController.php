@@ -35,7 +35,7 @@ class InvitationAcceptController extends Controller
             'email' => $invitation->email,
             'roleLabel' => $invitation->role->label(),
             'needsAccount' => ! User::where('email', $invitation->email)->exists(),
-            'passwordRules' => Password::defaults()?->toPasswordRulesString(),
+            'passwordRules' => Password::defaults()->toPasswordRulesString(),
             'token' => $token,
         ]);
     }

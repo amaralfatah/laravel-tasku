@@ -25,6 +25,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string $email
  * @property bool $is_super_admin
  * @property string|null $avatar_path
+ * @property-read string|null $avatar public URL derived from avatar_path
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -49,9 +50,10 @@ class User extends Authenticatable implements PasskeyUser
      */
     protected function avatar(): Attribute
     {
-        return Attribute::get(fn (): ?string => $this->avatar_path === null
-            ? null
-            : Storage::disk('public')->url($this->avatar_path),
+        return new Attribute(
+            get: fn (): ?string => $this->avatar_path === null
+                ? null
+                : Storage::disk('public')->url($this->avatar_path),
         );
     }
 

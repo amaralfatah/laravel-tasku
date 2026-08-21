@@ -38,7 +38,7 @@ class TaskHierarchy
             $task->position = $this->nextPosition($project, $parent);
             $task->save();
 
-            $task->forceFill(['path' => ($parent?->path ?? '/').$task->id.'/'])->save();
+            $task->forceFill(['path' => ($parent->path ?? '/').$task->id.'/'])->save();
 
             $this->renumber($project, $parent);
 
@@ -59,19 +59,23 @@ class TaskHierarchy
         $project = $task->project;
         $oldParent = $task->parent;
         $oldPath = $task->path;
-        $newPath = ($parent?->path ?? '/').$task->id.'/';
-        $depthShift = (($parent?->depth ?? -1) + 1) - $task->depth;
+        $newPath = ($parent->path ?? '/').$task->id.'/';
+        $depthShift = (($parent->depth ?? -1) + 1) - $task->depth;
 
         $this->guardSubtreeDepth($task, $depthShift);
 
         return DB::transaction(function () use ($task, $parent, $oldParent, $oldPath, $newPath, $depthShift, $position, $project): Task {
             if ($oldPath !== $newPath) {
-                Task::query()
-                    ->descendantsOf($task)
-                    ->update([
-                        'path' => DB::raw($this->replaceExpression($oldPath, $newPath)),
-                        'depth' => DB::raw('depth + '.$depthShift),
-                    ]);
+                // Swap the path prefix on every descendant in one statement.
+                // Fully bound, so no path value is interpolated into SQL.
+                DB::update(
+                    'update tasks
+                        set path = ? || substring(path from ?),
+                            depth = depth + ?
+                      where project_id = ?
+                        and path like ?',
+                    [$newPath, strlen($oldPath) + 1, $depthShift, $task->project_id, $oldPath.'_%'],
+                );
 
                 $task->forceFill([
                     'parent_task_id' => $parent?->id,
@@ -340,12 +344,5 @@ class TaskHierarchy
                 'parent_task_id' => 'Pemindahan ini melebihi batas '.Task::MAX_DEPTH.' tingkat.',
             ]);
         }
-    }
-
-    protected function replaceExpression(string $oldPath, string $newPath): string
-    {
-        $new = DB::getPdo()->quote($newPath);
-
-        return "{$new} || substring(path from ".(strlen($oldPath) + 1).')';
     }
 }

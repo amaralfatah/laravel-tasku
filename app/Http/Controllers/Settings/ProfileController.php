@@ -65,7 +65,9 @@ class ProfileController extends Controller
             Storage::disk('public')->delete($user->avatar_path);
         }
 
-        $user->avatar_path = $upload?->store('avatars', 'public');
+        $stored = $upload?->store('avatars', 'public');
+
+        $user->avatar_path = is_string($stored) ? $stored : null;
     }
 
     /**

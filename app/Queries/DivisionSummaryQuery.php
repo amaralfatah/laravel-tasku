@@ -144,13 +144,15 @@ class DivisionSummaryQuery
             ->groupBy('projects.org_unit_id')
             ->get()
             ->keyBy('unit_id')
-            ->map(fn ($row): array => [
-                'total' => (int) $row->total,
-                'done' => (int) $row->done,
-                'in_progress' => (int) $row->in_progress,
-                'overdue' => (int) $row->overdue,
-                'unscheduled' => (int) $row->unscheduled,
-                'progress_sum' => (int) $row->progress_sum,
+            // The rows carry aggregate columns rather than task attributes, so
+            // they are read through getAttribute rather than as properties.
+            ->map(fn (Task $row): array => [
+                'total' => (int) $row->getAttribute('total'),
+                'done' => (int) $row->getAttribute('done'),
+                'in_progress' => (int) $row->getAttribute('in_progress'),
+                'overdue' => (int) $row->getAttribute('overdue'),
+                'unscheduled' => (int) $row->getAttribute('unscheduled'),
+                'progress_sum' => (int) $row->getAttribute('progress_sum'),
             ])
             ->all();
     }

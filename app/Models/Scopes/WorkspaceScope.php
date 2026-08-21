@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Scope;
 /**
  * Restricts every tenant-owned model to the workspace of the current request.
  *
+ * @implements Scope<Model>
+ *
  * Without an active workspace (console, super admin routes) the scope is a
  * no-op, so those contexts must scope their queries explicitly.
  */

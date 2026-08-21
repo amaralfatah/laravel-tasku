@@ -28,6 +28,8 @@ class MemberUpdateRequest extends FormRequest
 
     /**
      * A subtree scope is meaningless without the unit it is rooted at (ORG-12).
+     *
+     * @return array<int, \Closure>
      */
     public function after(): array
     {

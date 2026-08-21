@@ -40,7 +40,7 @@ class MakeSuperAdmin extends Command
             ]);
 
             $user->password = Hash::make($password);
-            $user->email_verified_at = now();
+            $user->forceFill(['email_verified_at' => now()]);
         }
 
         $user->is_super_admin = true;

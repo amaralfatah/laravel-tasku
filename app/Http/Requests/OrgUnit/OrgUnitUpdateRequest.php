@@ -28,7 +28,7 @@ class OrgUnitUpdateRequest extends FormRequest
     {
         $parentId = $this->validated('parent_id');
 
-        return $parentId === null ? null : OrgUnit::findOrFail($parentId);
+        return $parentId === null ? null : OrgUnit::query()->whereKey($parentId)->firstOrFail();
     }
 
     /**

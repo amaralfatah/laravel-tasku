@@ -69,7 +69,7 @@ class TaskController extends Controller
 
         $parent = $this->resolveParent($task->project, $validated['parent_task_id'] ?? null);
 
-        if (($parent?->id ?? null) !== $task->parent_task_id) {
+        if ($parent?->id !== $task->parent_task_id) {
             $this->hierarchy->move($task, $parent, $validated['position'] ?? null);
         } elseif (isset($validated['position'])) {
             $this->hierarchy->reorder($task, $validated['position']);

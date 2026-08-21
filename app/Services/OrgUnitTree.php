@@ -17,6 +17,8 @@ class OrgUnitTree
 {
     /**
      * Create a unit under an optional parent, filling path and depth.
+     *
+     * @param  array<string, mixed>  $attributes
      */
     public function create(array $attributes, ?OrgUnit $parent = null): OrgUnit
     {
@@ -31,7 +33,7 @@ class OrgUnitTree
             $unit->save();
 
             $unit->forceFill([
-                'path' => ($parent?->path ?? '/').$unit->id.'/',
+                'path' => ($parent->path ?? '/').$unit->id.'/',
             ])->save();
 
             return $unit;
@@ -50,22 +52,26 @@ class OrgUnitTree
         }
 
         $oldPath = $unit->path;
-        $newPath = ($parent?->path ?? '/').$unit->id.'/';
+        $newPath = ($parent->path ?? '/').$unit->id.'/';
 
         if ($oldPath === $newPath) {
             return $unit;
         }
 
-        $depthShift = (($parent?->depth ?? -1) + 1) - $unit->depth;
+        $depthShift = (($parent->depth ?? -1) + 1) - $unit->depth;
         $this->guardSubtreeDepth($unit, $depthShift);
 
         return DB::transaction(function () use ($unit, $parent, $oldPath, $newPath, $depthShift): OrgUnit {
-            OrgUnit::query()
-                ->where('path', 'like', $oldPath.'_%')
-                ->update([
-                    'path' => DB::raw($this->replaceExpression($oldPath, $newPath)),
-                    'depth' => DB::raw('depth + '.$depthShift),
-                ]);
+            // Swap the path prefix on every descendant in one statement. Fully
+            // bound, so no path value is ever interpolated into SQL.
+            DB::update(
+                'update org_units
+                    set path = ? || substring(path from ?),
+                        depth = depth + ?
+                  where workspace_id = ?
+                    and path like ?',
+                [$newPath, strlen($oldPath) + 1, $depthShift, $unit->workspace_id, $oldPath.'_%'],
+            );
 
             $unit->forceFill([
                 'parent_id' => $parent?->id,
@@ -158,15 +164,5 @@ class OrgUnitTree
                 'parent_id' => 'Pemindahan ini melebihi kedalaman maksimal '.(OrgUnit::MAX_DEPTH + 1).' tingkat.',
             ]);
         }
-    }
-
-    /**
-     * SQL that swaps the old path prefix for the new one on descendant rows.
-     */
-    protected function replaceExpression(string $oldPath, string $newPath): string
-    {
-        $new = DB::getPdo()->quote($newPath);
-
-        return "{$new} || substring(path from ".(strlen($oldPath) + 1).')';
     }
 }

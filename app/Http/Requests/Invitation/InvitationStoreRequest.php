@@ -26,6 +26,8 @@ class InvitationStoreRequest extends FormRequest
 
     /**
      * Reject an address that is already a member of this workspace.
+     *
+     * @return array<int, \Closure>
      */
     public function after(): array
     {

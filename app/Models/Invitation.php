@@ -4,12 +4,12 @@ namespace App\Models;
 
 use App\Concerns\BelongsToWorkspace;
 use App\Enums\WorkspaceRole;
+use Carbon\CarbonInterface;
 use Database\Factories\InvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -19,8 +19,8 @@ use Illuminate\Support\Str;
  * @property WorkspaceRole $role
  * @property string $token
  * @property int|null $invited_by
- * @property Carbon $expires_at
- * @property Carbon|null $accepted_at
+ * @property CarbonInterface $expires_at
+ * @property CarbonInterface|null $accepted_at
  */
 #[Fillable(['email', 'role', 'token', 'invited_by', 'expires_at', 'accepted_at'])]
 class Invitation extends Model

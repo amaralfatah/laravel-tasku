@@ -32,6 +32,8 @@ class TaskUpdateRequest extends FormRequest
     /**
      * TSK-8 against the stored values, since a partial update may send only
      * one of the two dates.
+     *
+     * @return array<int, \Closure>
      */
     public function after(): array
     {

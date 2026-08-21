@@ -34,7 +34,7 @@ class PersonController extends Controller
         $viewer = $this->tenancy->member();
 
         return Inertia::render('monitoring/people', [
-            'members' => $this->workload->forViewer($viewer)->all(),
+            'members' => $this->workload->forViewer($viewer),
             'viewerUserId' => $viewer->user_id,
         ]);
     }

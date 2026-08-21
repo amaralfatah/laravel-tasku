@@ -21,7 +21,7 @@ class ProjectFactory extends Factory
         return [
             'workspace_id' => Workspace::factory(),
             'org_unit_id' => OrgUnit::factory(),
-            'name' => 'Project '.fake()->unique()->words(2, true),
+            'name' => 'Project '.fake()->unique()->word().' '.fake()->word(),
             'description' => fake()->sentence(),
             'status' => ProjectStatus::Active,
         ];

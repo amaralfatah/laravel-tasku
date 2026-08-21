@@ -23,9 +23,9 @@ class MemberWorkloadQuery
     /**
      * The members the viewer is allowed to monitor, each with its summary.
      *
-     * @return Collection<int, array<string, mixed>>
+     * @return array<int, array<string, mixed>>
      */
-    public function forViewer(WorkspaceMember $viewer): Collection
+    public function forViewer(WorkspaceMember $viewer): array
     {
         $members = $this->visibleMembers($viewer);
         $summaries = $this->summaries($members->pluck('user_id')->all());
@@ -49,7 +49,8 @@ class MemberWorkloadQuery
                     'unscheduled' => (int) ($summary['unscheduled'] ?? 0),
                 ];
             })
-            ->values();
+            ->values()
+            ->all();
     }
 
     /**
@@ -143,11 +144,13 @@ class MemberWorkloadQuery
             ->groupBy('assignee_id')
             ->get()
             ->keyBy('assignee_id')
-            ->map(fn ($row): array => [
-                'active' => (int) $row->active,
-                'overdue' => (int) $row->overdue,
-                'done_recently' => (int) $row->done_recently,
-                'unscheduled' => (int) $row->unscheduled,
+            // The rows carry aggregate columns rather than task attributes, so
+            // they are read through getAttribute rather than as properties.
+            ->map(fn (Task $row): array => [
+                'active' => (int) $row->getAttribute('active'),
+                'overdue' => (int) $row->getAttribute('overdue'),
+                'done_recently' => (int) $row->getAttribute('done_recently'),
+                'unscheduled' => (int) $row->getAttribute('unscheduled'),
             ])
             ->all();
     }

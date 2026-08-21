@@ -25,7 +25,7 @@ class TaskFactory extends Factory
             'workspace_id' => fn (array $attributes): int => Project::withoutGlobalScopes()
                 ->whereKey($attributes['project_id'])
                 ->value('workspace_id'),
-            'title' => ucfirst(fake()->words(4, true)),
+            'title' => ucfirst(fake()->word().' '.fake()->word().' '.fake()->word()),
             'description' => fake()->optional()->sentence(),
             'status' => TaskStatus::Todo,
             'progress' => 0,

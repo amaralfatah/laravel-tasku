@@ -58,7 +58,7 @@ class EnsureWorkspaceAccess
             ->workspaceMembers()
             ->with('workspace')
             ->get()
-            ->filter(fn ($member) => $member->workspace?->is_active);
+            ->filter(fn (WorkspaceMember $member): bool => (bool) $member->workspace?->is_active);
 
         $sessionId = $request->session()->get(self::SESSION_KEY);
 

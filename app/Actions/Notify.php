@@ -25,7 +25,7 @@ class Notify
      */
     public function taskAssigned(Task $task, int $assigneeId): void
     {
-        $actorId = Auth::id();
+        $actorId = Auth::id() === null ? null : (int) Auth::id();
 
         if ($assigneeId === $actorId) {
             return;
