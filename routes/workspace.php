@@ -6,6 +6,7 @@ use App\Http\Controllers\OrgUnitController;
 use App\Http\Controllers\PositionController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectMemberController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'workspace'])->group(function () {
@@ -39,4 +40,9 @@ Route::middleware(['auth', 'workspace'])->group(function () {
 
     Route::post('projects/{project}/anggota', [ProjectMemberController::class, 'store'])->name('project-members.store');
     Route::delete('projects/{project}/anggota/{user}', [ProjectMemberController::class, 'destroy'])->name('project-members.destroy');
+
+    Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
+    Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+    Route::post('tasks/{task}/pindah', [TaskController::class, 'move'])->name('tasks.move');
+    Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
 });
