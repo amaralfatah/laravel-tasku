@@ -99,7 +99,7 @@ class DemoWorkspaceSeeder extends Seeder
         // above them inside the workspace.
         $kadiv = $this->seedMember(
             $workspace,
-            'Agus Setiawan',
+            'Prasetyo Mimboro',
             'kadiv@perkebunan.test',
             WorkspaceRole::Bod1,
             $units['transformasi'],
@@ -112,7 +112,7 @@ class DemoWorkspaceSeeder extends Seeder
             // Pengembangan Digital subtree (7.2 rule 2).
             'kasubdiv' => $this->seedMember(
                 $workspace,
-                'Ratna Kusuma',
+                'Rakhmat Akbar Sinaga',
                 'kasubdiv@perkebunan.test',
                 WorkspaceRole::Bod2,
                 $units['pengembangan'],
@@ -619,8 +619,8 @@ class DemoWorkspaceSeeder extends Seeder
             ['Nama', 'Email', 'Jenjang', 'Role', 'Unit', 'Cakupan pemantauan'],
             [
                 ['Super Admin', 'admin@perkebunan.test', 'SA', 'Super Admin', '— (di luar workspace)', 'semua workspace'],
-                ['Agus Setiawan', 'kadiv@perkebunan.test', 'BOD-1', 'Kepala Divisi', 'Divisi Transformasi Digital', 'seluruh workspace'],
-                ['Ratna Kusuma', 'kasubdiv@perkebunan.test', 'BOD-2', 'Kepala Sub Divisi', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
+                ['Prasetyo Mimboro', 'kadiv@perkebunan.test', 'BOD-1', 'Kepala Divisi', 'Divisi Transformasi Digital', 'seluruh workspace'],
+                ['Rakhmat Akbar Sinaga', 'kasubdiv@perkebunan.test', 'BOD-2', 'Kepala Sub Divisi', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
                 ['Amar', 'amar@perkebunan.test', 'BOD-3', 'Asisten', 'Pengembangan Digital', 'project yang diikuti'],
                 ['Heru', 'heru@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
                 ['Vino', 'vino@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
