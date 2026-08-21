@@ -1,11 +1,11 @@
 import { Link } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { settings, show } from '@/routes/projects';
+import { list, settings, show } from '@/routes/projects';
 import { PROJECT_STATUS_VARIANT } from '@/types/projects';
 import type { ProjectSummary } from '@/types/tasks';
 
-type Tab = 'list' | 'settings';
+type Tab = 'board' | 'list' | 'timeline' | 'settings';
 
 /**
  * Shared chrome for every view of a project: identity plus the view switcher.
@@ -19,7 +19,8 @@ export function ProjectHeader({
     active: Tab;
 }) {
     const tabs: { key: Tab; label: string; href: string }[] = [
-        { key: 'list', label: 'Daftar task', href: show(project.id).url },
+        { key: 'board', label: 'Papan', href: show(project.id).url },
+        { key: 'list', label: 'Daftar', href: list(project.id).url },
         { key: 'settings', label: 'Pengaturan', href: settings(project.id).url },
     ];
 
@@ -37,10 +38,7 @@ export function ProjectHeader({
                 </p>
             </div>
 
-            <nav
-                className="flex gap-1 border-b"
-                aria-label="Tampilan project"
-            >
+            <nav className="flex gap-1 border-b" aria-label="Tampilan project">
                 {tabs.map((tab) => (
                     <Link
                         key={tab.key}

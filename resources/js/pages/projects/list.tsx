@@ -8,7 +8,7 @@ import { TaskFilterBar } from '@/components/task/task-filters';
 import { TaskTreeRow } from '@/components/task/task-tree-row';
 import { Button } from '@/components/ui/button';
 import { useTaskFilters } from '@/hooks/use-task-filters';
-import { index as projectsIndex, show } from '@/routes/projects';
+import { index as projectsIndex, list } from '@/routes/projects';
 import type { Option } from '@/types/members';
 import type {
     ProjectSummary,
@@ -42,7 +42,7 @@ export default function ProjectList({
     const [createParent, setCreateParent] = useState<TaskNode | null>(null);
     const [createOpen, setCreateOpen] = useState(false);
 
-    const applyFilters = useTaskFilters(filters, show(project.id).url);
+    const applyFilters = useTaskFilters(filters, list(project.id).url);
 
     const childCounts = useMemo(() => {
         const counts = new Map<number, number>();
@@ -233,6 +233,6 @@ export default function ProjectList({
 ProjectList.layout = ({ project }: PageProps) => ({
     breadcrumbs: [
         { title: 'Project', href: projectsIndex() },
-        { title: project.name, href: show(project.id) },
+        { title: project.name, href: list(project.id) },
     ],
 });

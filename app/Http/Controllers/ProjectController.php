@@ -69,9 +69,19 @@ class ProjectController extends Controller
     }
 
     /**
-     * Hierarchical list view of the project's tasks (6.8).
+     * Kanban board of the project's root tasks (6.7).
      */
     public function show(Request $request, Project $project): Response
+    {
+        $this->authorize('view', $project);
+
+        return Inertia::render('projects/board', $this->taskWorkspaceProps($request, $project));
+    }
+
+    /**
+     * Hierarchical list view of the project's tasks (6.8).
+     */
+    public function list(Request $request, Project $project): Response
     {
         $this->authorize('view', $project);
 
