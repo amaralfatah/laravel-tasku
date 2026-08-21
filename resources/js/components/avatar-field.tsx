@@ -22,7 +22,8 @@ export function AvatarField({
     const [removed, setRemoved] = useState(false);
     const getInitials = useInitials();
 
-    const shownUrl = preview ?? (removed ? undefined : (currentUrl ?? undefined));
+    const shownUrl =
+        preview ?? (removed ? undefined : (currentUrl ?? undefined));
     const hasImage = Boolean(shownUrl);
 
     return (

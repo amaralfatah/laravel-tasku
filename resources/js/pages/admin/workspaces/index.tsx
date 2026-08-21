@@ -102,9 +102,7 @@ export default function AdminWorkspaces({
                                                 autoFocus
                                                 placeholder="PT Contoh Sejahtera"
                                             />
-                                            <InputError
-                                                message={errors.name}
-                                            />
+                                            <InputError message={errors.name} />
                                         </div>
 
                                         <div className="grid gap-2">
@@ -275,8 +273,7 @@ export default function AdminWorkspaces({
                                                             ),
                                                             {},
                                                             {
-                                                                preserveScroll:
-                                                                    true,
+                                                                preserveScroll: true,
                                                             },
                                                         )
                                                     }
@@ -298,8 +295,7 @@ export default function AdminWorkspaces({
                                                                 !workspace.is_active,
                                                         },
                                                         {
-                                                            preserveScroll:
-                                                                true,
+                                                            preserveScroll: true,
                                                         },
                                                     )
                                                 }

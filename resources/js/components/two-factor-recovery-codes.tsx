@@ -76,7 +76,8 @@ export default function TwoFactorRecoveryCodes({
                             className="size-4"
                             aria-hidden="true"
                         />
-                        {codesAreVisible ? 'Sembunyikan' : 'Lihat'} kode pemulihan
+                        {codesAreVisible ? 'Sembunyikan' : 'Lihat'} kode
+                        pemulihan
                     </Button>
 
                     {canRegenerateCodes && (

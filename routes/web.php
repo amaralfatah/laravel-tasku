@@ -22,3 +22,4 @@ Route::middleware(['auth', 'workspace'])->group(function () {
 
 require __DIR__.'/admin.php';
 require __DIR__.'/settings.php';
+require __DIR__.'/workspace.php';

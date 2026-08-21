@@ -30,10 +30,7 @@ export default function AcceptInvitation({
                 <div className="w-full max-w-md space-y-6">
                     <div className="space-y-3 text-center">
                         <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                            <Building2
-                                className="size-6"
-                                aria-hidden="true"
-                            />
+                            <Building2 className="size-6" aria-hidden="true" />
                         </div>
 
                         <div className="space-y-1">
@@ -71,9 +68,7 @@ export default function AcceptInvitation({
                                                 autoComplete="name"
                                                 placeholder="Nama Anda"
                                             />
-                                            <InputError
-                                                message={errors.name}
-                                            />
+                                            <InputError message={errors.name} />
                                         </div>
 
                                         <div className="grid gap-2">

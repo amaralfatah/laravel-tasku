@@ -1,4 +1,5 @@
-import { LayoutGrid } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import { LayoutGrid, Network } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -9,17 +10,28 @@ import {
 } from '@/components/ui/sidebar';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { dashboard } from '@/routes';
+import { index as organizationIndex } from '@/routes/organization';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-];
-
 export function AppSidebar() {
+    const { tenancy } = usePage().props;
+
+    const mainNavItems: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+    ];
+
+    if (tenancy?.membership?.can_manage) {
+        mainNavItems.push({
+            title: 'Organisasi',
+            href: organizationIndex(),
+            icon: Network,
+        });
+    }
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
