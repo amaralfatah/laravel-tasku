@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Building2, Check, ChevronsUpDown } from 'lucide-react';
 import {
     DropdownMenu,
@@ -14,6 +14,7 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { home } from '@/routes';
 import { change } from '@/routes/workspace';
 
 export function WorkspaceSwitcher() {
@@ -49,31 +50,48 @@ export function WorkspaceSwitcher() {
 
     const others = tenancy.workspaces;
 
+    const identity = (
+        <>
+            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                <Building2 className="size-4" />
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">{active.name}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                    {tenancy.membership?.role_label ?? 'Workspace'}
+                </span>
+            </div>
+        </>
+    );
+
+    // With nowhere to switch to, the header stops being a menu and becomes the
+    // way home; a disabled trigger would only dim the workspace name.
+    if (others.length < 2) {
+        return (
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton size="lg" asChild>
+                        <Link href={home()} prefetch>
+                            {identity}
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        );
+    }
+
     return (
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild disabled={others.length < 2}>
+                    <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                             size="lg"
                             className="data-[state=open]:bg-sidebar-accent"
                             aria-label={`Workspace aktif: ${active.name}`}
                         >
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                                <Building2 className="size-4" />
-                            </div>
-                            <div className="grid flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-semibold">
-                                    {active.name}
-                                </span>
-                                <span className="truncate text-xs text-muted-foreground">
-                                    {tenancy.membership?.role_label ??
-                                        'Workspace'}
-                                </span>
-                            </div>
-                            {others.length > 1 && (
-                                <ChevronsUpDown className="ml-auto size-4" />
-                            )}
+                            {identity}
+                            <ChevronsUpDown className="ml-auto size-4" />
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
 

@@ -64,7 +64,7 @@ class MemberWorkloadQuery
             // select because the project policy reads all three;
             // `project.members` feeds the assignee picker on the person page,
             // where every project block has its own member list.
-            ->with(['project:id,name,workspace_id,org_unit_id,created_by', 'project.members', 'assignee:id,name,avatar_path'])
+            ->with(['project:id,name,key,workspace_id,org_unit_id,created_by', 'project.members', 'assignee:id,name,avatar_path'])
             ->when($from, fn (Builder $query, string $date) => $query->where(function (Builder $q) use ($date): void {
                 $q->whereNull('due_date')->orWhereDate('due_date', '>=', $date);
             }))

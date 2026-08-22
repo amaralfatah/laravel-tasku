@@ -135,14 +135,14 @@ function TaskDetail({
                 <DialogHeader className="shrink-0 border-b px-8 py-4 pr-14">
                     <DialogTitle className="flex items-center gap-2 text-base font-normal">
                         <Badge variant="outline" className="tabular-nums">
-                            {task.wbs_number}
+                            {task.reference}
                         </Badge>
                         <span className="truncate text-muted-foreground">
                             {task.title}
                         </span>
                     </DialogTitle>
                     <DialogDescription className="sr-only">
-                        Detail dan pengeditan task {task.wbs_number}.
+                        Detail dan pengeditan task {task.reference}.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -246,7 +246,7 @@ function TaskDetail({
                                                     className="flex items-center gap-3 px-3 py-2 text-sm"
                                                 >
                                                     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                                                        {child.wbs_number}
+                                                        {child.reference}
                                                     </span>
 
                                                     {onOpenTask ? (
@@ -520,7 +520,7 @@ function TaskDetail({
                                                         value={priority.value}
                                                     >
                                                         <span
-                                                            className={`rounded px-1.5 py-0.5 text-xs ${TASK_PRIORITY_CLASSES[priority.value as TaskPriority]}`}
+                                                            className={`rounded border px-1.5 py-0.5 text-xs ${TASK_PRIORITY_CLASSES[priority.value as TaskPriority]}`}
                                                         >
                                                             {priority.label}
                                                         </span>

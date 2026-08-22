@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { UserInfo } from '@/components/user-info';
+import { normalizeProjectKey, PROJECT_KEY_MAX_LENGTH } from '@/lib/project-key';
 import {
     destroy as removeMember,
     store as addMember,
@@ -58,6 +59,7 @@ export default function ProjectSettings({
 
     const editForm = useForm({
         name: project.name,
+        key: project.key,
         description: project.description ?? '',
         org_unit_id: project.org_unit.id as number | null,
         status: project.status,
@@ -241,6 +243,30 @@ export default function ProjectSettings({
                                 }
                             />
                             <InputError message={editForm.errors.name} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-key">Key</Label>
+                            <Input
+                                id="edit-key"
+                                required
+                                value={editForm.data.key}
+                                maxLength={PROJECT_KEY_MAX_LENGTH}
+                                className="w-40 font-mono tracking-wide uppercase"
+                                onChange={(event) =>
+                                    editForm.setData(
+                                        'key',
+                                        normalizeProjectKey(event.target.value),
+                                    )
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Prefix referensi task project ini. Menggantinya
+                                mengubah setiap referensi, misalnya{' '}
+                                {project.key}-1 menjadi{' '}
+                                {editForm.data.key || '…'}-1.
+                            </p>
+                            <InputError message={editForm.errors.key} />
                         </div>
 
                         <div className="grid gap-2">

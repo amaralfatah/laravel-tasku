@@ -31,6 +31,12 @@ export type TaskAssignee = {
 export type TaskNode = {
     id: number;
     parent_task_id: number | null;
+    /**
+     * The task as people say it: the project key plus the WBS number, e.g.
+     * `GROWMATE-1.2`. It moves when the branch is renumbered, so key rows and
+     * links off `id`, never off this.
+     */
+    reference: string;
     wbs_number: string;
     depth: number;
     path: string;
@@ -71,12 +77,21 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
 /**
  * Priority colours double up with the label text, so colour is never the only
  * signal (WCAG: do not rely on colour alone).
+ *
+ * The four steps run on their own `--priority-*` tokens rather than on the
+ * generic surface ones. Borrowing those put `secondary` and `accent` — the same
+ * colour in the light theme — on two neighbouring steps, and handed the dark
+ * theme a near-white chip for "Sedang" and a chip darker than the page for
+ * "Tinggi". Every pair here clears 5.9:1 in both themes.
  */
 export const TASK_PRIORITY_CLASSES: Record<TaskPriority, string> = {
-    low: 'border-border bg-muted text-muted-foreground',
-    medium: 'border-border bg-secondary text-secondary-foreground',
-    high: 'border-border bg-accent text-accent-foreground',
-    urgent: 'border-destructive/25 bg-destructive/10 text-destructive',
+    // "Rendah" is the one step with no hue to be recognised by, so its edge is
+    // drawn harder than the rest to keep the chip from dissolving into a
+    // popover or a card.
+    low: 'border-priority-low-foreground/35 bg-priority-low text-priority-low-foreground',
+    medium: 'border-priority-medium-foreground/20 bg-priority-medium text-priority-medium-foreground',
+    high: 'border-priority-high-foreground/20 bg-priority-high text-priority-high-foreground',
+    urgent: 'border-priority-urgent-foreground/25 bg-priority-urgent text-priority-urgent-foreground',
 };
 
 /**
@@ -94,13 +109,17 @@ export const TASK_STATUS_VARIANT: Record<
 
 /**
  * Priority as an outlined chip for the board card, in the style Jira uses for
- * issue labels: the colour lives in the border only, so a row of chips stays
- * quieter than the task title above it. Pair with the `outline` badge variant.
- * The chip's text is the priority name, so colour is never the only signal.
+ * issue labels: no fill, so a row of chips stays quieter than the task title
+ * above it. Pair with the `outline` badge variant. The chip's text is the
+ * priority name, so colour is never the only signal.
+ *
+ * The hue sits in the text as well as the border. Carrying it in a 1px border
+ * alone left the first three steps apart only by the opacity of a neutral
+ * line — a distinction that survives neither a small screen nor a glance.
  */
 export const TASK_PRIORITY_BADGE: Record<TaskPriority, string> = {
-    low: 'border-muted-foreground/50',
-    medium: 'border-foreground/40',
-    high: 'border-foreground/70',
-    urgent: 'border-destructive',
+    low: 'border-priority-low-foreground/45 text-priority-low-foreground',
+    medium: 'border-priority-medium-foreground/50 text-priority-medium-foreground',
+    high: 'border-priority-high-foreground/60 text-priority-high-foreground',
+    urgent: 'border-priority-urgent-foreground/70 text-priority-urgent-foreground',
 };

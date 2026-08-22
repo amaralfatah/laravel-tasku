@@ -22,15 +22,17 @@ function sidebarWorkspace(WorkspaceRole $role): array
     return [$member, $unit];
 }
 
-test('the sidebar lists the projects a manager may open, newest first', function () {
+test('the sidebar lists the projects a manager may open, by name', function () {
     [$member, $unit] = sidebarWorkspace(WorkspaceRole::Bod1);
 
+    // Recency runs against the alphabet here on purpose: a sidebar that
+    // reshuffles as projects are touched costs the reader their bearings.
     Project::factory()->in($unit)->create([
-        'name' => 'Panen Lama',
+        'name' => 'Aneka Panen',
         'updated_at' => now()->subWeek(),
     ]);
     Project::factory()->in($unit)->create([
-        'name' => 'Panen Baru',
+        'name' => 'Zona Panen',
         'updated_at' => now(),
     ]);
     Project::factory()->in($unit)->create([
@@ -44,9 +46,43 @@ test('the sidebar lists the projects a manager may open, newest first', function
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->has('tenancy.projects', 2)
-            ->where('tenancy.projects.0.name', 'Panen Baru')
-            ->where('tenancy.projects.1.name', 'Panen Lama')
+            ->where('tenancy.projects.0.name', 'Aneka Panen')
+            ->where('tenancy.projects.1.name', 'Zona Panen')
+            ->missing('tenancy.projects.0.status')
         );
+});
+
+test('the sidebar carries the open project even when the limit left it out', function () {
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Bod1);
+
+    foreach (['Alfa', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot'] as $name) {
+        Project::factory()->in($unit)->create(['name' => $name]);
+    }
+
+    $current = Project::factory()->in($unit)->create(['name' => 'Zulu']);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.show', $current))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('tenancy.projects', 7)
+            ->where('tenancy.projects.6.id', $current->id)
+        );
+});
+
+test('the sidebar does not smuggle in a project the member may not open', function () {
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Bod4);
+
+    $mine = Project::factory()->in($unit)->create(['name' => 'Punya Saya']);
+    $mine->members()->attach($member->user_id);
+
+    $theirs = Project::factory()->in($unit)->create(['name' => 'Punya Orang Lain']);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.show', $theirs))
+        ->assertForbidden();
 });
 
 test('the sidebar hides projects the member does not belong to', function () {

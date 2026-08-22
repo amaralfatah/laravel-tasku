@@ -20,9 +20,10 @@ class TaskPresenter
 {
     /**
      * @param  Collection<int, Task>  $tasks
+     * @param  string  $projectKey  the tasks' project key, which turns their number into a reference
      * @return array<int, array<string, mixed>>
      */
-    public static function collection(Collection $tasks, User $user, bool $canEdit): array
+    public static function collection(Collection $tasks, User $user, bool $canEdit, string $projectKey): array
     {
         $childrenByParent = $tasks
             ->whereNotNull('parent_task_id')
@@ -33,6 +34,7 @@ class TaskPresenter
                 $task,
                 $user,
                 $canEdit,
+                $projectKey,
                 $childrenByParent->get($task->id),
             ))
             ->values()
@@ -40,16 +42,20 @@ class TaskPresenter
     }
 
     /**
+     * The key is passed in rather than read off `$task->project`, so a page
+     * that renders a whole board never loads the project once per task.
+     *
      * @param  Collection<int, Task>|null  $children  direct children, when already loaded
      * @return array<string, mixed>
      */
-    public static function one(Task $task, User $user, bool $canEdit, ?Collection $children = null): array
+    public static function one(Task $task, User $user, bool $canEdit, string $projectKey, ?Collection $children = null): array
     {
         $childCount = $children?->count() ?? 0;
 
         return [
             'id' => $task->id,
             'parent_task_id' => $task->parent_task_id,
+            'reference' => $projectKey.'-'.$task->wbs_number,
             'wbs_number' => $task->wbs_number,
             'depth' => $task->depth,
             'path' => $task->path,

@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 import {
     Collapsible,
     CollapsibleContent,
@@ -14,6 +15,7 @@ import {
     SidebarMenuSub,
     SidebarMenuSubButton,
     SidebarMenuSubItem,
+    useSidebar,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn } from '@/lib/utils';
@@ -26,11 +28,17 @@ import type { NavEntry, NavGroupItem, NavItem } from '@/types';
 export const ACTIVE_RAIL =
     'relative data-[active=true]:before:absolute data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:-left-2 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary';
 
-/** Sub rows carry the same height and text as the top-level ones. */
-export const SUB_ROW = 'h-8 gap-2 text-sm';
+/**
+ * Sub rows keep the height of the top-level ones but sit a step quieter, so a
+ * child never reads as a sibling of the item it hangs under.
+ */
+export const SUB_ROW = 'h-8 gap-2 text-sm text-sidebar-foreground/70';
 
-/** The sub list drops its rail and indent so the rows stay aligned. */
-export const SUB_LIST = 'mx-0 translate-x-0 border-none px-0';
+/**
+ * The sub list drops the shadcn rail but keeps an indent — the indent is what
+ * carries the hierarchy once the rail is gone.
+ */
+export const SUB_LIST = 'mx-0 translate-x-0 border-none pr-0 pl-4';
 
 function NavLeaf({ item }: { item: NavItem }) {
     const { isCurrentUrl } = useCurrentUrl();
@@ -59,13 +67,31 @@ function NavLeaf({ item }: { item: NavItem }) {
 
 function NavBranch({ item }: { item: NavGroupItem }) {
     const { isCurrentUrl } = useCurrentUrl();
+    const { state, isMobile } = useSidebar();
     const children = item.items;
+    const [isOpen, setIsOpen] = useState(true);
+
+    const hasActiveChild = children.some((child) => isCurrentUrl(child.href));
+
+    // The heading stands in for the open child whenever that child is out of
+    // sight — folded away, or hidden because the icon rail drops sub lists.
+    // While the list is visible the child carries the marker on its own, so
+    // lighting both would say "you are in two places".
+    const childIsHidden = !isOpen || (state === 'collapsed' && !isMobile);
 
     return (
-        <Collapsible defaultOpen className="group/collapsible">
+        <Collapsible
+            open={isOpen}
+            onOpenChange={setIsOpen}
+            className="group/collapsible"
+        >
             <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip={{ children: item.title }}>
+                    <SidebarMenuButton
+                        isActive={hasActiveChild && childIsHidden}
+                        tooltip={{ children: item.title }}
+                        className={ACTIVE_RAIL}
+                    >
                         {item.icon && <item.icon />}
                         <span>{item.title}</span>
                         <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 motion-reduce:transition-none" />

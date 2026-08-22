@@ -95,8 +95,8 @@ export function TaskTreeRow({
                     <span className="size-6 shrink-0" aria-hidden="true" />
                 )}
 
-                <span className="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {task.wbs_number}
+                <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                    {task.reference}
                 </span>
 
                 <button

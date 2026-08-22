@@ -77,9 +77,14 @@ class WorkspaceMember extends Model
     public function scopePath(): ?string
     {
         if ($this->resolvedScopePath === null && $this->org_unit_id !== null) {
-            $this->resolvedScopePath = $this->relationLoaded('orgUnit')
-                ? $this->orgUnit?->path
-                : OrgUnit::query()->whereKey($this->org_unit_id)->value('path');
+            // A loaded relation may have been fetched with a column subset that
+            // leaves `path` out, so read it only when it is actually there and
+            // fall back to the query otherwise. Treating a missing column as
+            // "no scope" silently demotes a leader to a plain member.
+            $loaded = $this->relationLoaded('orgUnit') ? $this->orgUnit : null;
+
+            $this->resolvedScopePath = $loaded?->path
+                ?? OrgUnit::query()->whereKey($this->org_unit_id)->value('path');
         }
 
         return $this->resolvedScopePath;

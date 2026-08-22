@@ -111,7 +111,7 @@ class PersonController extends Controller
                 ],
                 'can_edit' => $canEdit,
                 'assignees' => $this->assigneeOptions($project),
-                'tasks' => TaskPresenter::collection($group, $user, $canEdit),
+                'tasks' => TaskPresenter::collection($group, $user, $canEdit, $project->key),
             ];
         }
 

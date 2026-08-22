@@ -232,7 +232,7 @@ export default function ProjectTimeline({
                                 >
                                     <div className="pt-1">Task</div>
                                     <div className="text-[10px] font-normal">
-                                        WBS &amp; judul
+                                        Task &amp; judul
                                     </div>
                                 </div>
 
@@ -288,8 +288,8 @@ export default function ProjectTimeline({
                                                 />
                                             )}
 
-                                            <span className="w-12 shrink-0 text-xs text-muted-foreground tabular-nums">
-                                                {task.wbs_number}
+                                            <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                                {task.reference}
                                             </span>
 
                                             <button
@@ -320,7 +320,7 @@ export default function ProjectTimeline({
                                                 onClick={() =>
                                                     setOpenTaskId(task.id)
                                                 }
-                                                label={`${task.wbs_number} ${task.title}: ${formatDay(span.start)} sampai ${formatDay(span.end)}, progress ${task.progress}%${span.derived ? ', rentang dihitung dari sub task' : ''}`}
+                                                label={`${task.reference} ${task.title}: ${formatDay(span.start)} sampai ${formatDay(span.end)}, progress ${task.progress}%${span.derived ? ', rentang dihitung dari sub task' : ''}`}
                                             />
                                         </div>
                                     </div>
@@ -348,8 +348,8 @@ export default function ProjectTimeline({
                                         onClick={() => setOpenTaskId(task.id)}
                                         className="flex min-h-11 w-full items-center gap-3 px-3 text-left hover:bg-muted/40"
                                     >
-                                        <span className="w-12 shrink-0 text-xs text-muted-foreground tabular-nums">
-                                            {task.wbs_number}
+                                        <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                            {task.reference}
                                         </span>
                                         <span className="min-w-0 flex-1 truncate">
                                             {task.title}

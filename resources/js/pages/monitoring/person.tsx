@@ -204,7 +204,7 @@ export default function MonitoringPerson({
                         >
                             <div className="flex border-b bg-muted/40">
                                 <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
-                                    WBS · Judul · Progress
+                                    Task · Judul · Progress
                                 </div>
                                 <TimelineHeader scale={scale} />
                             </div>
@@ -240,8 +240,8 @@ export default function MonitoringPerson({
                                                     paddingLeft: `${12 + task.depth * 14}px`,
                                                 }}
                                             >
-                                                <span className="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
-                                                    {task.wbs_number}
+                                                <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                                    {task.reference}
                                                 </span>
                                                 <button
                                                     type="button"
@@ -303,8 +303,8 @@ export default function MonitoringPerson({
                                     key={task.id}
                                     className="flex items-center gap-3 px-3 py-2"
                                 >
-                                    <span className="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
-                                        {task.wbs_number}
+                                    <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                        {task.reference}
                                     </span>
                                     <button
                                         type="button"

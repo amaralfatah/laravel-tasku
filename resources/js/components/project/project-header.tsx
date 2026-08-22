@@ -22,16 +22,17 @@ export function ProjectHeader({
         { key: 'board', label: 'Papan', href: show(project.id).url },
         { key: 'list', label: 'Daftar', href: list(project.id).url },
         { key: 'timeline', label: 'Timeline', href: timeline(project.id).url },
-        { key: 'settings', label: 'Pengaturan', href: settings(project.id).url },
+        {
+            key: 'settings',
+            label: 'Pengaturan',
+            href: settings(project.id).url,
+        },
     ];
 
     return (
         <div className="space-y-4">
             <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-accent px-1.5 py-0.5 font-mono text-xs tracking-wide text-accent-foreground">
-                        {project.key}
-                    </span>
                     <h1 className="text-xl font-semibold">{project.name}</h1>
                     <Badge variant={PROJECT_STATUS_VARIANT[project.status]}>
                         {project.status_label}

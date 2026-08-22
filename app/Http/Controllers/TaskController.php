@@ -30,7 +30,7 @@ class TaskController extends Controller
 
         $task = $this->hierarchy->create($project, $attributes, $parent);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => "Task {$task->wbs_number} dibuat."]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Task {$task->reference} dibuat."]);
 
         return back();
     }

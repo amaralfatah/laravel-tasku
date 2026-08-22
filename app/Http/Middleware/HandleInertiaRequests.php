@@ -86,9 +86,14 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * The projects the sidebar lists, most recently touched first.
+     * The projects the sidebar lists, in a fixed order.
      *
-     * @return array<int, array<string, mixed>>
+     * Sorted by name rather than by recency: a navigation that reshuffles as
+     * projects are touched costs the reader the position they had memorised.
+     * The project being viewed is appended when the limit left it out, so the
+     * sidebar never goes blank on a page that clearly belongs to a project.
+     *
+     * @return array<int, array{id: int, name: string}>
      */
     protected function sidebarProjects(Request $request): array
     {
@@ -98,18 +103,49 @@ class HandleInertiaRequests extends Middleware
             return [];
         }
 
-        return Project::query()
+        $projects = Project::query()
             ->visibleTo($user)
             ->where('status', '!=', ProjectStatus::Archived->value)
-            ->orderByDesc('updated_at')
+            ->orderBy('name')
             ->limit(self::SIDEBAR_PROJECT_LIMIT)
-            ->get(['id', 'name', 'status'])
+            ->get(['id', 'name']);
+
+        $currentId = $this->currentProjectId($request);
+
+        if ($currentId !== null && ! $projects->contains('id', $currentId)) {
+            $current = Project::query()
+                ->visibleTo($user)
+                ->whereKey($currentId)
+                ->first(['id', 'name']);
+
+            if ($current !== null) {
+                $projects = $projects->push($current)->sortBy('name')->values();
+            }
+        }
+
+        return $projects
             ->map(fn (Project $project): array => [
                 'id' => $project->id,
                 'name' => $project->name,
-                'status' => $project->status->value,
             ])
             ->all();
+    }
+
+    /**
+     * The project the current route points at, if any.
+     *
+     * Inertia shares props before the router substitutes bindings, so the
+     * route parameter is still the raw key from the URL here.
+     */
+    protected function currentProjectId(Request $request): ?int
+    {
+        $parameter = $request->route('project');
+
+        if ($parameter instanceof Project) {
+            return $parameter->id;
+        }
+
+        return is_numeric($parameter) ? (int) $parameter : null;
     }
 
     /**

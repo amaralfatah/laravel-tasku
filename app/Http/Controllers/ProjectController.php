@@ -75,6 +75,9 @@ class ProjectController extends Controller
                 'status' => $statusFilter,
             ],
             'can' => ['create' => $request->user()->can('create', Project::class)],
+            // The sidebar's "+" has no form of its own to send people to, so
+            // it links here and asks for the create dialog to come up open.
+            'openCreate' => $request->boolean('create'),
         ]);
     }
 
@@ -223,7 +226,7 @@ class ProjectController extends Controller
 
         return [
             'project' => $this->projectSummary($project),
-            'tasks' => TaskPresenter::collection($tasks, $request->user(), $canEdit),
+            'tasks' => TaskPresenter::collection($tasks, $request->user(), $canEdit, $project->key),
             'filters' => $filters->toArray(),
             'statuses' => TaskPresenter::statusOptions(),
             'priorities' => TaskPresenter::priorityOptions(),

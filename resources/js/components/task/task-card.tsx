@@ -165,7 +165,9 @@ export function TaskCard({
                     className="size-4 shrink-0 text-emerald-600 dark:text-emerald-500"
                     aria-hidden="true"
                 />
-                <span className="tabular-nums">{task.wbs_number}</span>
+                <span className="font-medium tabular-nums">
+                    {task.reference}
+                </span>
 
                 <span className="ml-auto">
                     {task.assignee ? (

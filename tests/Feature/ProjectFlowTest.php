@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\TaskHierarchy;
 use Inertia\Testing\AssertableInertia;
 
 /**
@@ -296,4 +297,79 @@ test('a key already taken makes the generated one fall to a numbered variant', f
         ->assertRedirect();
 
     expect(Project::withoutGlobalScopes()->where('name', 'Sistem Panen')->value('key'))->toBe('SP2');
+});
+
+test('the sidebar plus asks the index page to open the create dialog', function () {
+    [$member] = projectWorkspace(WorkspaceRole::Bod1);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.index', ['create' => 1]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('openCreate', true)
+            ->where('can.create', true)
+        );
+});
+
+test('the index page leaves the create dialog shut without the flag', function () {
+    [$member] = projectWorkspace(WorkspaceRole::Bod1);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.index'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('openCreate', false));
+});
+
+test('the key can be changed and every task reference follows it', function () {
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    $project = Project::factory()->in($unit)->create(['key' => 'LAMA']);
+    $project->members()->attach($member->user_id);
+
+    $task = app(TaskHierarchy::class)->create($project, ['title' => 'Rancang skema']);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('projects.update', $project), ['key' => 'baru'])
+        ->assertRedirect();
+
+    expect($project->refresh()->key)->toBe('BARU')
+        ->and($task->refresh()->reference)->toBe('BARU-1');
+});
+
+test('a key already held by another project cannot be moved onto this one', function () {
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    $session = ['workspace_id' => $member->workspace_id];
+
+    Project::factory()->in($unit)->create(['key' => 'PANEN']);
+    $project = Project::factory()->in($unit)->create(['key' => 'LAMA']);
+    $project->members()->attach($member->user_id);
+
+    $this->actingAs($member->user)->withSession($session)
+        ->patch(route('projects.update', $project), ['key' => 'PANEN'])
+        ->assertSessionHasErrors('key');
+
+    // Keeping its own key is not a duplicate of itself.
+    $this->actingAs($member->user)->withSession($session)
+        ->patch(route('projects.update', $project), ['key' => 'LAMA', 'name' => 'Nama Baru'])
+        ->assertSessionHasNoErrors();
+
+    expect($project->refresh()->name)->toBe('Nama Baru');
+});
+
+test('a malformed or blank key is refused on update', function () {
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    $session = ['workspace_id' => $member->workspace_id];
+
+    $project = Project::factory()->in($unit)->create(['key' => 'LAMA']);
+    $project->members()->attach($member->user_id);
+
+    foreach (['', '1AB', 'A', 'AB-C'] as $key) {
+        $this->actingAs($member->user)->withSession($session)
+            ->patch(route('projects.update', $project), ['key' => $key])
+            ->assertSessionHasErrors('key');
+    }
+
+    expect($project->refresh()->key)->toBe('LAMA');
 });

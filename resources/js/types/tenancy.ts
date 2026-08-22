@@ -1,5 +1,3 @@
-import type { ProjectStatus } from '@/types/projects';
-
 export type WorkspaceRole = 'bod_1' | 'bod_2' | 'bod_3' | 'bod_4';
 
 export type WorkspaceSummary = {
@@ -23,7 +21,6 @@ export type Membership = {
 export type SidebarProject = {
     id: number;
     name: string;
-    status: ProjectStatus;
 };
 
 export type Tenancy = {

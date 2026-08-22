@@ -263,3 +263,23 @@ test('an ODS cannot reach the org tree endpoints at all', function () {
         ->getJson(route('org-units.search', ['q' => 'Backend']))
         ->assertForbidden();
 });
+
+test('the menu survives a page that loads the org unit without its path', function () {
+    // Regression: /monitoring/me loads the viewer's own membership with a
+    // column subset that omits `path`, which used to make the shared props
+    // report the leader as leading nobody and collapse the sidebar.
+    ['workspace' => $workspace, 'engineering' => $engineering] = twoBranchWorkspace();
+
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->leading($engineering, WorkspaceRole::Bod2)
+        ->create();
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('monitoring.me'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('tenancy.membership.can_monitor', true)
+        );
+});

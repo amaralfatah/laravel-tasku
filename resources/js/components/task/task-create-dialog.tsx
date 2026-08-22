@@ -88,7 +88,7 @@ export function TaskCreateDialog({
                     </DialogTitle>
                     <DialogDescription>
                         {parent
-                            ? `Sub task dari ${parent.wbs_number} ${parent.title}.`
+                            ? `Sub task dari ${parent.reference} ${parent.title}.`
                             : 'Judul wajib diisi, sisanya bisa dilengkapi nanti.'}
                     </DialogDescription>
                 </DialogHeader>

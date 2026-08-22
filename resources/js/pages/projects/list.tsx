@@ -164,7 +164,7 @@ export default function ProjectList({
 
                 <div className="rounded-lg border">
                     <div className="hidden grid-cols-[minmax(0,1fr)_9rem_10rem_7rem_9rem_2rem] gap-3 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground lg:grid">
-                        <span>WBS &amp; judul</span>
+                        <span>Task &amp; judul</span>
                         <span>Progress</span>
                         <span>Penanggung jawab</span>
                         <span>Status</span>

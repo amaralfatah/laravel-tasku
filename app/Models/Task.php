@@ -6,10 +6,12 @@ use App\Concerns\BelongsToWorkspace;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Observers\TaskObserver;
+use App\Support\TaskPresenter;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $workspace_id
  * @property int $project_id
+ * @property-read string $reference project key plus WBS number, e.g. GROWMATE-1.2
  * @property int|null $parent_task_id
  * @property string $path materialized path, e.g. /12/45/78/
  * @property int $depth 0 is a root task
@@ -59,6 +62,22 @@ class Task extends Model
      * one-constant change (5.3 note 3).
      */
     public const MAX_DEPTH = 4;
+
+    /**
+     * The reference people read and say out loud, e.g. `GROWMATE-1.2`.
+     *
+     * The project key gives it the Jira shape; the number is the WBS number,
+     * so the reference also states where the task sits in the tree. That makes
+     * it a position rather than an identity: renumbering a branch (TSK-13)
+     * changes it, so never store one as a link to a task — use the id.
+     *
+     * Reads the project relation, so callers that render many tasks should
+     * either eager load it or hand the key straight to {@see TaskPresenter}.
+     */
+    protected function reference(): Attribute
+    {
+        return Attribute::get(fn (): string => $this->project->key.'-'.$this->wbs_number);
+    }
 
     /** @return BelongsTo<Project, $this> */
     public function project(): BelongsTo

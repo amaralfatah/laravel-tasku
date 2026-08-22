@@ -42,6 +42,7 @@ export default function Projects({
     statuses,
     filters,
     can,
+    openCreate,
 }: {
     projects: ProjectListItem[];
     unitPicker: OrgUnitPickerProps;
@@ -52,8 +53,9 @@ export default function Projects({
         status: string;
     };
     can: { create: boolean };
+    openCreate: boolean;
 }) {
-    const [createOpen, setCreateOpen] = useState(false);
+    const [createOpen, setCreateOpen] = useState(openCreate && can.create);
     // Once the key is typed by hand it stops following the name, the way the
     // Jira create form behaves.
     const [keyEdited, setKeyEdited] = useState(false);
@@ -70,6 +72,21 @@ export default function Projects({
         org_unit_id: unitPicker.default?.id ?? null,
         status: 'active',
     });
+
+    // Closing the dialog drops the sidebar's `?create=1` so a reload does not
+    // bring it straight back. Rewriting the URL in place keeps the filters and
+    // Inertia's own history state untouched.
+    const handleCreateOpenChange = (open: boolean) => {
+        setCreateOpen(open);
+
+        if (open || !openCreate || typeof window === 'undefined') {
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('create');
+        window.history.replaceState(window.history.state, '', url.toString());
+    };
 
     const applyFilter = (patch: Record<string, string | number | null>) => {
         router.get(
@@ -95,7 +112,10 @@ export default function Projects({
                     />
 
                     {can.create && (
-                        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                        <Dialog
+                            open={createOpen}
+                            onOpenChange={handleCreateOpenChange}
+                        >
                             <DialogTrigger asChild>
                                 <Button
                                     disabled={
@@ -127,7 +147,7 @@ export default function Projects({
                                         event.preventDefault();
                                         form.post(store().url, {
                                             onSuccess: () => {
-                                                setCreateOpen(false);
+                                                handleCreateOpenChange(false);
                                                 setKeyEdited(false);
                                                 form.reset();
                                             },
@@ -238,7 +258,9 @@ export default function Projects({
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            onClick={() => setCreateOpen(false)}
+                                            onClick={() =>
+                                                handleCreateOpenChange(false)
+                                            }
                                         >
                                             Batal
                                         </Button>
