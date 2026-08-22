@@ -1,8 +1,11 @@
 /**
- * Week-based date helpers (6.6).
+ * Date helpers.
  *
  * Dates travel as plain `YYYY-MM-DD` strings, so everything here works on
  * calendar days only — no timezone conversion is involved or wanted.
+ *
+ * Tasks are scheduled by the day; the week helpers that remain only lay out
+ * the timeline's columns, they no longer shape what a user can pick.
  */
 
 export const TIMEZONE = 'Asia/Jakarta';
@@ -30,23 +33,12 @@ export function toDateString(date: Date): string {
     return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** Week within the month, 1 through 5 (DATE-3). */
+/**
+ * Week within the month, 1 through 5 — how the team numbers its weeks.
+ * Only the timeline header speaks this; task dates are picked by the day.
+ */
 export function weekOfMonth(date: Date): number {
     return Math.ceil(date.getDate() / 7);
-}
-
-/** Short week label, e.g. `W1 07-25` (DATE-2). */
-export function formatWeek(value: string | Date | null | undefined): string {
-    const date = value instanceof Date ? value : parseDate(value);
-
-    if (!date) {
-        return '—';
-    }
-
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = String(date.getFullYear()).slice(-2);
-
-    return `W${weekOfMonth(date)} ${month}-${year}`;
 }
 
 /** Day-level label, e.g. `05 Agu 2026`. */
@@ -77,7 +69,7 @@ export function formatDateTime(value: string | null | undefined): string {
     }).format(new Date(value));
 }
 
-/** Monday of the week containing the date (DATE-4). */
+/** Monday of the week containing the date; the timeline's column origin. */
 export function startOfWeek(date: Date): Date {
     const result = new Date(date);
     // getDay() is 0 for Sunday, so Sunday counts as the end of the prior week.
@@ -85,22 +77,6 @@ export function startOfWeek(date: Date): Date {
     result.setDate(result.getDate() - offset);
 
     return result;
-}
-
-/** Friday of the week containing the date (DATE-4). */
-export function endOfWeek(date: Date): Date {
-    const result = startOfWeek(date);
-    result.setDate(result.getDate() + 4);
-
-    return result;
-}
-
-/** Monday..Friday range for the week containing the date. */
-export function weekRange(date: Date): { start: string; end: string } {
-    return {
-        start: toDateString(startOfWeek(date)),
-        end: toDateString(endOfWeek(date)),
-    };
 }
 
 export function addWeeks(date: Date, count: number): Date {

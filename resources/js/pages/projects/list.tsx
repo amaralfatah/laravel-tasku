@@ -222,6 +222,15 @@ export default function ProjectList({
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
+                onOpenTask={setOpenTaskId}
+                onAddSubtask={
+                    openTask
+                        ? () => {
+                              setCreateParent(openTask);
+                              setCreateOpen(true);
+                          }
+                        : undefined
+                }
             />
 
             <TaskCreateDialog

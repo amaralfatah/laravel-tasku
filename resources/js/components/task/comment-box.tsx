@@ -203,8 +203,7 @@ export function CommentBox({
                                                                     comment.id,
                                                                 ).url,
                                                                 {
-                                                                    preserveScroll:
-                                                                        true,
+                                                                    preserveScroll: true,
                                                                     onSuccess:
                                                                         load,
                                                                 },
@@ -294,7 +293,9 @@ function CommentEditor({
 
     const insertMention = (person: Mentionable) => {
         const caret = textareaRef.current?.selectionStart ?? body.length;
-        const before = body.slice(0, caret).replace(/@[\p{L}\p{N} ]{0,30}$/u, '');
+        const before = body
+            .slice(0, caret)
+            .replace(/@[\p{L}\p{N} ]{0,30}$/u, '');
         const after = body.slice(caret);
 
         setBody(`${before}@[user:${person.id}] ${after}`);

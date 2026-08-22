@@ -121,7 +121,47 @@ class TaskHierarchy
             Task::query()->inSubtree($task)->delete();
 
             $this->renumber($project, $parent);
+
+            // A mass delete fires no model events, so the parent's roll-up has
+            // to be asked for here.
+            $this->syncParentProgress($parent?->refresh());
         });
+    }
+
+    /**
+     * Recompute a task's progress from its direct sub tasks (TSK-17).
+     *
+     * Nobody types a percentage for a task that has sub tasks: finishing a sub
+     * task is what moves the task above it, and a status set by hand on such a
+     * task is overruled here. A task without sub tasks is left alone — its own
+     * status is what drives its progress. Saving fires the observer, which
+     * calls this again for the level above; an unchanged task stops the climb.
+     */
+    public function syncParentProgress(?Task $parent): void
+    {
+        $average = $parent?->children()->avg('progress');
+
+        if ($parent === null || $average === null) {
+            return;
+        }
+
+        $average = (int) round($average);
+
+        // Progress and status must not contradict each other (TSK-16).
+        $status = match (true) {
+            $average >= 100 => TaskStatus::Done,
+            $average > 0 => TaskStatus::InProgress,
+            default => TaskStatus::Todo,
+        };
+
+        if ($parent->progress === $average && $parent->status === $status) {
+            return;
+        }
+
+        $parent->forceFill([
+            'progress' => $average,
+            'status' => $status,
+        ])->save();
     }
 
     /**

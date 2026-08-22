@@ -1,9 +1,10 @@
 import { router, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+
 import InputError from '@/components/input-error';
 import { CommentBox } from '@/components/task/comment-box';
 import { ProgressBar } from '@/components/task/progress-bar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,8 +24,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { WeekPicker } from '@/components/week-picker';
-import { formatWeek } from '@/lib/week';
+import { useInitials } from '@/hooks/use-initials';
 import { destroy, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import {
@@ -53,56 +53,71 @@ const UNASSIGNED = 'none';
  */
 export function TaskDetailModal({
     task,
-    subtasks = [],
-    assignees,
-    statuses,
-    priorities,
-    onClose,
-}: {
-    task: TaskNode | null;
+    ...props
+}: TaskDetailModalProps & { task: TaskNode | null }) {
+    if (!task) {
+        return null;
+    }
+
+    // Keyed on the task: opening another one — a sub task, say — mounts a fresh
+    // form instead of trying to re-seed the current one. `useForm` keeps its
+    // defaults in state, so `setDefaults` followed by `reset` in an effect
+    // resets to the *previous* task's values, which left the panel showing the
+    // task the user came from.
+    return <TaskDetail key={task.id} task={task} {...props} />;
+}
+
+type TaskDetailModalProps = {
     /** Direct children, when the calling page has the whole tree loaded. */
     subtasks?: TaskNode[];
     assignees: TaskAssignee[];
     statuses: Option[];
     priorities: Option[];
     onClose: () => void;
-}) {
+    /**
+     * Swap the modal over to another task. Only pages holding the whole tree
+     * can honour this, so a sub task row is only clickable when it is given.
+     */
+    onOpenTask?: (id: number) => void;
+    /** Opens the calling page's create dialog with this task as the parent. */
+    onAddSubtask?: () => void;
+};
+
+function TaskDetail({
+    task,
+    subtasks = [],
+    assignees,
+    statuses,
+    priorities,
+    onClose,
+    onOpenTask,
+    onAddSubtask,
+}: TaskDetailModalProps & { task: TaskNode }) {
+    const getInitials = useInitials();
     const form = useForm({
-        title: task?.title ?? '',
-        description: task?.description ?? '',
-        assignee_id: task?.assignee?.id ?? null,
-        status: (task?.status ?? 'todo') as TaskStatus,
-        priority: (task?.priority ?? 'medium') as TaskPriority,
-        progress: task?.progress ?? 0,
-        start_date: task?.start_date ?? null,
-        due_date: task?.due_date ?? null,
+        title: task.title,
+        description: task.description ?? '',
+        assignee_id: task.assignee?.id ?? null,
+        status: task.status,
+        priority: task.priority,
+
+        start_date: task.start_date,
+        due_date: task.due_date,
     });
 
-    useEffect(() => {
-        if (!task) {
-            return;
-        }
-
-        form.setDefaults({
-            title: task.title,
-            description: task.description ?? '',
-            assignee_id: task.assignee?.id ?? null,
-            status: task.status,
-            priority: task.priority,
-            progress: task.progress,
-            start_date: task.start_date,
-            due_date: task.due_date,
-        });
-        form.reset();
-        form.clearErrors();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [task?.id]);
-
-    if (!task) {
-        return null;
-    }
-
     const readOnly = !task.can_edit;
+    /**
+     * The picked person, for the avatar in the trigger. A task can carry an
+     * assignee who is no longer in the project's member list, so the task's own
+     * one is the fallback.
+     */
+    const assignee =
+        assignees.find((member) => member.id === form.data.assignee_id) ??
+        (task.assignee?.id === form.data.assignee_id ? task.assignee : null);
+    /** Depth is capped, so a task at the bottom level takes no children (TSK-9). */
+    const canAddSubtask = Boolean(
+        onAddSubtask && !readOnly && task.can_have_children,
+    );
     const donePercent =
         task.children_count > 0
             ? Math.round((task.done_children_count / task.children_count) * 100)
@@ -110,9 +125,15 @@ export function TaskDetailModal({
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="flex max-h-[88vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
-                <DialogHeader className="shrink-0 border-b px-6 py-3 pr-14">
-                    <DialogTitle className="flex items-center gap-2 text-sm font-normal">
+            <DialogContent
+                className="flex max-h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl"
+                // Radix focuses the first field on open, which selects the
+                // whole title and invites an accidental overwrite. The modal is
+                // for reading first, so nothing is focused until it is clicked.
+                onOpenAutoFocus={(event) => event.preventDefault()}
+            >
+                <DialogHeader className="shrink-0 border-b px-8 py-4 pr-14">
+                    <DialogTitle className="flex items-center gap-2 text-base font-normal">
                         <Badge variant="outline" className="tabular-nums">
                             {task.wbs_number}
                         </Badge>
@@ -135,8 +156,8 @@ export function TaskDetailModal({
                         });
                     }}
                 >
-                    <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_20rem]">
-                        <div className="min-h-0 space-y-6 overflow-y-auto px-6 py-5">
+                    <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_23rem]">
+                        <div className="min-h-0 space-y-7 overflow-y-auto px-8 py-6">
                             <div className="grid gap-2">
                                 <Label htmlFor="task-title" className="sr-only">
                                     Judul
@@ -152,7 +173,7 @@ export function TaskDetailModal({
                                             event.target.value,
                                         )
                                     }
-                                    className="h-auto border-transparent bg-transparent px-2 py-1 text-xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-xl"
+                                    className="h-auto border-transparent bg-transparent px-2 py-1 text-2xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-2xl"
                                 />
                                 <InputError message={form.errors.title} />
                             </div>
@@ -178,20 +199,43 @@ export function TaskDetailModal({
                                 <InputError message={form.errors.description} />
                             </section>
 
-                            {task.children_count > 0 && (
+                            {(task.children_count > 0 || canAddSubtask) && (
                                 <section className="grid gap-3">
                                     <div className="flex items-center gap-3">
                                         <h3 className="text-sm font-semibold">
                                             Sub task
                                         </h3>
-                                        <ProgressBar
-                                            value={donePercent}
-                                            className="flex-1"
-                                        />
-                                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                                            {task.done_children_count}/
-                                            {task.children_count} selesai
-                                        </span>
+
+                                        {task.children_count > 0 && (
+                                            <>
+                                                <ProgressBar
+                                                    value={donePercent}
+                                                    className="flex-1"
+                                                />
+                                                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                                                    {task.done_children_count}/
+                                                    {task.children_count}{' '}
+                                                    selesai
+                                                </span>
+                                            </>
+                                        )}
+
+                                        {canAddSubtask && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="ml-auto size-8 shrink-0"
+                                                aria-label="Tambah sub task"
+                                                title="Tambah sub task"
+                                                onClick={onAddSubtask}
+                                            >
+                                                <Plus
+                                                    className="size-4"
+                                                    aria-hidden="true"
+                                                />
+                                            </Button>
+                                        )}
                                     </div>
 
                                     {subtasks.length > 0 && (
@@ -204,23 +248,99 @@ export function TaskDetailModal({
                                                     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                                                         {child.wbs_number}
                                                     </span>
-                                                    <span className="min-w-0 flex-1 truncate">
-                                                        {child.title}
-                                                    </span>
-                                                    <Badge
-                                                        variant={
-                                                            TASK_STATUS_VARIANT[
-                                                                child.status
-                                                            ]
-                                                        }
-                                                        className="shrink-0 font-normal"
-                                                    >
-                                                        {
-                                                            TASK_STATUS_LABELS[
-                                                                child.status
-                                                            ]
-                                                        }
-                                                    </Badge>
+
+                                                    {onOpenTask ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                onOpenTask(
+                                                                    child.id,
+                                                                )
+                                                            }
+                                                            className="min-w-0 flex-1 truncate text-left hover:underline"
+                                                        >
+                                                            {child.title}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="min-w-0 flex-1 truncate">
+                                                            {child.title}
+                                                        </span>
+                                                    )}
+
+                                                    {/* Jira lets a sub task's
+                                                        status be changed from
+                                                        the parent, without
+                                                        opening it. The parent's
+                                                        own unsaved edits are
+                                                        untouched: this PATCHes
+                                                        the child on its own. */}
+                                                    {child.can_edit ? (
+                                                        <Select
+                                                            value={child.status}
+                                                            onValueChange={(
+                                                                value,
+                                                            ) =>
+                                                                router.patch(
+                                                                    update(
+                                                                        child.id,
+                                                                    ).url,
+                                                                    {
+                                                                        status: value,
+                                                                    },
+                                                                    {
+                                                                        preserveScroll: true,
+                                                                        // Without this the page
+                                                                        // remounts and the modal
+                                                                        // closes on every change.
+                                                                        preserveState: true,
+                                                                    },
+                                                                )
+                                                            }
+                                                        >
+                                                            <SelectTrigger
+                                                                size="sm"
+                                                                className="w-32 shrink-0 border-transparent shadow-none hover:border-input"
+                                                                aria-label={`Status ${child.title}`}
+                                                            >
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {statuses.map(
+                                                                    (
+                                                                        status,
+                                                                    ) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                status.value
+                                                                            }
+                                                                            value={
+                                                                                status.value
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                status.label
+                                                                            }
+                                                                        </SelectItem>
+                                                                    ),
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    ) : (
+                                                        <Badge
+                                                            variant={
+                                                                TASK_STATUS_VARIANT[
+                                                                    child.status
+                                                                ]
+                                                            }
+                                                            className="shrink-0 font-normal"
+                                                        >
+                                                            {
+                                                                TASK_STATUS_LABELS[
+                                                                    child.status
+                                                                ]
+                                                            }
+                                                        </Badge>
+                                                    )}
                                                 </li>
                                             ))}
                                         </ul>
@@ -240,9 +360,17 @@ export function TaskDetailModal({
                             </section>
                         </div>
 
-                        <aside className="min-h-0 space-y-4 overflow-y-auto border-t bg-muted/20 px-5 py-5 lg:border-t-0 lg:border-l">
+                        <aside className="min-h-0 space-y-4 overflow-y-auto border-t bg-muted/20 px-6 py-6 lg:border-t-0 lg:border-l">
+                            {/* Jira leads the panel with the status as a
+                                standalone button, unlabelled — the value names
+                                the field well enough. */}
                             <div className="grid gap-2">
-                                <Label htmlFor="task-status">Status</Label>
+                                <Label
+                                    htmlFor="task-status"
+                                    className="sr-only"
+                                >
+                                    Status
+                                </Label>
                                 <Select
                                     value={form.data.status}
                                     disabled={readOnly}
@@ -253,7 +381,14 @@ export function TaskDetailModal({
                                         )
                                     }
                                 >
-                                    <SelectTrigger id="task-status">
+                                    {/* No colour override here: the trigger
+                                        already carries a dark-mode background,
+                                        and painting `text-secondary-foreground`
+                                        over it left dark text on dark. */}
+                                    <SelectTrigger
+                                        id="task-status"
+                                        className="w-auto justify-self-start font-medium"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -275,11 +410,19 @@ export function TaskDetailModal({
                                     Detail
                                 </h3>
 
-                                <div className="space-y-4 px-3 py-3">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="task-assignee">
-                                            Penanggung jawab
-                                        </Label>
+                                {/* Jira's Details panel: a muted label in a
+                                    fixed left column, the value beside it, and
+                                    controls that only draw a border on hover so
+                                    the panel reads as a list of facts rather
+                                    than a form. */}
+                                <div className="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-4">
+                                    <Label
+                                        htmlFor="task-assignee"
+                                        className="text-sm font-normal text-muted-foreground"
+                                    >
+                                        Penanggung jawab
+                                    </Label>
+                                    <div className="min-w-0">
                                         <Select
                                             value={String(
                                                 form.data.assignee_id ??
@@ -295,38 +438,64 @@ export function TaskDetailModal({
                                                 )
                                             }
                                         >
-                                            <SelectTrigger id="task-assignee">
-                                                <SelectValue placeholder="Belum ditugaskan" />
+                                            <SelectTrigger
+                                                id="task-assignee"
+
+                                                className="w-full border-transparent shadow-none hover:border-input"
+                                                title="Hanya anggota project yang bisa ditugaskan."
+                                            >
+                                                {assignee ? (
+                                                    <span className="flex min-w-0 items-center gap-2">
+                                                        <Avatar className="size-5">
+                                                            <AvatarImage
+                                                                src={
+                                                                    assignee.avatar ??
+                                                                    undefined
+                                                                }
+                                                                alt=""
+                                                            />
+                                                            <AvatarFallback className="text-[10px]">
+                                                                {getInitials(
+                                                                    assignee.name,
+                                                                )}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <span className="truncate">
+                                                            {assignee.name}
+                                                        </span>
+                                                    </span>
+                                                ) : (
+                                                    <SelectValue placeholder="Belum ditugaskan" />
+                                                )}
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value={UNASSIGNED}>
                                                     Belum ditugaskan
                                                 </SelectItem>
-                                                {assignees.map((assignee) => (
+                                                {assignees.map((member) => (
                                                     <SelectItem
-                                                        key={assignee.id}
+                                                        key={member.id}
                                                         value={String(
-                                                            assignee.id,
+                                                            member.id,
                                                         )}
                                                     >
-                                                        {assignee.name}
+                                                        {member.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        <p className="text-xs text-muted-foreground">
-                                            Hanya anggota project yang bisa
-                                            ditugaskan.
-                                        </p>
                                         <InputError
                                             message={form.errors.assignee_id}
                                         />
                                     </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="task-priority">
-                                            Prioritas
-                                        </Label>
+                                    <Label
+                                        htmlFor="task-priority"
+                                        className="text-sm font-normal text-muted-foreground"
+                                    >
+                                        Prioritas
+                                    </Label>
+                                    <div className="min-w-0">
                                         <Select
                                             value={form.data.priority}
                                             disabled={readOnly}
@@ -337,7 +506,11 @@ export function TaskDetailModal({
                                                 )
                                             }
                                         >
-                                            <SelectTrigger id="task-priority">
+                                            <SelectTrigger
+                                                id="task-priority"
+
+                                                className="w-full border-transparent shadow-none hover:border-input"
+                                            >
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -360,88 +533,75 @@ export function TaskDetailModal({
                                         />
                                     </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="task-progress">
-                                            Progress: {form.data.progress}%
-                                        </Label>
-                                        <input
-                                            id="task-progress"
-                                            type="range"
-                                            min={0}
-                                            max={100}
-                                            step={5}
+                                    <Label
+                                        htmlFor="task-start"
+                                        className="text-sm font-normal text-muted-foreground"
+                                    >
+                                        Mulai
+                                    </Label>
+                                    <div className="min-w-0">
+                                        <Input
+                                            id="task-start"
+                                            type="date"
                                             disabled={readOnly}
-                                            value={form.data.progress}
+                                            value={form.data.start_date ?? ''}
                                             onChange={(event) =>
                                                 form.setData(
-                                                    'progress',
-                                                    Number(event.target.value),
-                                                )
-                                            }
-                                            className="h-11 w-full accent-foreground"
-                                        />
-                                        <ProgressBar
-                                            value={form.data.progress}
-                                            rollup={task.rollup_progress}
-                                        />
-                                        {task.rollup_progress !== null && (
-                                            <p className="text-xs text-muted-foreground">
-                                                Rata-rata sub task:{' '}
-                                                {task.rollup_progress}% (garis
-                                                biru). Nilai ini hanya
-                                                pembanding, tidak menimpa
-                                                progress manual.
-                                            </p>
-                                        )}
-                                        <InputError
-                                            message={form.errors.progress}
-                                        />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="task-start">
-                                            Mulai
-                                        </Label>
-                                        <WeekPicker
-                                            id="task-start"
-                                            edge="start"
-                                            disabled={readOnly}
-                                            value={form.data.start_date}
-                                            onChange={(value) =>
-                                                form.setData(
                                                     'start_date',
-                                                    value,
+                                                    event.target.value || null,
                                                 )
                                             }
+                                            className="h-9 border-transparent px-2 text-sm shadow-none hover:border-input"
                                         />
                                         <InputError
                                             message={form.errors.start_date}
                                         />
                                     </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="task-due">
-                                            Selesai
-                                        </Label>
-                                        <WeekPicker
+                                    <Label
+                                        htmlFor="task-due"
+                                        className="text-sm font-normal text-muted-foreground"
+                                    >
+                                        Selesai
+                                    </Label>
+                                    <div className="min-w-0">
+                                        <Input
                                             id="task-due"
-                                            edge="end"
+                                            type="date"
                                             disabled={readOnly}
-                                            value={form.data.due_date}
-                                            onChange={(value) =>
-                                                form.setData('due_date', value)
+                                            value={form.data.due_date ?? ''}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'due_date',
+                                                    event.target.value || null,
+                                                )
                                             }
+                                            className="h-9 border-transparent px-2 text-sm shadow-none hover:border-input"
                                         />
                                         <InputError
                                             message={form.errors.due_date}
                                         />
                                     </div>
 
-                                    <p className="text-xs text-muted-foreground">
-                                        Jadwal:{' '}
-                                        {formatWeek(form.data.start_date)} —{' '}
-                                        {formatWeek(form.data.due_date)}
-                                    </p>
+                                    {/* Read-only: progress is derived from the
+                                        sub tasks that are done, or from the
+                                        task's own status when it is a leaf. */}
+                                    <span className="self-start pt-1.5 text-sm text-muted-foreground">
+                                        Progress
+                                    </span>
+                                    <div className="min-w-0 space-y-1.5 py-1">
+                                        <ProgressBar
+                                            value={task.progress}
+                                            showLabel
+                                        />
+                                        {task.children_count > 0 && (
+                                            <p className="text-xs text-muted-foreground">
+                                                {task.done_children_count} dari{' '}
+                                                {task.children_count} sub task
+                                                selesai.
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </aside>

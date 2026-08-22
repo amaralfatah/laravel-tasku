@@ -1,17 +1,16 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ListTree } from 'lucide-react';
+import { ChevronRight, ListTree, SquareCheckBig, User } from 'lucide-react';
 import { useRef } from 'react';
 import type {
     MouseEvent as ReactMouseEvent,
     PointerEvent as ReactPointerEvent,
 } from 'react';
-import { ProgressBar } from '@/components/task/progress-bar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { formatWeek } from '@/lib/week';
+import { formatDay } from '@/lib/week';
 import { TASK_PRIORITY_BADGE, TASK_PRIORITY_LABELS } from '@/types/tasks';
 import type { TaskNode } from '@/types/tasks';
 
@@ -110,22 +109,14 @@ export function TaskCard({
                     event.stopPropagation();
                     onOpen();
                 }}
-                className="block w-full min-w-0 text-left text-sm leading-snug font-medium"
+                className="block w-full min-w-0 text-left text-sm leading-snug"
             >
                 {task.title}
             </button>
 
-            {/* Unlabelled: on the board the bar answers "roughly how far
-                along", the exact percentage lives in the detail sheet. A task
-                that has not started draws no bar, because an empty track is the
-                loudest thing on the card while saying nothing. */}
-            {(task.progress > 0 || task.rollup_progress !== null) && (
-                <ProgressBar
-                    value={task.progress}
-                    rollup={task.rollup_progress}
-                    className="mt-2"
-                />
-            )}
+            {/* No progress bar here, the way a Jira card carries none: the
+                board answers "which column", and progress belongs to the views
+                that are about it — the detail modal, the list and the timeline. */}
 
             {/* Sits where Jira puts its issue labels: directly under the title,
                 above the fields. */}
@@ -141,8 +132,7 @@ export function TaskCard({
             </Badge>
 
             {/* Jira presents a date as a labelled field, not as an icon and a
-                value crammed into the meta row. The value itself stays in the
-                app's week language (DATE-2), which every other view speaks. */}
+                value crammed into the meta row. */}
             {task.due_date && (
                 <div className="mt-3">
                     <p className="text-xs text-muted-foreground">
@@ -160,7 +150,7 @@ export function TaskCard({
                                 : undefined
                         }
                     >
-                        {formatWeek(task.due_date)}
+                        {formatDay(task.due_date)}
                         {task.is_overdue && (
                             <span className="sr-only"> — terlambat</span>
                         )}
@@ -168,18 +158,14 @@ export function TaskCard({
                 </div>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+            {/* Jira's card footer: the issue type icon and the key on the
+                left, the assignee avatar pinned to the right edge. */}
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <SquareCheckBig
+                    className="size-4 shrink-0 text-emerald-600 dark:text-emerald-500"
+                    aria-hidden="true"
+                />
                 <span className="tabular-nums">{task.wbs_number}</span>
-
-                {task.children_count > 0 && (
-                    <span
-                        className="flex items-center gap-1 tabular-nums"
-                        title="Sub task selesai"
-                    >
-                        <ListTree className="size-3.5" aria-hidden="true" />
-                        {task.done_children_count}/{task.children_count}
-                    </span>
-                )}
 
                 <span className="ml-auto">
                     {task.assignee ? (
@@ -200,14 +186,43 @@ export function TaskCard({
                         </Avatar>
                     ) : (
                         <span
-                            className="block size-6 rounded-full border border-dashed border-muted-foreground/60"
+                            className="flex size-6 items-center justify-center rounded-full bg-foreground/10"
                             title="Belum ditugaskan"
                         >
+                            <User
+                                className="size-3.5 text-muted-foreground"
+                                aria-hidden="true"
+                            />
                             <span className="sr-only">Belum ditugaskan</span>
                         </span>
                     )}
                 </span>
             </div>
+
+            {/* Jira hangs the subtask roll-up off the bottom of the card as its
+                own rule-separated row instead of squeezing it into the footer
+                meta. The chevron opens the parent, where the subtasks live. */}
+            {task.children_count > 0 && (
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onOpen();
+                    }}
+                    className="-mx-3 mt-3 -mb-3 flex w-[calc(100%+1.5rem)] items-center gap-2 rounded-b-lg border-t border-border/60 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+                    title="Sub task selesai"
+                >
+                    <ListTree className="size-3.5" aria-hidden="true" />
+                    Sub task
+                    <span className="rounded bg-foreground/10 px-1.5 py-0.5 font-medium tabular-nums">
+                        {task.done_children_count}/{task.children_count}
+                    </span>
+                    <ChevronRight
+                        className="ml-auto size-4"
+                        aria-hidden="true"
+                    />
+                </button>
+            )}
         </div>
     );
 }

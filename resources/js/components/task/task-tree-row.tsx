@@ -20,17 +20,11 @@ import {
 } from '@/components/ui/select';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { formatWeek } from '@/lib/week';
+import { formatDay } from '@/lib/week';
 import { destroy, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
-import {
-    TASK_PRIORITY_CLASSES,
-    TASK_PRIORITY_LABELS
-    
-    
-    
-} from '@/types/tasks';
-import type {TaskAssignee, TaskNode, TaskStatus} from '@/types/tasks';
+import { TASK_PRIORITY_CLASSES, TASK_PRIORITY_LABELS } from '@/types/tasks';
+import type { TaskAssignee, TaskNode, TaskStatus } from '@/types/tasks';
 
 const UNASSIGNED = 'none';
 
@@ -133,7 +127,8 @@ export function TaskTreeRow({
                 disabled={!task.can_edit}
                 onValueChange={(value) =>
                     patch({
-                        assignee_id: value === UNASSIGNED ? null : Number(value),
+                        assignee_id:
+                            value === UNASSIGNED ? null : Number(value),
                     })
                 }
             >
@@ -177,7 +172,9 @@ export function TaskTreeRow({
             <Select
                 value={task.status}
                 disabled={!task.can_edit}
-                onValueChange={(value) => patch({ status: value as TaskStatus })}
+                onValueChange={(value) =>
+                    patch({ status: value as TaskStatus })
+                }
             >
                 <SelectTrigger
                     size="sm"
@@ -218,7 +215,7 @@ export function TaskTreeRow({
                             : undefined
                     }
                 >
-                    {formatWeek(task.due_date)}
+                    {formatDay(task.due_date)}
                 </span>
             </div>
 

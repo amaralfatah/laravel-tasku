@@ -15,7 +15,7 @@ import type { Zoom } from '@/components/task/timeline-scale';
 import { Button } from '@/components/ui/button';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { cn } from '@/lib/utils';
-import { formatWeek } from '@/lib/week';
+import { formatDay } from '@/lib/week';
 import { index as projectsIndex, timeline } from '@/routes/projects';
 import type { Option } from '@/types/members';
 import type {
@@ -320,7 +320,7 @@ export default function ProjectTimeline({
                                                 onClick={() =>
                                                     setOpenTaskId(task.id)
                                                 }
-                                                label={`${task.wbs_number} ${task.title}: ${formatWeek(span.start)} sampai ${formatWeek(span.end)}, progress ${task.progress}%${span.derived ? ', rentang dihitung dari sub task' : ''}`}
+                                                label={`${task.wbs_number} ${task.title}: ${formatDay(span.start)} sampai ${formatDay(span.end)}, progress ${task.progress}%${span.derived ? ', rentang dihitung dari sub task' : ''}`}
                                             />
                                         </div>
                                     </div>
@@ -380,6 +380,7 @@ export default function ProjectTimeline({
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
+                onOpenTask={setOpenTaskId}
             />
         </>
     );

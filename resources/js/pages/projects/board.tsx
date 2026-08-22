@@ -135,8 +135,14 @@ export default function ProjectBoard({
     can,
 }: PageProps) {
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
-    /** The column whose "Buat" button opened the create dialog. */
-    const [createIn, setCreateIn] = useState<TaskStatus | null>(null);
+    /**
+     * What the create dialog is creating: a root task in the column whose
+     * "Buat" button was pressed, or a sub task of the open task.
+     */
+    const [creating, setCreating] = useState<{
+        parent: TaskNode | null;
+        status: TaskStatus;
+    } | null>(null);
     const [draggingId, setDraggingId] = useState<number | null>(null);
     const [items, setItems] = useState<TaskNode[]>(() => rootOrder(tasks));
     const [source, setSource] = useState<TaskNode[]>(tasks);
@@ -313,7 +319,12 @@ export default function ProjectBoard({
                                 canDrag={can.contribute}
                                 isDragging={draggingId !== null}
                                 onOpen={setOpenTaskId}
-                                onCreate={setCreateIn}
+                                onCreate={(column) =>
+                                    setCreating({
+                                        parent: null,
+                                        status: column,
+                                    })
+                                }
                             />
                         ))}
                     </div>
@@ -345,16 +356,26 @@ export default function ProjectBoard({
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
+                onOpenTask={setOpenTaskId}
+                onAddSubtask={
+                    openTask
+                        ? () =>
+                              setCreating({
+                                  parent: openTask,
+                                  status: 'todo',
+                              })
+                        : undefined
+                }
             />
 
             <TaskCreateDialog
-                open={createIn !== null}
+                open={creating !== null}
                 projectId={project.id}
-                parent={null}
-                status={createIn ?? 'todo'}
+                parent={creating?.parent ?? null}
+                status={creating?.status ?? 'todo'}
                 assignees={assignees}
                 priorities={priorities}
-                onClose={() => setCreateIn(null)}
+                onClose={() => setCreating(null)}
             />
         </>
     );

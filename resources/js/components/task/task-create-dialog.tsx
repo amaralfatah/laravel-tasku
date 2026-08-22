@@ -19,7 +19,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { WeekPicker } from '@/components/week-picker';
 import { store } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import type {
@@ -188,12 +187,15 @@ export function TaskCreateDialog({
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="new-task-start">Mulai</Label>
-                            <WeekPicker
+                            <Input
                                 id="new-task-start"
-                                edge="start"
-                                value={form.data.start_date}
-                                onChange={(value) =>
-                                    form.setData('start_date', value)
+                                type="date"
+                                value={form.data.start_date ?? ''}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'start_date',
+                                        event.target.value || null,
+                                    )
                                 }
                             />
                             <InputError message={form.errors.start_date} />
@@ -201,12 +203,15 @@ export function TaskCreateDialog({
 
                         <div className="grid gap-2">
                             <Label htmlFor="new-task-due">Selesai</Label>
-                            <WeekPicker
+                            <Input
                                 id="new-task-due"
-                                edge="end"
-                                value={form.data.due_date}
-                                onChange={(value) =>
-                                    form.setData('due_date', value)
+                                type="date"
+                                value={form.data.due_date ?? ''}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'due_date',
+                                        event.target.value || null,
+                                    )
                                 }
                             />
                             <InputError message={form.errors.due_date} />

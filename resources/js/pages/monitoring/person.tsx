@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { formatWeek } from '@/lib/week';
+import { formatDay } from '@/lib/week';
 import { people, person as personRoute } from '@/routes/monitoring';
 import { show as showProject } from '@/routes/projects';
 import type { Option } from '@/types/members';
@@ -276,7 +276,7 @@ export default function MonitoringPerson({
                                                     end={task.due_date}
                                                     progress={task.progress}
                                                     overdue={task.is_overdue}
-                                                    label={`${task.title}: ${formatWeek(task.start_date)} sampai ${formatWeek(task.due_date)}, progress ${task.progress}%`}
+                                                    label={`${task.title}: ${formatDay(task.start_date)} sampai ${formatDay(task.due_date)}, progress ${task.progress}%`}
                                                 />
                                             </div>
                                         </div>
