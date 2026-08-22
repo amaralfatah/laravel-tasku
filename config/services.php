@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'sap' => [
+        'cds_url' => env('SAP_CDS_URL', 'http://43.218.20.129/dev/get_cds.php'),
+        'user' => env('SAP_USER'),
+        'pass' => env('SAP_PASS'),
+        'timeout' => (int) env('SAP_CDS_TIMEOUT', 180),
+    ],
+
 ];

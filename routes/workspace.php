@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'workspace'])->group(function () {
     Route::get('organization', [OrgUnitController::class, 'index'])->name('organization.index');
 
+    Route::get('org-units/search', [OrgUnitController::class, 'search'])->name('org-units.search');
+    Route::get('org-units/{orgUnit}/children', [OrgUnitController::class, 'children'])->name('org-units.children');
     Route::post('org-units', [OrgUnitController::class, 'store'])->name('org-units.store');
     Route::patch('org-units/{orgUnit}', [OrgUnitController::class, 'update'])->name('org-units.update');
     Route::delete('org-units/{orgUnit}', [OrgUnitController::class, 'destroy'])->name('org-units.destroy');

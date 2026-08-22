@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { OrgUnitPicker } from '@/components/org-unit-picker';
 import { ProjectHeader } from '@/components/project/project-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,18 +34,18 @@ import {
     update as updateProject,
 } from '@/routes/projects';
 import type { User } from '@/types';
-import type { Option, OrgUnitOption } from '@/types/members';
+import type { NamedRef, Option, OrgUnitPickerProps } from '@/types/members';
 import type { ProjectDetail } from '@/types/projects';
 
 export default function ProjectSettings({
     project,
-    orgUnits,
+    unitPicker,
     statuses,
     candidates,
     can,
 }: {
     project: ProjectDetail;
-    orgUnits: OrgUnitOption[];
+    unitPicker: OrgUnitPickerProps;
     statuses: Option[];
     candidates: { id: number; name: string; email: string }[];
     can: { edit: boolean; contribute: boolean };
@@ -52,10 +53,13 @@ export default function ProjectSettings({
     const [editOpen, setEditOpen] = useState(false);
     const [candidateId, setCandidateId] = useState<string>('');
 
+    // The form carries only the id; the picker needs a name to show.
+    const [editUnit, setEditUnit] = useState<NamedRef | null>(project.org_unit);
+
     const editForm = useForm({
         name: project.name,
         description: project.description ?? '',
-        org_unit_id: project.org_unit.id,
+        org_unit_id: project.org_unit.id as number | null,
         status: project.status,
     });
 
@@ -240,31 +244,18 @@ export default function ProjectSettings({
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="edit-unit">Unit</Label>
-                            <Select
-                                value={String(editForm.data.org_unit_id)}
-                                onValueChange={(value) =>
+                            <Label>Unit</Label>
+                            <OrgUnitPicker
+                                value={editUnit}
+                                canChoose={unitPicker.can_choose}
+                                onChange={(picked) => {
+                                    setEditUnit(picked);
                                     editForm.setData(
                                         'org_unit_id',
-                                        Number(value),
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="edit-unit">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {orgUnits.map((unit) => (
-                                        <SelectItem
-                                            key={unit.id}
-                                            value={String(unit.id)}
-                                        >
-                                            {'— '.repeat(unit.depth)}
-                                            {unit.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        picked?.id ?? null,
+                                    );
+                                }}
+                            />
                             <InputError message={editForm.errors.org_unit_id} />
                         </div>
 

@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import InputError from '@/components/input-error';
+import { OrgUnitPicker } from '@/components/org-unit-picker';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -19,9 +20,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { update } from '@/routes/members';
-import type { MemberRow, Option, OrgUnitOption } from '@/types/members';
-
-const NONE = 'none';
+import type {
+    MemberRow,
+    NamedRef,
+    Option,
+    OrgUnitPickerProps,
+} from '@/types/members';
 
 /**
  * Edits everything about a membership except the person: their role and the
@@ -30,12 +34,12 @@ const NONE = 'none';
  */
 export function MemberEditDialog({
     member,
-    orgUnits,
+    unitPicker,
     roles,
     onClose,
 }: {
     member: MemberRow | null;
-    orgUnits: OrgUnitOption[];
+    unitPicker: OrgUnitPickerProps;
     roles: Option[];
     onClose: () => void;
 }) {
@@ -43,6 +47,9 @@ export function MemberEditDialog({
         role: member?.role ?? 'bod_4',
         org_unit_id: member?.org_unit?.id ?? null,
     });
+
+    // The form only carries the id; the picker needs a name to show.
+    const [unit, setUnit] = useState<NamedRef | null>(member?.org_unit ?? null);
 
     useEffect(() => {
         if (member) {
@@ -52,6 +59,7 @@ export function MemberEditDialog({
             });
             form.reset();
             form.clearErrors();
+            setUnit(member.org_unit ?? null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [member?.id]);
@@ -119,34 +127,17 @@ export function MemberEditDialog({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="member-unit">Unit penempatan</Label>
-                        <Select
-                            value={String(form.data.org_unit_id ?? NONE)}
-                            onValueChange={(value) =>
-                                form.setData(
-                                    'org_unit_id',
-                                    value === NONE ? null : Number(value),
-                                )
-                            }
-                        >
-                            <SelectTrigger id="member-unit">
-                                <SelectValue placeholder="Belum ditempatkan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={NONE}>
-                                    Belum ditempatkan
-                                </SelectItem>
-                                {orgUnits.map((unit) => (
-                                    <SelectItem
-                                        key={unit.id}
-                                        value={String(unit.id)}
-                                    >
-                                        {'— '.repeat(unit.depth)}
-                                        {unit.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <Label>Unit penempatan</Label>
+                        <OrgUnitPicker
+                            value={unit}
+                            canChoose={unitPicker.can_choose}
+                            emptyLabel="Belum ditempatkan"
+                            clearLabel="Kosongkan"
+                            onChange={(picked) => {
+                                setUnit(picked);
+                                form.setData('org_unit_id', picked?.id ?? null);
+                            }}
+                        />
                         <p className="text-xs text-muted-foreground">
                             Seorang pemimpin memantau dan mengelola unit ini
                             beserta seluruh turunannya.

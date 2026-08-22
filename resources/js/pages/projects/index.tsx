@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FolderKanban, Plus } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { OrgUnitPicker } from '@/components/org-unit-picker';
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,26 +30,27 @@ import {
     suggestProjectKey,
 } from '@/lib/project-key';
 import { index as projectsIndex, show, store } from '@/routes/projects';
-import type { Option, OrgUnitOption } from '@/types/members';
-import {
-    PROJECT_STATUS_VARIANT
-    
-} from '@/types/projects';
-import type {ProjectListItem} from '@/types/projects';
+import type { NamedRef, Option, OrgUnitPickerProps } from '@/types/members';
+import { PROJECT_STATUS_VARIANT } from '@/types/projects';
+import type { ProjectListItem } from '@/types/projects';
 
 const ALL = 'all';
 
 export default function Projects({
     projects,
-    orgUnits,
+    unitPicker,
     statuses,
     filters,
     can,
 }: {
     projects: ProjectListItem[];
-    orgUnits: OrgUnitOption[];
+    unitPicker: OrgUnitPickerProps;
     statuses: Option[];
-    filters: { org_unit_id: number | null; status: string };
+    filters: {
+        org_unit_id: number | null;
+        org_unit: NamedRef | null;
+        status: string;
+    };
     can: { create: boolean };
 }) {
     const [createOpen, setCreateOpen] = useState(false);
@@ -56,11 +58,16 @@ export default function Projects({
     // Jira create form behaves.
     const [keyEdited, setKeyEdited] = useState(false);
 
+    // The form carries only the id; the picker needs a name to show.
+    const [createUnit, setCreateUnit] = useState<NamedRef | null>(
+        unitPicker.default,
+    );
+
     const form = useForm({
         name: '',
         key: '',
         description: '',
-        org_unit_id: orgUnits[0]?.id ?? null,
+        org_unit_id: unitPicker.default?.id ?? null,
         status: 'active',
     });
 
@@ -90,7 +97,12 @@ export default function Projects({
                     {can.create && (
                         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                             <DialogTrigger asChild>
-                                <Button disabled={orgUnits.length === 0}>
+                                <Button
+                                    disabled={
+                                        !unitPicker.can_choose &&
+                                        unitPicker.default === null
+                                    }
+                                >
                                     <Plus
                                         className="size-4"
                                         aria-hidden="true"
@@ -179,37 +191,22 @@ export default function Projects({
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="project-unit">
-                                            Unit
-                                        </Label>
-                                        <Select
-                                            value={String(
-                                                form.data.org_unit_id ?? '',
-                                            )}
-                                            onValueChange={(value) =>
+                                        <Label>Unit</Label>
+                                        {/* A member who leads nobody may only
+                                            start a project in their own unit,
+                                            which the server enforces anyway. */}
+                                        <OrgUnitPicker
+                                            value={createUnit}
+                                            canChoose={unitPicker.can_choose}
+                                            emptyLabel="Belum dipilih"
+                                            onChange={(picked) => {
+                                                setCreateUnit(picked);
                                                 form.setData(
                                                     'org_unit_id',
-                                                    Number(value),
-                                                )
-                                            }
-                                        >
-                                            <SelectTrigger id="project-unit">
-                                                <SelectValue placeholder="Pilih unit" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {orgUnits.map((unit) => (
-                                                    <SelectItem
-                                                        key={unit.id}
-                                                        value={String(unit.id)}
-                                                    >
-                                                        {'— '.repeat(
-                                                            unit.depth,
-                                                        )}
-                                                        {unit.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                                    picked?.id ?? null,
+                                                );
+                                            }}
+                                        />
                                         <InputError
                                             message={form.errors.org_unit_id}
                                         />
@@ -261,30 +258,17 @@ export default function Projects({
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                    <Select
-                        value={String(filters.org_unit_id ?? ALL)}
-                        onValueChange={(value) =>
-                            applyFilter({
-                                org_unit_id: value === ALL ? null : Number(value),
-                            })
-                        }
-                    >
-                        <SelectTrigger className="w-56" aria-label="Filter unit">
-                            <SelectValue placeholder="Semua unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL}>Semua unit</SelectItem>
-                            {orgUnits.map((unit) => (
-                                <SelectItem
-                                    key={unit.id}
-                                    value={String(unit.id)}
-                                >
-                                    {'— '.repeat(unit.depth)}
-                                    {unit.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="w-72">
+                        <OrgUnitPicker
+                            value={filters.org_unit}
+                            canChoose={unitPicker.can_choose}
+                            emptyLabel="Semua unit"
+                            clearLabel="Semua unit"
+                            onChange={(picked) =>
+                                applyFilter({ org_unit_id: picked?.id ?? null })
+                            }
+                        />
+                    </div>
 
                     <Select
                         value={filters.status || ALL}
@@ -339,9 +323,6 @@ export default function Projects({
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <span className="font-medium">
-                                            <span className="mr-2 font-mono text-xs tracking-wide text-muted-foreground">
-                                                {project.key}
-                                            </span>
                                             {project.name}
                                         </span>
                                         <Badge

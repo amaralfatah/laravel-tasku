@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\PicksOrgUnits;
 use App\Enums\WorkspaceRole;
 use App\Http\Requests\Member\MemberUpdateRequest;
 use App\Models\Invitation;
-use App\Models\OrgUnit;
 use App\Models\WorkspaceMember;
 use App\Policies\WorkspaceMemberPolicy;
 use App\Support\Tenancy;
@@ -19,6 +19,8 @@ use Inertia\Response;
 
 class MemberController extends Controller
 {
+    use PicksOrgUnits;
+
     public function __construct(protected Tenancy $tenancy) {}
 
     /**
@@ -57,7 +59,7 @@ class MemberController extends Controller
                 ])
                 ->all(),
             'invitations' => $canManage ? $this->pendingInvitations() : [],
-            'orgUnits' => $this->unitOptions($viewer),
+            'unitPicker' => $this->unitPicker($viewer),
             'roles' => array_map(
                 fn (WorkspaceRole $role): array => [
                     'value' => $role->value,
@@ -152,38 +154,6 @@ class MemberController extends Controller
         }
 
         return $query->get();
-    }
-
-    /**
-     * Units the viewer may place someone in.
-     *
-     * @return array<int, array{id: int, name: string, depth: int}>
-     */
-    protected function unitOptions(?WorkspaceMember $viewer): array
-    {
-        if ($viewer === null) {
-            return [];
-        }
-
-        $scopePath = $viewer->scopePath();
-
-        if (! $viewer->hasFullScope() && $scopePath === null) {
-            return [];
-        }
-
-        return OrgUnit::query()
-            ->when(
-                ! $viewer->hasFullScope(),
-                fn (Builder $query) => $query->where('path', 'like', $scopePath.'%'),
-            )
-            ->orderBy('path')
-            ->get(['id', 'name', 'depth'])
-            ->map(fn (OrgUnit $unit): array => [
-                'id' => $unit->id,
-                'name' => $unit->name,
-                'depth' => $unit->depth,
-            ])
-            ->all();
     }
 
     /**

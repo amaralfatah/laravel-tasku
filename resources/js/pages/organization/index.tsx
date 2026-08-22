@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { OrgUnitSearch } from '@/components/org-unit-search';
 import { OrgUnitTree } from '@/components/org-unit-tree';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import {
 } from '@/routes/org-units';
 import { index as organizationIndex } from '@/routes/organization';
 import { ORG_UNIT_TYPE_LABELS } from '@/types/organization';
-import type { OrgUnitNode } from '@/types/organization';
+import type { OrgUnitHit, OrgUnitNode } from '@/types/organization';
 
 type UnitDialogMode = 'create' | 'rename' | 'move' | null;
 
@@ -44,6 +45,12 @@ export default function Organization({
 }) {
     const [unitDialog, setUnitDialog] = useState<UnitDialogMode>(null);
     const [target, setTarget] = useState<OrgUnitNode | null>(null);
+    const [revealPath, setRevealPath] = useState<string | null>(null);
+    const [moveTo, setMoveTo] = useState<OrgUnitHit | null>(null);
+
+    // Bumped after every saved change, so the tree drops the branches it had
+    // already fetched and loads them again.
+    const [resetKey, setResetKey] = useState(0);
 
     const unitForm = useForm({
         name: '',
@@ -77,6 +84,7 @@ export default function Organization({
 
     const openMove = (unit: OrgUnitNode) => {
         setTarget(unit);
+        setMoveTo(null);
         unitForm.setDefaults({
             name: unit.name,
             type: unit.type,
@@ -87,16 +95,18 @@ export default function Organization({
         setUnitDialog('move');
     };
 
-    const submitUnit = () => {
-        const onSuccess = () => {
-            setUnitDialog(null);
-            setTarget(null);
-        };
+    const afterSave = () => {
+        setUnitDialog(null);
+        setTarget(null);
+        setMoveTo(null);
+        setResetKey((current) => current + 1);
+    };
 
+    const submitUnit = () => {
         if (unitDialog === 'create') {
             unitForm.post(storeUnit().url, {
                 preserveScroll: true,
-                onSuccess,
+                onSuccess: afterSave,
             });
 
             return;
@@ -105,7 +115,7 @@ export default function Organization({
         if (target) {
             unitForm.patch(updateUnit(target.id).url, {
                 preserveScroll: true,
-                onSuccess,
+                onSuccess: afterSave,
             });
         }
     };
@@ -119,17 +129,11 @@ export default function Organization({
             return;
         }
 
-        router.delete(destroyUnit(unit.id).url, { preserveScroll: true });
+        router.delete(destroyUnit(unit.id).url, {
+            preserveScroll: true,
+            onSuccess: afterSave,
+        });
     };
-
-
-
-    // A unit cannot be moved into itself or its own subtree.
-    const moveTargets = units.filter(
-        (unit) =>
-            target === null ||
-            (unit.id !== target.id && !unit.path.startsWith(target.path)),
-    );
 
     return (
         <>
@@ -142,35 +146,37 @@ export default function Organization({
                 />
 
                 <section className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <h2 className="font-medium">Struktur unit</h2>
+                    <div className="flex items-center justify-between gap-3">
+                        <h2 className="font-medium">Struktur unit</h2>
 
-                            {can.manage && (
-                                <Button
-                                    size="sm"
-                                    onClick={() => openCreate(null)}
-                                >
-                                    <Plus
-                                        className="size-4"
-                                        aria-hidden="true"
-                                    />
-                                    Unit baru
-                                </Button>
-                            )}
-                        </div>
+                        {can.manage && (
+                            <Button size="sm" onClick={() => openCreate(null)}>
+                                <Plus className="size-4" aria-hidden="true" />
+                                Unit baru
+                            </Button>
+                        )}
+                    </div>
 
-                        <div className="rounded-lg border">
-                            <OrgUnitTree
-                                units={units}
-                                canManage={can.manage}
-                                maxDepth={maxDepth}
-                                onAddChild={openCreate}
-                                onRename={openRename}
-                                onMove={openMove}
-                                onDelete={deleteUnit}
-                            />
-                        </div>
-                    </section>
+                    <OrgUnitSearch
+                        onSelect={(hit) => setRevealPath(hit.path)}
+                        placeholder="Cari unit di seluruh struktur…"
+                        emptyHint="Ketik minimal 2 huruf untuk mencari unit tanpa membuka satu per satu."
+                    />
+
+                    <div className="rounded-lg border">
+                        <OrgUnitTree
+                            units={units}
+                            canManage={can.manage}
+                            maxDepth={maxDepth}
+                            revealPath={revealPath}
+                            resetKey={resetKey}
+                            onAddChild={openCreate}
+                            onRename={openRename}
+                            onMove={openMove}
+                            onDelete={deleteUnit}
+                        />
+                    </div>
+                </section>
             </div>
 
             <Dialog
@@ -187,9 +193,9 @@ export default function Organization({
                         <DialogDescription>
                             {unitDialog === 'create' && target
                                 ? `Unit baru akan berada di bawah ${target.name}.`
-                                : 'Maksimal ' +
-                                  (maxDepth + 1) +
-                                  ' tingkat kedalaman.'}
+                                : unitDialog === 'move' && target
+                                  ? `Cari unit induk baru untuk ${target.name}.`
+                                  : 'Maksimal ' + (maxDepth + 1) + ' tingkat kedalaman.'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -217,9 +223,7 @@ export default function Organization({
                                         autoFocus
                                         placeholder="Divisi Engineering"
                                     />
-                                    <InputError
-                                        message={unitForm.errors.name}
-                                    />
+                                    <InputError message={unitForm.errors.name} />
                                 </div>
 
                                 <div className="grid gap-2">
@@ -246,50 +250,48 @@ export default function Organization({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <InputError
-                                        message={unitForm.errors.type}
-                                    />
+                                    <InputError message={unitForm.errors.type} />
                                 </div>
                             </>
                         )}
 
                         {unitDialog === 'move' && (
                             <div className="grid gap-2">
-                                <Label htmlFor="unit-parent">Unit induk</Label>
-                                <Select
-                                    value={String(
-                                        unitForm.data.parent_id ?? 'root',
-                                    )}
-                                    onValueChange={(value) =>
-                                        unitForm.setData(
-                                            'parent_id',
-                                            value === 'root'
-                                                ? null
-                                                : Number(value),
-                                        )
-                                    }
-                                >
-                                    <SelectTrigger id="unit-parent">
-                                        <SelectValue placeholder="Pilih unit induk" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="root">
-                                            Tanpa induk (unit teratas)
-                                        </SelectItem>
-                                        {moveTargets.map((unit) => (
-                                            <SelectItem
-                                                key={unit.id}
-                                                value={String(unit.id)}
-                                            >
-                                                {'— '.repeat(unit.depth)}
-                                                {unit.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <InputError
-                                    message={unitForm.errors.parent_id}
+                                <Label>Unit induk baru</Label>
+
+                                <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+                                    <span className="truncate">
+                                        {moveTo
+                                            ? moveTo.name
+                                            : unitForm.data.parent_id === null
+                                              ? 'Tanpa induk (unit teratas)'
+                                              : 'Belum dipilih'}
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setMoveTo(null);
+                                            unitForm.setData('parent_id', null);
+                                        }}
+                                    >
+                                        Jadikan unit teratas
+                                    </Button>
+                                </div>
+
+                                {/* A unit cannot be moved into itself or its own subtree. */}
+                                <OrgUnitSearch
+                                    autoFocus
+                                    excludeSubtreeOf={target?.path ?? null}
+                                    placeholder="Cari unit induk…"
+                                    onSelect={(hit) => {
+                                        setMoveTo(hit);
+                                        unitForm.setData('parent_id', hit.id);
+                                    }}
                                 />
+
+                                <InputError message={unitForm.errors.parent_id} />
                             </div>
                         )}
 
@@ -301,10 +303,7 @@ export default function Organization({
                             >
                                 Batal
                             </Button>
-                            <Button
-                                type="submit"
-                                disabled={unitForm.processing}
-                            >
+                            <Button type="submit" disabled={unitForm.processing}>
                                 {unitForm.processing ? 'Menyimpan…' : 'Simpan'}
                             </Button>
                         </DialogFooter>

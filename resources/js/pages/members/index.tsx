@@ -55,19 +55,19 @@ import type {
     InvitationRow,
     MemberRow,
     Option,
-    OrgUnitOption,
+    OrgUnitPickerProps,
 } from '@/types/members';
 
 export default function Members({
     members,
     invitations,
-    orgUnits,
+    unitPicker,
     roles,
     can,
 }: {
     members: MemberRow[];
     invitations: InvitationRow[];
-    orgUnits: OrgUnitOption[];
+    unitPicker: OrgUnitPickerProps;
     roles: Option[];
     can: { manage: boolean };
 }) {
@@ -427,7 +427,7 @@ export default function Members({
 
             <MemberEditDialog
                 member={editing}
-                orgUnits={orgUnits}
+                unitPicker={unitPicker}
                 roles={roles}
                 onClose={() => setEditing(null)}
             />

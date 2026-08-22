@@ -199,7 +199,7 @@ test('an ODS is kept out of the roster and the organisation page', function () {
         ->get(route('organization.index'))->assertForbidden();
 });
 
-test('a leader only sees their own branch of the org tree', function () {
+test('a leader opens the org tree at their own unit', function () {
     ['workspace' => $workspace] = twoBranchWorkspace();
 
     $leader = WorkspaceMember::factory()
@@ -212,8 +212,60 @@ test('a leader only sees their own branch of the org tree', function () {
         ->get(route('organization.index'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            // Engineering plus Backend; Divisi and Marketing stay out.
-            ->has('units', 2)
+            // Only the entry point ships with the page; Backend arrives when
+            // the branch is opened. Divisi and Marketing stay out entirely.
+            ->has('units', 1)
             ->where('units.0.name', 'Engineering')
+            ->where('units.0.children_count', 1)
         );
+});
+
+test('a leader can open a branch inside their scope but not outside it', function () {
+    ['workspace' => $workspace, 'marketing' => $marketing] = twoBranchWorkspace();
+
+    $engineering = OrgUnit::whereName('Engineering')->firstOrFail();
+
+    $leader = WorkspaceMember::factory()
+        ->for($workspace)
+        ->leading($engineering, WorkspaceRole::Bod2)
+        ->create();
+
+    $this->actingAs($leader->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->getJson(route('org-units.children', $engineering))
+        ->assertOk()
+        ->assertJsonPath('units.0.name', 'Backend');
+
+    // Reading a unit is workspace wide, but nothing outside the branch is
+    // reachable from the page itself.
+    $this->actingAs($leader->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->getJson(route('org-units.search', ['q' => 'Marketing']))
+        ->assertOk()
+        ->assertJsonCount(0, 'units');
+
+    $this->actingAs($leader->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->getJson(route('org-units.search', ['q' => 'Backend']))
+        ->assertOk()
+        ->assertJsonCount(1, 'units')
+        ->assertJsonPath('units.0.trail', ['Divisi', 'Engineering']);
+
+    expect($marketing->name)->toBe('Marketing');
+});
+
+test('an ODS cannot reach the org tree endpoints at all', function () {
+    ['workspace' => $workspace] = twoBranchWorkspace();
+
+    $engineering = OrgUnit::whereName('Engineering')->firstOrFail();
+
+    $ods = WorkspaceMember::factory()
+        ->for($workspace)
+        ->leading($engineering, WorkspaceRole::Bod4)
+        ->create();
+
+    $this->actingAs($ods->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->getJson(route('org-units.search', ['q' => 'Backend']))
+        ->assertForbidden();
 });

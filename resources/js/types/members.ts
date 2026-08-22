@@ -33,6 +33,14 @@ export type InvitationRow = {
     invited_by: string | null;
 };
 
-export type OrgUnitOption = { id: number; name: string; depth: number };
+/**
+ * What a page needs to render an org unit picker: the natural default and
+ * whether the viewer may search for something else. The full list of units is
+ * never sent — after the SAP import there are tens of thousands of them.
+ */
+export type OrgUnitPickerProps = {
+    default: NamedRef | null;
+    can_choose: boolean;
+};
 
 export type Option = { value: string; label: string; code?: string };

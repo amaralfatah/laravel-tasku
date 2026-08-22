@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $workspace_id
+ * @property string|null $external_id SAP object id when the unit came from the CDS import
  * @property int|null $parent_id
  * @property string $name
  * @property string $type
@@ -30,9 +31,13 @@ class OrgUnit extends Model
     use BelongsToWorkspace, HasFactory;
 
     /**
-     * Root unit is depth 0, so ORG-2 allows depth 0 through 5.
+     * Root unit is depth 0, so this allows depth 0 through 11.
+     *
+     * The imported SAP structure reaches depth 10 once the holding is dropped
+     * and the operating companies become the roots; the extra level is the
+     * headroom a leader needs to add a team under the deepest imported unit.
      */
-    public const MAX_DEPTH = 5;
+    public const MAX_DEPTH = 11;
 
     /** @return BelongsTo<OrgUnit, $this> */
     public function parent(): BelongsTo

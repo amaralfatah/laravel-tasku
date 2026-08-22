@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\PicksOrgUnits;
 use App\Enums\ProjectStatus;
 use App\Http\Requests\Project\ProjectStoreRequest;
 use App\Http\Requests\Project\ProjectUpdateRequest;
@@ -20,6 +21,8 @@ use Inertia\Response;
 
 class ProjectController extends Controller
 {
+    use PicksOrgUnits;
+
     /**
      * Project list, filtered by org unit subtree (PRJ-5).
      */
@@ -60,10 +63,15 @@ class ProjectController extends Controller
 
         return Inertia::render('projects/index', [
             'projects' => $projects,
-            'orgUnits' => $this->orgUnitOptions(),
+            'unitPicker' => $this->unitPicker(app(Tenancy::class)->member()),
             'statuses' => $this->statusOptions(),
             'filters' => [
                 'org_unit_id' => $unitFilter,
+                // The picker shows a name, and the filter survives a reload,
+                // so the name has to come back with it.
+                'org_unit' => $unitFilter === null
+                    ? null
+                    : OrgUnit::query()->whereKey($unitFilter)->first(['id', 'name'])?->only(['id', 'name']),
                 'status' => $statusFilter,
             ],
             'can' => ['create' => $request->user()->can('create', Project::class)],
@@ -122,7 +130,7 @@ class ProjectController extends Controller
                     ])
                     ->all(),
             ],
-            'orgUnits' => $this->orgUnitOptions(),
+            'unitPicker' => $this->unitPicker(app(Tenancy::class)->member()),
             'statuses' => $this->statusOptions(),
             'candidates' => $this->memberCandidates($project),
             'can' => [
@@ -300,35 +308,6 @@ class ProjectController extends Controller
         return $member->managesTeam()
             ? $request->integer('org_unit_id')
             : $member->org_unit_id;
-    }
-
-    /**
-     * @return array<int, array{id: int, name: string, depth: int}>
-     */
-    protected function orgUnitOptions(): array
-    {
-        $viewer = app(Tenancy::class)->member();
-        $scopePath = $viewer?->hasFullScope() ? null : $viewer?->scopePath();
-
-        return OrgUnit::query()
-            // Someone who leads nobody gets a single entry: their own unit,
-            // which is the only place they may start a project.
-            ->when(
-                $viewer !== null && ! $viewer->managesTeam(),
-                fn ($query) => $query->whereKey($viewer->org_unit_id),
-                fn ($query) => $query->when(
-                    $scopePath !== null,
-                    fn ($inner) => $inner->where('path', 'like', $scopePath.'%'),
-                ),
-            )
-            ->orderBy('path')
-            ->get(['id', 'name', 'depth'])
-            ->map(fn (OrgUnit $unit): array => [
-                'id' => $unit->id,
-                'name' => $unit->name,
-                'depth' => $unit->depth,
-            ])
-            ->all();
     }
 
     /**
