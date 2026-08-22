@@ -53,7 +53,7 @@ class ImportOrgStructure extends Command
         $this->line("Root: {$forest['roots']}, kedalaman maksimal: {$forest['max_depth']}.");
 
         if ($forest['dropped'] > 0) {
-            $this->line("{$forest['dropped']} unit di luar induk {$holding} dibuang, termasuk induknya sendiri.");
+            $this->line("{$forest['dropped']} unit dibuang: induk {$holding} sendiri, semua yang di luar subtree-nya, dan {$forest['excluded']} entitas yang dikecualikan.");
         }
 
         foreach (['skipped' => 'baris dilewati', 'conflicts' => 'induk ganda', 'cycles' => 'siklus dipotong'] as $key => $label) {

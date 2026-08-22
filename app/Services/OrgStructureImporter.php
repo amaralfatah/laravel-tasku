@@ -41,6 +41,31 @@ class OrgStructureImporter
     public const HOLDING = '10000000';
 
     /**
+     * Operating companies whose subtree is left out of the import.
+     *
+     * These are the legacy PTPN entities that the group's restructuring folded
+     * into PalmCo, SupportingCo and Sinergi Gula Nusantara. SAP still carries
+     * them, but nobody in this application works in them. `PTPN III (PERSERO)`
+     * is deliberately absent from this list — it is still live.
+     *
+     * `--all` on the import command bypasses this along with the holding trim.
+     */
+    protected const EXCLUDED = [
+        '10100000',  // PTPN I
+        '10200000',  // PTPN II
+        '10430000',  // PTPN IV
+        '10530000',  // PTPN V
+        '10600000',  // PTPN VI
+        '10700000',  // PTPN VII
+        '10800000',  // PT PERKEBUNAN NUSANTARA VIII
+        '10930000',  // PTPN IX
+        '11100000',  // PTPN XI
+        '12000000',  // PTPN XII
+        '13000000',  // PTPN XIII
+        '11400000',  // PT. PERKEBUNAN NUSANTARA XIV
+    ];
+
+    /**
      * SAP does not classify units, so the type is derived from the level the
      * unit sits at. Only applied when a unit is first created — a type changed
      * by hand afterwards survives the next import.
@@ -79,7 +104,8 @@ class OrgStructureImporter
      *     skipped: int,
      *     conflicts: int,
      *     cycles: int,
-     *     dropped: int
+     *     dropped: int,
+     *     excluded: int
      * }
      */
     public function forest(array $rows, ?string $holdingId = self::HOLDING): array
@@ -148,7 +174,9 @@ class OrgStructureImporter
             ];
         }
 
-        $dropped = $holdingId === null ? 0 : $this->promoteChildrenOfHolding($nodes, $parentOf, $holdingId);
+        $trim = $holdingId === null
+            ? ['dropped' => 0, 'excluded' => 0]
+            : $this->promoteChildrenOfHolding($nodes, $parentOf, $holdingId);
 
         $roots = 0;
         $maxDepth = 0;
@@ -165,7 +193,8 @@ class OrgStructureImporter
             'skipped' => $skipped,
             'conflicts' => $conflicts,
             'cycles' => $cycles,
-            'dropped' => $dropped,
+            'dropped' => $trim['dropped'],
+            'excluded' => $trim['excluded'],
         ];
     }
 
@@ -301,8 +330,8 @@ class OrgStructureImporter
     }
 
     /**
-     * Keep only the holding's subtree, then remove the holding itself so its
-     * operating companies become the roots.
+     * Keep only the holding's subtree minus the retired entities, then remove
+     * the holding itself so the remaining operating companies become the roots.
      *
      * Everything else in the view is a fragment SAP sends no parent edge for,
      * and hanging those next to the real structure makes the top level read as
@@ -310,9 +339,9 @@ class OrgStructureImporter
      *
      * @param  array<string, array{external_id: string, name: string, parent: string|null, depth: int}>  $nodes
      * @param  array<string, string>  $parentOf
-     * @return int units discarded
+     * @return array{dropped: int, excluded: int}
      */
-    protected function promoteChildrenOfHolding(array &$nodes, array $parentOf, string $holdingId): int
+    protected function promoteChildrenOfHolding(array &$nodes, array $parentOf, string $holdingId): array
     {
         if (! isset($nodes[$holdingId])) {
             throw new RuntimeException("Unit induk {$holdingId} tidak ada di ".self::VIEW.'.');
@@ -324,17 +353,15 @@ class OrgStructureImporter
             $childrenOf[$parent][] = $child;
         }
 
-        $keep = [];
-        $stack = $childrenOf[$holdingId] ?? [];
+        $excluded = array_values(array_filter(
+            self::EXCLUDED,
+            fn (string $id): bool => isset($nodes[$id]),
+        ));
 
-        while ($stack !== []) {
-            $id = array_pop($stack);
-            $keep[$id] = true;
-
-            foreach ($childrenOf[$id] ?? [] as $child) {
-                $stack[] = $child;
-            }
-        }
+        $keep = array_diff_key(
+            $this->subtree($childrenOf, $childrenOf[$holdingId] ?? []),
+            $this->subtree($childrenOf, $excluded),
+        );
 
         $dropped = count($nodes) - count($keep);
         $nodes = array_intersect_key($nodes, $keep);
@@ -344,7 +371,36 @@ class OrgStructureImporter
             $nodes[$id]['depth'] = $node['depth'] - 1;
         }
 
-        return $dropped;
+        return ['dropped' => $dropped, 'excluded' => count($excluded)];
+    }
+
+    /**
+     * Every unit reachable from the seeds, seeds included.
+     *
+     * @param  array<string, array<int, string>>  $childrenOf
+     * @param  array<int, string>  $seeds
+     * @return array<string, true>
+     */
+    protected function subtree(array $childrenOf, array $seeds): array
+    {
+        $found = [];
+        $stack = $seeds;
+
+        while ($stack !== []) {
+            $id = array_pop($stack);
+
+            if (isset($found[$id])) {
+                continue;
+            }
+
+            $found[$id] = true;
+
+            foreach ($childrenOf[$id] ?? [] as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        return $found;
     }
 
     /**

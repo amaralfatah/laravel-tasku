@@ -92,6 +92,38 @@ test('by default the holding is dropped and its children become the roots', func
         ->and($forest['nodes']['12101195']['parent'])->toBe('12101194');
 });
 
+test('the retired PTPN operating companies are left out, PTPN III is not', function () {
+    $rows = [
+        cdsEdge('10000000', 'PT PERKEBUNAN NUSANTARA I', '11900000', 'PT PALMCO'),
+        cdsEdge('10000000', 'PT PERKEBUNAN NUSANTARA I', '10300000', 'PTPN III (PERSERO)'),
+        cdsEdge('10000000', 'PT PERKEBUNAN NUSANTARA I', '10100000', 'PTPN I'),
+        cdsEdge('10100000', 'PTPN I', '10100777', 'KEBUN LAMA'),
+        cdsEdge('10100777', 'KEBUN LAMA', '10100778', 'AFD LAMA'),
+    ];
+
+    $forest = app(OrgStructureImporter::class)->forest($rows);
+
+    // PTPN I goes, and its whole subtree with it.
+    expect(array_keys($forest['nodes']))->toEqualCanonicalizing(['11900000', '10300000'])
+        ->and($forest['excluded'])->toBe(1)
+        ->and($forest['dropped'])->toBe(4)
+        ->and($forest['roots'])->toBe(2);
+});
+
+test('--all keeps the retired companies, exclusions apply only to the trimmed import', function () {
+    $rows = [
+        cdsEdge('10000000', 'PT PERKEBUNAN NUSANTARA I', '11900000', 'PT PALMCO'),
+        cdsEdge('10000000', 'PT PERKEBUNAN NUSANTARA I', '10100000', 'PTPN I'),
+        cdsEdge('10100000', 'PTPN I', '10100777', 'KEBUN LAMA'),
+    ];
+
+    $forest = app(OrgStructureImporter::class)->forest($rows, holdingId: null);
+
+    expect($forest['nodes'])->toHaveCount(4)
+        ->and($forest['nodes'])->toHaveKey('10100000')
+        ->and($forest['excluded'])->toBe(0);
+});
+
 test('an unknown holding id stops the import rather than emptying the tree', function () {
     app(OrgStructureImporter::class)->forest(cdsSample(), holdingId: '99999999');
 })->throws(RuntimeException::class, '99999999');
