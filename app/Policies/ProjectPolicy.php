@@ -9,8 +9,9 @@ use App\Support\Tenancy;
 /**
  * Project access (7.1, 7.2).
  *
- * Viewing follows Project::visibleTo — project membership, a subtree scope, or
- * a manager role. Creating, editing and deleting need BOD-3 or above.
+ * Viewing follows Project::visibleTo — project membership or a leader's own
+ * subtree. Editing and deleting need someone who runs the project: a leader
+ * whose scope covers its unit, or the person who created it.
  */
 class ProjectPolicy
 {
@@ -30,14 +31,37 @@ class ProjectPolicy
         return Project::query()->visibleTo($user)->whereKey($project->id)->exists();
     }
 
+    /**
+     * Anyone with a place in the org tree may start a project; a leader has
+     * their whole subtree to choose from, everyone else only gets their own
+     * unit. Someone who has not been placed anywhere has nowhere to put one.
+     */
     public function create(User $user): bool
     {
-        return (bool) $this->tenancy->member()?->role->managesProjects();
+        $member = $this->tenancy->member();
+
+        return $member !== null && ($member->managesTeam() || $member->org_unit_id !== null);
+    }
+
+    /**
+     * Hang a project off this unit.
+     */
+    public function createIn(User $user, ?int $orgUnitId): bool
+    {
+        $member = $this->tenancy->member();
+
+        if ($member === null || ! $this->create($user)) {
+            return false;
+        }
+
+        return $member->managesTeam()
+            ? $member->covers($orgUnitId)
+            : $orgUnitId !== null && $orgUnitId === $member->org_unit_id;
     }
 
     public function update(User $user, Project $project): bool
     {
-        return $this->inActiveWorkspace($project) && $this->create($user);
+        return $this->inActiveWorkspace($project) && $project->isAdministeredBy($user);
     }
 
     public function delete(User $user, Project $project): bool

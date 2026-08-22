@@ -11,6 +11,7 @@ use App\Models\Task;
 use App\Models\WorkspaceMember;
 use App\Support\TaskFilters;
 use App\Support\TaskPresenter;
+use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,7 @@ class ProjectController extends Controller
             ->map(fn (Project $project): array => [
                 'id' => $project->id,
                 'name' => $project->name,
+                'key' => $project->key,
                 'description' => $project->description,
                 'status' => $project->status->value,
                 'status_label' => $project->status->label(),
@@ -132,10 +134,14 @@ class ProjectController extends Controller
 
     public function store(ProjectStoreRequest $request): RedirectResponse
     {
-        $this->authorize('create', Project::class);
+        $orgUnitId = $this->placementUnitId($request);
 
-        $project = DB::transaction(function () use ($request): Project {
-            $project = new Project($request->safe()->only(['name', 'description', 'org_unit_id', 'status']));
+        $this->authorize('createIn', [Project::class, $orgUnitId]);
+
+        $project = DB::transaction(function () use ($request, $orgUnitId): Project {
+            $project = new Project($request->safe()->only(['name', 'description', 'status']));
+            $project->key = $request->string('key')->toString() ?: Project::generateKey($request->string('name')->toString());
+            $project->org_unit_id = $orgUnitId;
             $project->created_by = $request->user()->id;
             $project->save();
 
@@ -158,6 +164,11 @@ class ProjectController extends Controller
     public function update(ProjectUpdateRequest $request, Project $project): RedirectResponse
     {
         $this->authorize('update', $project);
+
+        // Moving a project into another unit must not push it out of reach.
+        if ($request->has('org_unit_id')) {
+            $this->authorize('createIn', [Project::class, $request->integer('org_unit_id')]);
+        }
 
         $project->update($request->validated());
 
@@ -227,6 +238,7 @@ class ProjectController extends Controller
         return [
             'id' => $project->id,
             'name' => $project->name,
+            'key' => $project->key,
             'description' => $project->description,
             'status' => $project->status->value,
             'status_label' => $project->status->label(),
@@ -271,11 +283,44 @@ class ProjectController extends Controller
     }
 
     /**
+     * Where a new project lands.
+     *
+     * A leader picks any unit inside their subtree. Anyone else gets exactly
+     * one place — the unit they sit in — so starting a project never reaches
+     * outside their own corner of the tree.
+     */
+    protected function placementUnitId(ProjectStoreRequest $request): ?int
+    {
+        $member = app(Tenancy::class)->member();
+
+        if ($member === null) {
+            return null;
+        }
+
+        return $member->managesTeam()
+            ? $request->integer('org_unit_id')
+            : $member->org_unit_id;
+    }
+
+    /**
      * @return array<int, array{id: int, name: string, depth: int}>
      */
     protected function orgUnitOptions(): array
     {
+        $viewer = app(Tenancy::class)->member();
+        $scopePath = $viewer?->hasFullScope() ? null : $viewer?->scopePath();
+
         return OrgUnit::query()
+            // Someone who leads nobody gets a single entry: their own unit,
+            // which is the only place they may start a project.
+            ->when(
+                $viewer !== null && ! $viewer->managesTeam(),
+                fn ($query) => $query->whereKey($viewer->org_unit_id),
+                fn ($query) => $query->when(
+                    $scopePath !== null,
+                    fn ($inner) => $inner->where('path', 'like', $scopePath.'%'),
+                ),
+            )
             ->orderBy('path')
             ->get(['id', 'name', 'depth'])
             ->map(fn (OrgUnit $unit): array => [
