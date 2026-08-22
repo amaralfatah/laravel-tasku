@@ -15,6 +15,8 @@ export type Membership = {
     role_code: string;
     scope_type: ScopeType;
     can_manage: boolean;
+    /** False for someone whose monitoring scope covers only themselves. */
+    can_monitor_people: boolean;
     can_monitor_division: boolean;
     /** True when a super admin is looking into a workspace they do not belong to. */
     is_super_admin: boolean;

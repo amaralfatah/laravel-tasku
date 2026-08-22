@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Member;
 
+use App\Concerns\ScopesValidationToWorkspace;
 use App\Enums\ScopeType;
 use App\Enums\WorkspaceRole;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -11,6 +12,8 @@ use Illuminate\Validation\Validator;
 
 class MemberUpdateRequest extends FormRequest
 {
+    use ScopesValidationToWorkspace;
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -18,10 +21,10 @@ class MemberUpdateRequest extends FormRequest
     {
         return [
             'role' => ['sometimes', Rule::enum(WorkspaceRole::class)],
-            'org_unit_id' => ['sometimes', 'nullable', 'integer', Rule::exists('org_units', 'id')],
+            'org_unit_id' => ['sometimes', 'nullable', 'integer', $this->existsInWorkspace('org_units')],
             'scope_type' => ['sometimes', Rule::enum(ScopeType::class)],
-            'scope_org_unit_id' => ['sometimes', 'nullable', 'integer', Rule::exists('org_units', 'id')],
-            'manager_id' => ['sometimes', 'nullable', 'integer', Rule::exists('users', 'id')],
+            'scope_org_unit_id' => ['sometimes', 'nullable', 'integer', $this->existsInWorkspace('org_units')],
+            'manager_id' => ['sometimes', 'nullable', 'integer', $this->existsAsWorkspaceMember()],
         ];
     }
 

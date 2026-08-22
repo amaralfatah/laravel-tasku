@@ -73,7 +73,8 @@ return [
     |
     */
 
-    'home' => '/monitoring/saya',
+    // HomeController decides where each kind of user belongs after login.
+    'home' => '/dashboard',
 
     /*
     |--------------------------------------------------------------------------

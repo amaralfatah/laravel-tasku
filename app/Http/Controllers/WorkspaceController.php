@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers;
 
 use App\Actions\InviteToWorkspace;
 use App\Enums\WorkspaceRole;
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\WorkspaceStoreRequest;
-use App\Http\Requests\Admin\WorkspaceUpdateRequest;
+use App\Http\Requests\Workspace\WorkspaceStoreRequest;
+use App\Http\Requests\Workspace\WorkspaceUpdateRequest;
 use App\Models\Invitation;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -17,10 +16,12 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Platform operator area (SA-1..SA-4).
+ * Workspace roster for the platform super admin (SA-1..SA-3).
  *
- * These routes never resolve an active workspace, so the operator can create
- * and suspend companies without being able to read their projects or tasks.
+ * Lives inside the ordinary app shell rather than a separate panel: a super
+ * admin also works inside workspaces, so a second chrome only split the
+ * navigation in two. The routes resolve a workspace optionally, which keeps
+ * this page reachable while no workspace exists yet.
  */
 class WorkspaceController extends Controller
 {
@@ -48,7 +49,7 @@ class WorkspaceController extends Controller
                 'pending_owner_invite' => $this->pendingOwnerInvite($workspace),
             ]);
 
-        return Inertia::render('admin/workspaces/index', [
+        return Inertia::render('workspaces/index', [
             'workspaces' => $workspaces,
             'filters' => ['search' => $search, 'status' => $status],
             'stats' => $this->stats(),
@@ -119,7 +120,7 @@ class WorkspaceController extends Controller
             'message' => "Workspace {$workspace->name} dibuat. Undangan Owner dikirim.",
         ]);
 
-        return to_route('admin.workspaces.index');
+        return to_route('workspaces.index');
     }
 
     /**

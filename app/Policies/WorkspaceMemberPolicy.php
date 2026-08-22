@@ -29,6 +29,20 @@ class WorkspaceMemberPolicy
     }
 
     /**
+     * Open the people roster (MON-1).
+     *
+     * Someone whose scope covers nobody but themselves is kept out: for them
+     * the roster is a one row list of their own name, which "Task saya"
+     * already shows in full.
+     */
+    public function monitorPeople(User $user): bool
+    {
+        $viewer = $this->tenancy->member();
+
+        return $viewer !== null && ($viewer->role->isManager() || $viewer->monitorsSubtree());
+    }
+
+    /**
      * Changing a role is an Owner-only action.
      */
     public function changeRole(User $user, WorkspaceMember $member): bool

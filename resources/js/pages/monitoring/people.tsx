@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { AlertTriangle, CalendarOff, CheckCircle2, Users } from 'lucide-react';
 import { useState } from 'react';
+import { PageHeader } from '@/components/page-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -47,16 +48,11 @@ export default function MonitoringPeople({
         <>
             <Head title="Monitoring per orang" />
 
-            <div className="space-y-4 p-4">
-                <div>
-                    <h1 className="text-xl font-semibold">
-                        Monitoring per orang
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Beban kerja setiap anggota dalam cakupan Anda, lintas
-                        project.
-                    </p>
-                </div>
+            <div className="space-y-6">
+                <PageHeader
+                    title="Monitoring per orang"
+                    description="Beban kerja setiap anggota dalam cakupan Anda, lintas project."
+                />
 
                 <Input
                     value={search}

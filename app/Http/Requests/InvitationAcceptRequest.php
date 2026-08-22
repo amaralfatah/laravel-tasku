@@ -16,7 +16,8 @@ class InvitationAcceptRequest extends FormRequest
      * Get the validation rules that apply to the request.
      *
      * Only invitations for an address without an account ask for name and
-     * password; an existing user just confirms.
+     * password. An address that already has an account confirms instead, and
+     * the controller requires it to be signed in as that account first.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -43,6 +44,10 @@ class InvitationAcceptRequest extends FormRequest
         ];
     }
 
+    /**
+     * A dead invitation asks for nothing: the controller answers it with 410,
+     * and demanding a password first would hide that behind a form error.
+     */
     protected function needsAccount(): bool
     {
         $invitation = Invitation::withoutGlobalScopes()
@@ -50,6 +55,7 @@ class InvitationAcceptRequest extends FormRequest
             ->first();
 
         return $invitation !== null
+            && $invitation->isPending()
             && ! User::where('email', $invitation->email)->exists();
     }
 }

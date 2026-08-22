@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { OrgUnitTree } from '@/components/org-unit-tree';
+import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -134,13 +135,11 @@ export default function Organization({
         <>
             <Head title="Organisasi" />
 
-            <div className="space-y-6 p-4">
-                <div>
-                    <h1 className="text-xl font-semibold">Organisasi</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Struktur unit organisasi di workspace ini.
-                    </p>
-                </div>
+            <div className="space-y-6">
+                <PageHeader
+                    title="Organisasi"
+                    description="Struktur unit organisasi di workspace ini."
+                />
 
                 <section className="space-y-3">
                         <div className="flex items-center justify-between gap-3">

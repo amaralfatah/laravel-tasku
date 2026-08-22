@@ -73,6 +73,9 @@ class HandleInertiaRequests extends Middleware
                 'role_code' => $tenancy->actingAsSuperAdmin() ? 'SA' : $member->role->code(),
                 'scope_type' => $member->scope_type->value,
                 'can_manage' => $member->role->isManager(),
+                // Someone who can only ever see themselves has no use for the
+                // people roster; "Task saya" already is that page for them.
+                'can_monitor_people' => $member->role->isManager() || $member->monitorsSubtree(),
                 'can_monitor_division' => $member->role->isManager() || $member->monitorsSubtree(),
                 'is_super_admin' => $tenancy->actingAsSuperAdmin(),
             ],

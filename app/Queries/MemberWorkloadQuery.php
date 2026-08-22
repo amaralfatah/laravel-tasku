@@ -61,7 +61,12 @@ class MemberWorkloadQuery
     {
         return Task::query()
             ->where('assignee_id', $userId)
-            ->with(['project:id,name', 'assignee:id,name,avatar_path'])
+            // `project.members` feeds the assignee picker on the person page,
+            // where every project block has its own member list.
+            // `workspace_id` is part of the select because the project policy
+            // checks it; `project.members` feeds the assignee picker on the
+            // person page, where every project block has its own member list.
+            ->with(['project:id,name,workspace_id', 'project.members', 'assignee:id,name,avatar_path'])
             ->when($from, fn (Builder $query, string $date) => $query->where(function (Builder $q) use ($date): void {
                 $q->whereNull('due_date')->orWhereDate('due_date', '>=', $date);
             }))

@@ -168,7 +168,7 @@ export default function ProjectTimeline({
         <>
             <Head title={`Timeline ${project.name}`} />
 
-            <div className="space-y-4 p-4">
+            <div className="space-y-6">
                 <ProjectHeader project={project} active="timeline" />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">

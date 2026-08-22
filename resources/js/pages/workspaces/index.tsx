@@ -10,8 +10,9 @@ import {
     X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import WorkspaceController from '@/actions/App/Http/Controllers/Admin/WorkspaceController';
+import WorkspaceController from '@/actions/App/Http/Controllers/WorkspaceController';
 import InputError from '@/components/input-error';
+import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,8 +33,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Pagination  } from '@/components/ui/pagination';
-import type {Paginated} from '@/components/ui/pagination';
+import { Pagination } from '@/components/ui/pagination';
+import type { Paginated } from '@/components/ui/pagination';
 import {
     Table,
     TableBody,
@@ -44,6 +45,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { change as changeWorkspace } from '@/routes/workspace';
+import { index as workspacesIndex } from '@/routes/workspaces';
 
 type WorkspaceRow = {
     id: number;
@@ -67,7 +69,7 @@ type Filters = { search: string; status: string };
 
 const ALL = 'all';
 
-export default function AdminWorkspaces({
+export default function Workspaces({
     workspaces,
     filters,
     stats,
@@ -111,15 +113,10 @@ export default function AdminWorkspaces({
 
             <div className="space-y-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                            Workspace
-                        </h1>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Setiap workspace adalah satu perusahaan yang
-                            datanya terpisah penuh dari yang lain.
-                        </p>
-                    </div>
+                    <PageHeader
+                        title="Workspace"
+                        description="Setiap workspace adalah satu perusahaan yang datanya terpisah penuh dari yang lain."
+                    />
 
                     <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                         <DialogTrigger asChild>
@@ -448,8 +445,7 @@ export default function AdminWorkspaces({
                                                                 ),
                                                                 {},
                                                                 {
-                                                                    preserveScroll:
-                                                                        true,
+                                                                    preserveScroll: true,
                                                                 },
                                                             )
                                                         }
@@ -485,8 +481,7 @@ export default function AdminWorkspaces({
                                                                     !workspace.is_active,
                                                             },
                                                             {
-                                                                preserveScroll:
-                                                                    true,
+                                                                preserveScroll: true,
                                                             },
                                                         );
                                                     }}
@@ -565,8 +560,8 @@ function RenameDialog({
                 <DialogHeader>
                     <DialogTitle>Ubah nama workspace</DialogTitle>
                     <DialogDescription>
-                        Alamat /{workspace.slug} tidak ikut berubah, jadi
-                        tautan lama tetap berfungsi.
+                        Alamat /{workspace.slug} tidak ikut berubah, jadi tautan
+                        lama tetap berfungsi.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -609,3 +604,7 @@ function RenameDialog({
         </Dialog>
     );
 }
+
+Workspaces.layout = {
+    breadcrumbs: [{ title: 'Kelola workspace', href: workspacesIndex() }],
+};

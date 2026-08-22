@@ -2,14 +2,18 @@
 
 namespace App\Http\Requests\Task;
 
+use App\Concerns\ScopesValidationToWorkspace;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Models\Project;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class TaskStoreRequest extends FormRequest
 {
+    use ScopesValidationToWorkspace;
+
     /**
      * Only the title is required; everything else is optional (TSK-1).
      *
@@ -17,11 +21,19 @@ class TaskStoreRequest extends FormRequest
      */
     public function rules(): array
     {
+        $project = $this->route('project');
+        $projectId = $project instanceof Project ? $project->id : 0;
+
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:10000'],
-            'parent_task_id' => ['nullable', 'integer', Rule::exists('tasks', 'id')],
-            'assignee_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
+            'parent_task_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('tasks', 'id')->where('project_id', $projectId),
+            ],
+            // TSK-4: only people on this project may carry its tasks.
+            'assignee_id' => ['nullable', 'integer', $this->existsAsProjectMember($projectId)],
             'status' => ['sometimes', Rule::enum(TaskStatus::class)],
             'priority' => ['sometimes', Rule::enum(TaskPriority::class)],
             'progress' => ['sometimes', 'integer', 'min:0', 'max:100'],

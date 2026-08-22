@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Monitoring;
 
 use App\Http\Controllers\Controller;
+use App\Models\Project;
 use App\Models\Task;
+use App\Models\User;
 use App\Models\WorkspaceMember;
 use App\Queries\MemberWorkloadQuery;
 use App\Support\TaskPresenter;
@@ -30,7 +32,7 @@ class PersonController extends Controller
      */
     public function index(Request $request): Response
     {
-        $this->authorize('viewAny', WorkspaceMember::class);
+        $this->authorize('monitorPeople', WorkspaceMember::class);
 
         $viewer = $this->tenancy->member();
 
@@ -64,6 +66,8 @@ class PersonController extends Controller
                 'org_unit' => $member->orgUnit?->name,
             ],
             'tasks' => $this->groupByProject($tasks, $request),
+            'statuses' => TaskPresenter::statusOptions(),
+            'priorities' => TaskPresenter::priorityOptions(),
             'filters' => ['from' => $from, 'to' => $to],
             'isSelf' => $member->user_id === $request->user()->id,
         ]);
@@ -92,21 +96,52 @@ class PersonController extends Controller
      * Group the tasks by project so the page reads like the old per-programmer
      * sheet: one block per project, tasks nested inside it.
      *
+     * Each block carries its own edit permission and assignee list, because
+     * this page crosses projects: someone may contribute to one of them and
+     * only be able to read another.
+     *
      * @param  Collection<int, Task>  $tasks
      * @return array<int, array<string, mixed>>
      */
-    protected function groupByProject($tasks, Request $request): array
+    protected function groupByProject(Collection $tasks, Request $request): array
     {
-        return $tasks
-            ->groupBy('project_id')
-            ->map(fn ($group): array => [
+        $user = $request->user();
+        $groups = [];
+
+        foreach ($tasks->groupBy('project_id') as $group) {
+            $project = $group->first()->project;
+            $canEdit = $user->can('contribute', $project);
+
+            $groups[] = [
                 'project' => [
-                    'id' => $group->first()->project->id,
-                    'name' => $group->first()->project->name,
+                    'id' => $project->id,
+                    'name' => $project->name,
                 ],
-                'tasks' => TaskPresenter::collection($group, $request->user(), false),
+                'can_edit' => $canEdit,
+                'assignees' => $this->assigneeOptions($project),
+                'tasks' => TaskPresenter::collection($group, $user, $canEdit),
+            ];
+        }
+
+        usort($groups, fn (array $a, array $b): int => strcmp($a['project']['name'], $b['project']['name']));
+
+        return $groups;
+    }
+
+    /**
+     * People the tasks of this project may be reassigned to (TSK-4).
+     *
+     * @return array<int, array{id: int, name: string, avatar: string|null}>
+     */
+    protected function assigneeOptions(Project $project): array
+    {
+        return $project->members
+            ->sortBy('name')
+            ->map(fn (User $member): array => [
+                'id' => $member->id,
+                'name' => $member->name,
+                'avatar' => $member->avatar,
             ])
-            ->sortBy('project.name')
             ->values()
             ->all();
     }

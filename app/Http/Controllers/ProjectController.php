@@ -139,7 +139,13 @@ class ProjectController extends Controller
             $project->created_by = $request->user()->id;
             $project->save();
 
-            $project->members()->sync($this->workspaceUserIds($request->input('member_ids', [])));
+            // The creator joins their own project. Without this an Asisten
+            // (BOD-3) may create a project and then be unable to put a single
+            // task in it, since contributing requires project membership.
+            $memberIds = $this->workspaceUserIds($request->input('member_ids', []));
+            $memberIds[] = $request->user()->id;
+
+            $project->members()->sync(array_values(array_unique($memberIds)));
 
             return $project;
         });
@@ -204,6 +210,8 @@ class ProjectController extends Controller
             'priorities' => TaskPresenter::priorityOptions(),
             'assignees' => $this->assigneeOptions($project),
             'maxDepth' => Task::MAX_DEPTH,
+            // Deep link from a notification: the view opens this task's panel.
+            'focusTaskId' => $request->integer('task') ?: null,
             'can' => [
                 'contribute' => $canEdit,
                 'edit_project' => $request->user()->can('update', $project),

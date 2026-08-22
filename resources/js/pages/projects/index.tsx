@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FolderKanban, Plus } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,14 +71,12 @@ export default function Projects({
         <>
             <Head title="Project" />
 
-            <div className="space-y-6 p-4">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-xl font-semibold">Project</h1>
-                        <p className="text-sm text-muted-foreground">
-                            {projects.length} project dalam cakupan Anda.
-                        </p>
-                    </div>
+            <div className="space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <PageHeader
+                        title="Project"
+                        description={`${projects.length} project dalam cakupan Anda.`}
+                    />
 
                     {can.create && (
                         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -270,13 +269,15 @@ export default function Projects({
                 </div>
 
                 {projects.length === 0 ? (
-                    <div className="rounded-lg border p-12 text-center">
-                        <FolderKanban
-                            className="mx-auto mb-3 size-8 text-muted-foreground"
+                    <div className="rounded-xl border border-dashed bg-card/50 p-12 text-center">
+                        <div
+                            className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-accent"
                             aria-hidden="true"
-                        />
+                        >
+                            <FolderKanban className="size-6 text-accent-foreground" />
+                        </div>
                         <p className="font-medium">Belum ada project</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
                             {can.create
                                 ? 'Buat project pertama dan tempelkan ke unit yang sesuai.'
                                 : 'Anda akan melihat project setelah didaftarkan sebagai anggota.'}
@@ -288,7 +289,7 @@ export default function Projects({
                             <li key={project.id}>
                                 <Link
                                     href={show(project.id)}
-                                    className="flex h-full flex-col gap-2 rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                                    className="flex h-full flex-col gap-2 rounded-xl border bg-card p-4 shadow-raised transition-[box-shadow,border-color,transform] duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-overlay focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <span className="font-medium">

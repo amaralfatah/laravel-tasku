@@ -1,6 +1,10 @@
 <?php
 
+use App\Enums\WorkspaceRole;
 use App\Models\User;
+use App\Models\Workspace;
+use App\Models\WorkspaceMember;
+use Inertia\Testing\AssertableInertia;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -82,4 +86,31 @@ test('correct password must be provided to delete account', function () {
         ->assertRedirect(route('profile.edit'));
 
     expect($user->fresh())->not->toBeNull();
+});
+
+test('the settings pages resolve the active workspace so the sidebar keeps its menu', function () {
+    // The sidebar builds its menu from `tenancy.workspace`, so a settings page
+    // that skips workspace resolution renders an empty sidebar.
+    $workspace = Workspace::factory()->create();
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Bod4]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('tenancy.workspace.id', $workspace->id)
+            ->where('tenancy.membership.role_code', WorkspaceRole::Bod4->code())
+        );
+});
+
+test('settings stay reachable for a user who belongs to no workspace', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('tenancy.workspace', null)
+        );
 });

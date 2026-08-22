@@ -49,7 +49,12 @@ class NotificationController extends Controller
     }
 
     /**
-     * Mark one notification read and send the user to the task (NTF-3).
+     * Mark one notification read and open the task it is about (NTF-3).
+     *
+     * The list view is the target rather than the board, because only root
+     * tasks appear on a board (BRD-4) — a notification about a sub task would
+     * otherwise land on a page that does not show it. The `task` parameter
+     * makes the list open that task's detail panel straight away.
      */
     public function read(Request $request, Notification $notification): RedirectResponse
     {
@@ -57,13 +62,18 @@ class NotificationController extends Controller
 
         $notification->update(['is_read' => true]);
 
-        $task = Task::withoutGlobalScopes()->find($notification->entity_id);
+        $task = $notification->entity_type === 'task'
+            ? Task::query()->with('project')->find($notification->entity_id)
+            : null;
 
-        if ($task === null) {
+        if ($task === null || $request->user()->cannot('view', $task)) {
             return back();
         }
 
-        return redirect()->route('projects.show', $task->project_id);
+        return redirect()->route('projects.list', [
+            'project' => $task->project_id,
+            'task' => $task->id,
+        ]);
     }
 
     /**

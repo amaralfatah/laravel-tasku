@@ -22,15 +22,23 @@ use Symfony\Component\HttpFoundation\Response;
  * A super admin is a special case: they belong to no workspace, but may open
  * any of them, so they are handed a virtual Owner membership for whichever
  * workspace they are looking at.
+ *
+ * The `optional` mode resolves the same context but never redirects. It is
+ * used by pages that must stay reachable without a workspace — the workspace
+ * roster a super admin manages, which is also where someone lands when the
+ * platform has no active workspace at all.
  */
 class EnsureWorkspaceAccess
 {
     public const SESSION_KEY = 'workspace_id';
 
+    public const OPTIONAL = 'optional';
+
     public function __construct(protected Tenancy $tenancy) {}
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, ?string $mode = null): Response
     {
+        $optional = $mode === self::OPTIONAL;
         $user = $request->user();
 
         if ($user === null) {
@@ -38,22 +46,18 @@ class EnsureWorkspaceAccess
         }
 
         if ($user->is_super_admin) {
-            return $this->handleSuperAdmin($request, $user, $next);
+            return $this->handleSuperAdmin($request, $user, $next, $optional);
         }
 
         $member = $this->resolveMembership($request);
 
-        if ($member === null) {
-            return redirect()->route('workspace.none');
+        if ($member === null || ! $member->workspace->is_active) {
+            $request->session()->forget(self::SESSION_KEY);
+
+            return $optional ? $next($request) : redirect()->route('workspace.none');
         }
 
         $workspace = $member->workspace;
-
-        if (! $workspace->is_active) {
-            $request->session()->forget(self::SESSION_KEY);
-
-            return redirect()->route('workspace.none');
-        }
 
         $request->session()->put(self::SESSION_KEY, $workspace->id);
         $this->tenancy->set($workspace, $member);
@@ -64,12 +68,12 @@ class EnsureWorkspaceAccess
     /**
      * Let a super admin into any active workspace with full rights.
      */
-    protected function handleSuperAdmin(Request $request, User $user, Closure $next): Response
+    protected function handleSuperAdmin(Request $request, User $user, Closure $next, bool $optional): Response
     {
         $workspace = $this->resolveWorkspaceForSuperAdmin($request);
 
         if ($workspace === null) {
-            return redirect()->route('workspace.none');
+            return $optional ? $next($request) : redirect()->route('workspace.none');
         }
 
         $request->session()->put(self::SESSION_KEY, $workspace->id);

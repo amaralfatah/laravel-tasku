@@ -3,6 +3,7 @@ import { Check, Copy, MailPlus, MoreHorizontal, Users } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { MemberEditDialog } from '@/components/member-edit-dialog';
+import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -79,14 +80,12 @@ export default function Members({
         <>
             <Head title="Anggota" />
 
-            <div className="space-y-6 p-4">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-xl font-semibold">Anggota</h1>
-                        <p className="text-sm text-muted-foreground">
-                            {members.length} anggota aktif di workspace ini.
-                        </p>
-                    </div>
+            <div className="space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <PageHeader
+                        title="Anggota"
+                        description={`${members.length} anggota aktif di workspace ini.`}
+                    />
 
                     {can.manage && (
                         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>

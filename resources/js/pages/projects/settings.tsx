@@ -63,7 +63,7 @@ export default function ProjectSettings({
         <>
             <Head title={project.name} />
 
-            <div className="space-y-6 p-4">
+            <div className="space-y-6">
                 <ProjectHeader project={project} active="settings" />
 
                 <div className="flex flex-wrap items-start justify-between gap-4">

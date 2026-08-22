@@ -1,7 +1,5 @@
 <?php
 
-test('returns a successful response', function () {
-    $response = $this->get(route('home'));
-
-    $response->assertOk();
+test('the root path requires signing in', function () {
+    $this->get(route('home'))->assertRedirect(route('login'));
 });

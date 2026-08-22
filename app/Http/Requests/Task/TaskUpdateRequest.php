@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Task;
 
+use App\Concerns\ScopesValidationToWorkspace;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Models\Task;
@@ -12,15 +13,21 @@ use Illuminate\Validation\Validator;
 
 class TaskUpdateRequest extends FormRequest
 {
+    use ScopesValidationToWorkspace;
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
+        $task = $this->route('task');
+        $projectId = $task instanceof Task ? $task->project_id : 0;
+
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:10000'],
-            'assignee_id' => ['sometimes', 'nullable', 'integer', Rule::exists('users', 'id')],
+            // TSK-4: only people on this project may carry its tasks.
+            'assignee_id' => ['sometimes', 'nullable', 'integer', $this->existsAsProjectMember($projectId)],
             'status' => ['sometimes', Rule::enum(TaskStatus::class)],
             'priority' => ['sometimes', Rule::enum(TaskPriority::class)],
             'progress' => ['sometimes', 'integer', 'min:0', 'max:100'],

@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { ChevronRight, Network } from 'lucide-react';
+import { PageHeader } from '@/components/page-header';
 import { ProgressBar } from '@/components/task/progress-bar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -42,16 +43,11 @@ export default function MonitoringDivisions({
         <>
             <Head title="Monitoring per divisi" />
 
-            <div className="space-y-4 p-4">
-                <div>
-                    <h1 className="text-xl font-semibold">
-                        Monitoring per divisi
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Angka setiap unit sudah termasuk seluruh unit di
-                        bawahnya.
-                    </p>
-                </div>
+            <div className="space-y-6">
+                <PageHeader
+                    title="Monitoring per divisi"
+                    description="Angka setiap unit sudah termasuk seluruh unit di bawahnya."
+                />
 
                 <nav
                     className="flex flex-wrap items-center gap-1 text-sm"

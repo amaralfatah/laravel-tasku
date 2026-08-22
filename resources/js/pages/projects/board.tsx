@@ -23,17 +23,14 @@ import { TaskDetailSheet } from '@/components/task/task-detail-sheet';
 import { TaskFilterBar } from '@/components/task/task-filters';
 import { Button } from '@/components/ui/button';
 import { useTaskFilters } from '@/hooks/use-task-filters';
+import { cn } from '@/lib/utils';
 import { index as projectsIndex, show } from '@/routes/projects';
 import { move } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import {
+    TASK_STATUS_ACCENT,
     TASK_STATUS_LABELS,
-    TASK_STATUS_ORDER
-    
-    
-    
-    
-    
+    TASK_STATUS_ORDER,
 } from '@/types/tasks';
 import type {ProjectSummary, TaskAssignee, TaskFilterState, TaskNode, TaskStatus} from '@/types/tasks';
 
@@ -146,7 +143,7 @@ export default function ProjectBoard({
         <>
             <Head title={project.name} />
 
-            <div className="space-y-4 p-4">
+            <div className="space-y-6">
                 <ProjectHeader project={project} active="board" />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -235,14 +232,21 @@ function BoardColumn({
 }) {
     return (
         <section
-            className="flex min-w-64 flex-col rounded-lg border bg-muted/30"
+            className="flex min-w-64 flex-col overflow-hidden rounded-xl border bg-muted/40"
             aria-label={TASK_STATUS_LABELS[status]}
         >
-            <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
-                <h2 className="text-sm font-medium">
+            {/* Accent rail carries the column's status colour without tinting
+                the cards inside it. */}
+            <div
+                className={cn('h-1 w-full', TASK_STATUS_ACCENT[status])}
+                aria-hidden="true"
+            />
+
+            <header className="flex items-center justify-between gap-2 border-b bg-card/60 px-3 py-2.5">
+                <h2 className="text-sm font-semibold">
                     {TASK_STATUS_LABELS[status]}
                 </h2>
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
                     {tasks.length}
                 </span>
             </header>

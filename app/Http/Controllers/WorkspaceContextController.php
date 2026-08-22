@@ -27,7 +27,10 @@ class WorkspaceContextController extends Controller
 
         $request->session()->put(EnsureWorkspaceAccess::SESSION_KEY, $workspace->id);
 
-        return to_route('dashboard');
+        // Straight into the workspace that was just picked, rather than back
+        // through the landing page, which would bounce a super admin out to
+        // the workspace roster they came from.
+        return to_route('monitoring.me');
     }
 
     /**

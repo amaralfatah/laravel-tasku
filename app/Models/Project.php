@@ -108,7 +108,11 @@ class Project extends Model
             return true;
         }
 
-        return $this->members()->whereKey($user->id)->exists();
+        // Read the loaded relation when there is one; the monitoring pages ask
+        // this for every project on the page.
+        return $this->relationLoaded('members')
+            ? $this->members->contains('id', $user->id)
+            : $this->members()->whereKey($user->id)->exists();
     }
 
     /**

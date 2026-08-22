@@ -72,8 +72,28 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
  * signal (WCAG: do not rely on colour alone).
  */
 export const TASK_PRIORITY_CLASSES: Record<TaskPriority, string> = {
-    low: 'border-transparent bg-muted text-muted-foreground',
-    medium: 'border-transparent bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200',
-    high: 'border-transparent bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
-    urgent: 'border-transparent bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200',
+    low: 'border-border bg-muted text-muted-foreground',
+    medium: 'border-info/25 bg-info-subtle text-info',
+    high: 'border-warning/25 bg-warning-subtle text-warning',
+    urgent: 'border-destructive/25 bg-destructive-subtle text-destructive',
+};
+
+/**
+ * Board and list status colours. Paired with {@link TASK_STATUS_LABELS} so the
+ * state is always readable without colour.
+ */
+export const TASK_STATUS_VARIANT: Record<
+    TaskStatus,
+    'secondary' | 'info-subtle' | 'success-subtle'
+> = {
+    todo: 'secondary',
+    in_progress: 'info-subtle',
+    done: 'success-subtle',
+};
+
+/** Accent rail on each board column header, keyed to the same status colours. */
+export const TASK_STATUS_ACCENT: Record<TaskStatus, string> = {
+    todo: 'bg-muted-foreground/40',
+    in_progress: 'bg-info',
+    done: 'bg-success',
 };

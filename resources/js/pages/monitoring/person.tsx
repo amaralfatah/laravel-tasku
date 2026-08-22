@@ -1,7 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { CalendarOff, ClipboardList } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ProgressBar } from '@/components/task/progress-bar';
+import { TaskDetailSheet } from '@/components/task/task-detail-sheet';
 import {
     TimelineBar,
     TimelineHeader,
@@ -18,10 +19,14 @@ import { cn } from '@/lib/utils';
 import { formatWeek } from '@/lib/week';
 import { people, person as personRoute } from '@/routes/monitoring';
 import { show as showProject } from '@/routes/projects';
-import type { TaskNode } from '@/types/tasks';
+import type { Option } from '@/types/members';
+import type { TaskAssignee, TaskNode } from '@/types/tasks';
 
 type ProjectGroup = {
     project: { id: number; name: string };
+    /** Whether the viewer may edit tasks of this project (varies per block). */
+    can_edit: boolean;
+    assignees: TaskAssignee[];
     tasks: TaskNode[];
 };
 
@@ -42,15 +47,20 @@ type Member = {
 export default function MonitoringPerson({
     member,
     tasks,
+    statuses,
+    priorities,
     filters,
     isSelf,
 }: {
     member: Member;
     tasks: ProjectGroup[];
+    statuses: Option[];
+    priorities: Option[];
     filters: { from: string | null; to: string | null };
     isSelf: boolean;
 }) {
     const getInitials = useInitials();
+    const [openTaskId, setOpenTaskId] = useState<number | null>(null);
 
     const allTasks = useMemo(
         () => tasks.flatMap((group) => group.tasks),
@@ -72,6 +82,19 @@ export default function MonitoringPerson({
         (task) => !task.start_date || !task.due_date,
     );
 
+    // The sheet needs the assignee list of the project the task belongs to,
+    // so the open task is looked up together with its block.
+    const open = useMemo(() => {
+        const group = tasks.find((item) =>
+            item.tasks.some((task) => task.id === openTaskId),
+        );
+        const task = group?.tasks.find((item) => item.id === openTaskId);
+
+        return group === undefined || task === undefined
+            ? null
+            : { task, assignees: group.assignees };
+    }, [tasks, openTaskId]);
+
     const applyRange = (patch: { from?: string | null; to?: string | null }) =>
         router.get(
             personRoute(member.id).url,
@@ -86,7 +109,7 @@ export default function MonitoringPerson({
         <>
             <Head title={member.name} />
 
-            <div className="space-y-4 p-4">
+            <div className="space-y-6">
                 <div className="flex flex-wrap items-center gap-3">
                     <Avatar className="size-12">
                         <AvatarImage src={member.avatar ?? undefined} alt="" />
@@ -218,9 +241,15 @@ export default function MonitoringPerson({
                                                 <span className="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
                                                     {task.wbs_number}
                                                 </span>
-                                                <span className="min-w-0 flex-1 truncate text-sm">
+                                                <button
+                                                    type="button"
+                                                    className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
+                                                    onClick={() =>
+                                                        setOpenTaskId(task.id)
+                                                    }
+                                                >
                                                     {task.title}
-                                                </span>
+                                                </button>
                                                 <span className="w-24 shrink-0">
                                                     <ProgressBar
                                                         value={task.progress}
@@ -275,9 +304,13 @@ export default function MonitoringPerson({
                                     <span className="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">
                                         {task.wbs_number}
                                     </span>
-                                    <span className="min-w-0 flex-1 truncate">
+                                    <button
+                                        type="button"
+                                        className="min-w-0 flex-1 truncate text-left hover:underline"
+                                        onClick={() => setOpenTaskId(task.id)}
+                                    >
                                         {task.title}
-                                    </span>
+                                    </button>
                                     <span
                                         className={cn(
                                             'shrink-0 text-xs',
@@ -292,6 +325,14 @@ export default function MonitoringPerson({
                     </section>
                 )}
             </div>
+
+            <TaskDetailSheet
+                task={open?.task ?? null}
+                assignees={open?.assignees ?? []}
+                statuses={statuses}
+                priorities={priorities}
+                onClose={() => setOpenTaskId(null)}
+            />
         </>
     );
 }

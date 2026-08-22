@@ -1,26 +1,26 @@
 <?php
 
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InvitationAcceptController;
 use App\Http\Controllers\WorkspaceContextController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/monitoring/saya')->name('home');
-
-Route::get('undangan/{token}', [InvitationAcceptController::class, 'show'])->name('invitation.show');
-Route::post('undangan/{token}', [InvitationAcceptController::class, 'store'])
+Route::get('invitations/{token}', [InvitationAcceptController::class, 'show'])->name('invitation.show');
+Route::post('invitations/{token}', [InvitationAcceptController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('invitation.accept');
 
 Route::middleware(['auth'])->group(function () {
+    // Landing page: the workspace roster for a super admin, "Task saya" for
+    // everyone else. Both auth redirects point here so the choice lives in one
+    // place (MON-7).
+    Route::get('/', HomeController::class)->name('home');
+    Route::get('dashboard', HomeController::class)->name('dashboard');
+
     Route::get('workspace/none', [WorkspaceContextController::class, 'none'])->name('workspace.none');
     Route::post('workspace/{workspace}/change', [WorkspaceContextController::class, 'change'])->name('workspace.change');
 });
 
-Route::middleware(['auth', 'workspace'])->group(function () {
-    // MON-7: "Task saya" is the landing page after login.
-    Route::redirect('dashboard', '/monitoring/saya')->name('dashboard');
-});
-
-require __DIR__.'/admin.php';
+require __DIR__.'/workspaces.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/workspace.php';

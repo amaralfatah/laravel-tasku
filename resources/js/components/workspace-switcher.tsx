@@ -17,14 +17,34 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { change } from '@/routes/workspace';
 
 export function WorkspaceSwitcher() {
-    const { tenancy } = usePage().props;
+    const { name, tenancy } = usePage().props;
     const { state } = useSidebar();
     const isMobile = useIsMobile();
 
     const active = tenancy?.workspace;
 
+    // The workspace roster resolves no workspace while the platform has none,
+    // so show the product itself rather than leaving the header empty.
     if (!active) {
-        return null;
+        return (
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton size="lg" className="cursor-default">
+                        <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                            <Building2 className="size-4" />
+                        </div>
+                        <div className="grid flex-1 text-left text-sm leading-tight">
+                            <span className="truncate font-semibold">
+                                {name}
+                            </span>
+                            <span className="truncate text-xs text-muted-foreground">
+                                Tanpa workspace aktif
+                            </span>
+                        </div>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        );
     }
 
     const others = tenancy.workspaces;

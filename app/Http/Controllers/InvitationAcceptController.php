@@ -8,6 +8,7 @@ use App\Models\Invitation;
 use App\Models\User;
 use App\Models\WorkspaceMember;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
@@ -17,12 +18,14 @@ use Inertia\Response;
 /**
  * Public landing page for an invitation link.
  *
- * A new address sets its password here; an address that already has an account
- * only confirms, and is then added to the workspace.
+ * An address without an account sets its password here and is signed in. An
+ * address that already has one must sign in first: the link alone proves
+ * nothing about who is holding it, so accepting it may never authenticate an
+ * existing account.
  */
 class InvitationAcceptController extends Controller
 {
-    public function show(string $token): Response|RedirectResponse
+    public function show(Request $request, string $token): Response|RedirectResponse
     {
         $invitation = $this->pendingInvitation($token);
 
@@ -30,11 +33,25 @@ class InvitationAcceptController extends Controller
             return Inertia::render('invitation/invalid');
         }
 
+        $existing = User::where('email', $invitation->email)->first();
+        $current = $request->user();
+
+        if ($existing !== null && $current === null) {
+            // Come back here once they have signed in.
+            $request->session()->put('url.intended', route('invitation.show', $token));
+        }
+
         return Inertia::render('invitation/accept', [
             'workspaceName' => $invitation->workspace->name,
             'email' => $invitation->email,
             'roleLabel' => $invitation->role->label(),
-            'needsAccount' => ! User::where('email', $invitation->email)->exists(),
+            'needsAccount' => $existing === null,
+            'needsLogin' => $existing !== null && $current === null,
+            'signedInAs' => $current === null ? null : [
+                'name' => $current->name,
+                'email' => $current->email,
+            ],
+            'isWrongAccount' => $existing !== null && $current !== null && $current->id !== $existing->id,
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
             'token' => $token,
         ]);
@@ -46,8 +63,18 @@ class InvitationAcceptController extends Controller
 
         abort_if($invitation === null, 410, 'Undangan tidak berlaku lagi.');
 
-        $user = DB::transaction(function () use ($invitation, $request): User {
-            $user = User::where('email', $invitation->email)->first();
+        $existing = User::where('email', $invitation->email)->first();
+
+        if ($existing !== null && $request->user()?->id !== $existing->id) {
+            $request->session()->put('url.intended', route('invitation.show', $token));
+
+            return to_route('login')->withErrors([
+                'email' => 'Masuk dengan '.$invitation->email.' untuk menerima undangan ini.',
+            ]);
+        }
+
+        $user = DB::transaction(function () use ($invitation, $request, $existing): User {
+            $user = $existing;
 
             if ($user === null) {
                 $user = User::create([
@@ -59,18 +86,37 @@ class InvitationAcceptController extends Controller
                 $user->forceFill(['email_verified_at' => now()])->save();
             }
 
-            WorkspaceMember::withoutGlobalScopes()->firstOrCreate(
-                ['workspace_id' => $invitation->workspace_id, 'user_id' => $user->id],
-                ['role' => $invitation->role, 'joined_at' => now()],
-            );
+            $alreadyMember = WorkspaceMember::withoutGlobalScopes()
+                ->where('workspace_id', $invitation->workspace_id)
+                ->where('user_id', $user->id)
+                ->exists();
+
+            if (! $alreadyMember) {
+                // `workspace_id` is guarded and there is no active workspace on
+                // this public route, so it is set by hand rather than filled
+                // from the tenant context.
+                $member = new WorkspaceMember([
+                    'user_id' => $user->id,
+                    'role' => $invitation->role,
+                    'joined_at' => now(),
+                ]);
+
+                $member->workspace_id = $invitation->workspace_id;
+                $member->save();
+            }
 
             $invitation->forceFill(['accepted_at' => now()])->save();
 
             return $user;
         });
 
-        Auth::login($user);
-        $request->session()->regenerate();
+        // Only a brand new account is signed in here; an existing one is
+        // already authenticated by the check above.
+        if ($existing === null) {
+            Auth::login($user);
+            $request->session()->regenerate();
+        }
+
         $request->session()->put(EnsureWorkspaceAccess::SESSION_KEY, $invitation->workspace_id);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Selamat datang di '.$invitation->workspace->name.'.']);

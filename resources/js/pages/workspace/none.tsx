@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { logout } from '@/routes';
+import { index as workspacesIndex } from '@/routes/workspaces';
 
 export default function WorkspaceNone({
     isSuperAdmin,
@@ -26,7 +27,7 @@ export default function WorkspaceNone({
                         </h1>
                         <p className="text-sm text-muted-foreground">
                             {isSuperAdmin
-                                ? 'Akun ini adalah super admin. Kelola workspace dari panel admin.'
+                                ? 'Akun ini adalah super admin. Buat workspace pertama dari halaman kelola workspace.'
                                 : 'Akun Anda belum tergabung di workspace mana pun, atau workspace Anda sedang dinonaktifkan. Hubungi admin perusahaan Anda.'}
                         </p>
                     </div>
@@ -34,8 +35,8 @@ export default function WorkspaceNone({
                     <div className="flex justify-center gap-3">
                         {isSuperAdmin && (
                             <Button asChild>
-                                <Link href="/admin/workspaces">
-                                    Panel admin
+                                <Link href={workspacesIndex()}>
+                                    Kelola workspace
                                 </Link>
                             </Button>
                         )}

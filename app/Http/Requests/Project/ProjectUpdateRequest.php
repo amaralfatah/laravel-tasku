@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Project;
 
+use App\Concerns\ScopesValidationToWorkspace;
 use App\Enums\ProjectStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +10,8 @@ use Illuminate\Validation\Rule;
 
 class ProjectUpdateRequest extends FormRequest
 {
+    use ScopesValidationToWorkspace;
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -17,7 +20,7 @@ class ProjectUpdateRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
-            'org_unit_id' => ['sometimes', 'required', 'integer', Rule::exists('org_units', 'id')],
+            'org_unit_id' => ['sometimes', 'required', 'integer', $this->existsInWorkspace('org_units')],
             'status' => ['sometimes', Rule::enum(ProjectStatus::class)],
         ];
     }

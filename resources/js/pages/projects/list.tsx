@@ -25,6 +25,8 @@ type PageProps = {
     priorities: Option[];
     assignees: TaskAssignee[];
     maxDepth: number;
+    /** Task to open on arrival, e.g. when following a notification (NTF-3). */
+    focusTaskId: number | null;
     can: { contribute: boolean; edit_project: boolean };
 };
 
@@ -35,10 +37,11 @@ export default function ProjectList({
     statuses,
     priorities,
     assignees,
+    focusTaskId,
     can,
 }: PageProps) {
     const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-    const [openTaskId, setOpenTaskId] = useState<number | null>(null);
+    const [openTaskId, setOpenTaskId] = useState<number | null>(focusTaskId);
     const [createParent, setCreateParent] = useState<TaskNode | null>(null);
     const [createOpen, setCreateOpen] = useState(false);
 
@@ -99,7 +102,7 @@ export default function ProjectList({
         <>
             <Head title={project.name} />
 
-            <div className="space-y-4 p-4">
+            <div className="space-y-6">
                 <ProjectHeader project={project} active="list" />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">

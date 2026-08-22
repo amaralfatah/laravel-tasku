@@ -1,10 +1,11 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
 import { Building2 } from 'lucide-react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { login, logout } from '@/routes';
 import { accept } from '@/routes/invitation';
 
 export default function AcceptInvitation({
@@ -12,13 +13,22 @@ export default function AcceptInvitation({
     email,
     roleLabel,
     needsAccount,
+    needsLogin,
+    signedInAs,
+    isWrongAccount,
     passwordRules,
     token,
 }: {
     workspaceName: string;
     email: string;
     roleLabel: string;
+    /** No account uses this address yet, so one is created here. */
     needsAccount: boolean;
+    /** The address already has an account and nobody is signed in. */
+    needsLogin: boolean;
+    signedInAs: { name: string; email: string } | null;
+    /** Signed in, but as a different account than the invitation is for. */
+    isWrongAccount: boolean;
     passwordRules: string | null;
     token: string;
 }) {
@@ -47,91 +57,139 @@ export default function AcceptInvitation({
                         </div>
                     </div>
 
-                    <Form
-                        {...accept.form(token)}
-                        resetOnError={['password', 'password_confirmation']}
-                        className="space-y-4"
-                    >
-                        {({ processing, errors }) => (
-                            <>
-                                {needsAccount && (
-                                    <>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="name">
-                                                Nama lengkap
-                                            </Label>
-                                            <Input
-                                                id="name"
-                                                name="name"
-                                                required
-                                                autoFocus
-                                                autoComplete="name"
-                                                placeholder="Nama Anda"
-                                            />
-                                            <InputError message={errors.name} />
-                                        </div>
+                    {/*
+                     * An address that already has an account has to sign in
+                     * first: holding the link proves nothing about who is
+                     * opening it.
+                     */}
+                    {needsLogin && (
+                        <div className="space-y-4 rounded-lg border p-4 text-center">
+                            <p className="text-sm text-muted-foreground">
+                                Akun dengan email ini sudah terdaftar. Masuk
+                                terlebih dahulu, lalu undangan ini bisa
+                                diterima.
+                            </p>
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="password">
-                                                Kata sandi
-                                            </Label>
-                                            <PasswordInput
-                                                id="password"
-                                                name="password"
-                                                required
-                                                autoComplete="new-password"
-                                                placeholder="Kata sandi baru"
-                                                passwordrules={
-                                                    passwordRules ?? undefined
-                                                }
-                                            />
-                                            <InputError
-                                                message={errors.password}
-                                            />
-                                        </div>
+                            <Button className="w-full" asChild>
+                                <Link href={login()}>Masuk untuk lanjut</Link>
+                            </Button>
+                        </div>
+                    )}
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="password_confirmation">
-                                                Konfirmasi kata sandi
-                                            </Label>
-                                            <PasswordInput
-                                                id="password_confirmation"
-                                                name="password_confirmation"
-                                                required
-                                                autoComplete="new-password"
-                                                placeholder="Ulangi kata sandi"
-                                                passwordrules={
-                                                    passwordRules ?? undefined
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    errors.password_confirmation
-                                                }
-                                            />
-                                        </div>
-                                    </>
-                                )}
+                    {isWrongAccount && (
+                        <div className="space-y-4 rounded-lg border p-4 text-center">
+                            <p className="text-sm text-muted-foreground">
+                                Anda masuk sebagai{' '}
+                                <span className="font-medium text-foreground">
+                                    {signedInAs?.email}
+                                </span>
+                                , sedangkan undangan ini untuk {email}. Keluar
+                                dulu, lalu masuk dengan akun yang diundang.
+                            </p>
 
-                                {!needsAccount && (
-                                    <p className="text-center text-sm text-muted-foreground">
-                                        Akun dengan email ini sudah ada.
-                                        Lanjutkan untuk menambahkannya ke
-                                        workspace.
-                                    </p>
-                                )}
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                asChild
+                            >
+                                <Link href={logout()} as="button">
+                                    Keluar
+                                </Link>
+                            </Button>
+                        </div>
+                    )}
 
-                                <Button
-                                    className="w-full"
-                                    disabled={processing}
-                                >
-                                    {processing
-                                        ? 'Memproses…'
-                                        : 'Terima undangan'}
-                                </Button>
-                            </>
-                        )}
-                    </Form>
+                    {!needsLogin && !isWrongAccount && (
+                        <Form
+                            {...accept.form(token)}
+                            resetOnError={['password', 'password_confirmation']}
+                            className="space-y-4"
+                        >
+                            {({ processing, errors }) => (
+                                <>
+                                    {needsAccount && (
+                                        <>
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="name">
+                                                    Nama lengkap
+                                                </Label>
+                                                <Input
+                                                    id="name"
+                                                    name="name"
+                                                    required
+                                                    autoFocus
+                                                    autoComplete="name"
+                                                    placeholder="Nama Anda"
+                                                />
+                                                <InputError
+                                                    message={errors.name}
+                                                />
+                                            </div>
+
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="password">
+                                                    Kata sandi
+                                                </Label>
+                                                <PasswordInput
+                                                    id="password"
+                                                    name="password"
+                                                    required
+                                                    autoComplete="new-password"
+                                                    placeholder="Kata sandi baru"
+                                                    passwordrules={
+                                                        passwordRules ??
+                                                        undefined
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={errors.password}
+                                                />
+                                            </div>
+
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="password_confirmation">
+                                                    Konfirmasi kata sandi
+                                                </Label>
+                                                <PasswordInput
+                                                    id="password_confirmation"
+                                                    name="password_confirmation"
+                                                    required
+                                                    autoComplete="new-password"
+                                                    placeholder="Ulangi kata sandi"
+                                                    passwordrules={
+                                                        passwordRules ??
+                                                        undefined
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors.password_confirmation
+                                                    }
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {!needsAccount && (
+                                        <p className="text-center text-sm text-muted-foreground">
+                                            Anda masuk sebagai{' '}
+                                            {signedInAs?.name}. Lanjutkan untuk
+                                            bergabung ke workspace ini.
+                                        </p>
+                                    )}
+
+                                    <Button
+                                        className="w-full"
+                                        disabled={processing}
+                                    >
+                                        {processing
+                                            ? 'Memproses…'
+                                            : 'Terima undangan'}
+                                    </Button>
+                                </>
+                            )}
+                        </Form>
+                    )}
                 </div>
             </div>
         </>
