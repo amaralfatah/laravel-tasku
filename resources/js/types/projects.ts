@@ -31,9 +31,9 @@ export type ProjectDetail = {
 
 export const PROJECT_STATUS_VARIANT: Record<
     ProjectStatus,
-    'info-subtle' | 'success-subtle' | 'outline'
+    'default' | 'secondary' | 'outline'
 > = {
-    active: 'info-subtle',
-    completed: 'success-subtle',
+    active: 'default',
+    completed: 'secondary',
     archived: 'outline',
 };

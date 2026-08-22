@@ -1,7 +1,3 @@
-/**
- * The default variant is the page title, so it renders the page's single `h1`;
- * the small variant is a section title one level below it.
- */
 export default function Heading({
     title,
     description,
@@ -11,24 +7,19 @@ export default function Heading({
     description?: string;
     variant?: 'default' | 'small';
 }) {
-    const isSmall = variant === 'small';
-    const Tag = isSmall ? 'h2' : 'h1';
-
     return (
-        <header className={isSmall ? '' : 'mb-8 space-y-1'}>
-            <Tag
+        <header className={variant === 'small' ? '' : 'mb-8 space-y-0.5'}>
+            <h2
                 className={
-                    isSmall
-                        ? 'mb-0.5 text-base font-semibold'
-                        : 'text-xl font-semibold tracking-tight text-foreground'
+                    variant === 'small'
+                        ? 'mb-0.5 text-base font-medium'
+                        : 'text-xl font-semibold tracking-tight'
                 }
             >
                 {title}
-            </Tag>
+            </h2>
             {description && (
-                <p className="max-w-prose text-sm text-muted-foreground">
-                    {description}
-                </p>
+                <p className="text-sm text-muted-foreground">{description}</p>
             )}
         </header>
     );

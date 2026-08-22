@@ -73,9 +73,9 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
  */
 export const TASK_PRIORITY_CLASSES: Record<TaskPriority, string> = {
     low: 'border-border bg-muted text-muted-foreground',
-    medium: 'border-info/25 bg-info-subtle text-info',
-    high: 'border-warning/25 bg-warning-subtle text-warning',
-    urgent: 'border-destructive/25 bg-destructive-subtle text-destructive',
+    medium: 'border-border bg-secondary text-secondary-foreground',
+    high: 'border-border bg-accent text-accent-foreground',
+    urgent: 'border-destructive/25 bg-destructive/10 text-destructive',
 };
 
 /**
@@ -84,16 +84,22 @@ export const TASK_PRIORITY_CLASSES: Record<TaskPriority, string> = {
  */
 export const TASK_STATUS_VARIANT: Record<
     TaskStatus,
-    'secondary' | 'info-subtle' | 'success-subtle'
+    'secondary' | 'default' | 'outline'
 > = {
     todo: 'secondary',
-    in_progress: 'info-subtle',
-    done: 'success-subtle',
+    in_progress: 'default',
+    done: 'outline',
 };
 
-/** Accent rail on each board column header, keyed to the same status colours. */
-export const TASK_STATUS_ACCENT: Record<TaskStatus, string> = {
-    todo: 'bg-muted-foreground/40',
-    in_progress: 'bg-info',
-    done: 'bg-success',
+/**
+ * Priority as an outlined chip for the board card, in the style Jira uses for
+ * issue labels: the colour lives in the border only, so a row of chips stays
+ * quieter than the task title above it. Pair with the `outline` badge variant.
+ * The chip's text is the priority name, so colour is never the only signal.
+ */
+export const TASK_PRIORITY_BADGE: Record<TaskPriority, string> = {
+    low: 'border-muted-foreground/50',
+    medium: 'border-foreground/40',
+    high: 'border-foreground/70',
+    urgent: 'border-destructive',
 };

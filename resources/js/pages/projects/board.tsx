@@ -1,38 +1,46 @@
 import {
     DndContext,
     DragOverlay,
+    KeyboardSensor,
+    MeasuringStrategy,
     PointerSensor,
     closestCorners,
+    useDroppable,
     useSensor,
-    useSensors
-    
-    
+    useSensors,
 } from '@dnd-kit/core';
-import type {DragEndEvent, DragStartEvent} from '@dnd-kit/core';
+import type {
+    DragEndEvent,
+    DragOverEvent,
+    DragStartEvent,
+    UniqueIdentifier,
+} from '@dnd-kit/core';
 import {
     SortableContext,
+    sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Head, router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ProjectHeader } from '@/components/project/project-header';
 import { TaskCard } from '@/components/task/task-card';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
-import { TaskDetailSheet } from '@/components/task/task-detail-sheet';
+import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
-import { Button } from '@/components/ui/button';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { cn } from '@/lib/utils';
 import { index as projectsIndex, show } from '@/routes/projects';
 import { move } from '@/routes/tasks';
 import type { Option } from '@/types/members';
-import {
-    TASK_STATUS_ACCENT,
-    TASK_STATUS_LABELS,
-    TASK_STATUS_ORDER,
+import { TASK_STATUS_LABELS, TASK_STATUS_ORDER } from '@/types/tasks';
+import type {
+    ProjectSummary,
+    TaskAssignee,
+    TaskFilterState,
+    TaskNode,
+    TaskStatus,
 } from '@/types/tasks';
-import type {ProjectSummary, TaskAssignee, TaskFilterState, TaskNode, TaskStatus} from '@/types/tasks';
 
 type PageProps = {
     project: ProjectSummary;
@@ -45,6 +53,78 @@ type PageProps = {
     can: { contribute: boolean; edit_project: boolean };
 };
 
+/**
+ * Root tasks in the single sibling order the backend keeps them in.
+ *
+ * The board never sorts by `position` again after this: once a drag starts the
+ * array order itself is the source of truth, so an optimistic move survives
+ * until the server answers with the same order.
+ */
+function rootOrder(tasks: TaskNode[]): TaskNode[] {
+    return tasks
+        .filter((task) => task.depth === 0)
+        .sort((a, b) => a.position - b.position);
+}
+
+function isStatus(value: unknown): value is TaskStatus {
+    return TASK_STATUS_ORDER.includes(value as TaskStatus);
+}
+
+/**
+ * Place `activeId` next to whatever it is hovering, inside the flat root order.
+ *
+ * `modifier` is 1 when the pointer sits below the middle of the card it hovers,
+ * which is what makes a downward drag land after that card instead of before it.
+ */
+function applyMove(
+    items: TaskNode[],
+    activeId: number,
+    overId: UniqueIdentifier,
+    modifier: number,
+): TaskNode[] {
+    const activeIndex = items.findIndex((task) => task.id === activeId);
+
+    if (activeIndex === -1) {
+        return items;
+    }
+
+    const active = items[activeIndex];
+    const overNumeric = Number(overId);
+    const overTask = Number.isNaN(overNumeric)
+        ? undefined
+        : items.find((task) => task.id === overNumeric);
+
+    const targetStatus = overTask ? overTask.status : overId;
+
+    if (!isStatus(targetStatus)) {
+        return items;
+    }
+
+    const next = items.slice();
+    next.splice(activeIndex, 1);
+
+    let insertAt: number;
+
+    if (overTask && overTask.id !== activeId) {
+        insertAt = next.findIndex((task) => task.id === overTask.id) + modifier;
+    } else {
+        // Dropped on the column itself, or on its empty area: append.
+        const last = next.map((task) => task.status).lastIndexOf(targetStatus);
+
+        insertAt = last === -1 ? next.length : last + 1;
+    }
+
+    next.splice(
+        Math.max(0, Math.min(insertAt, next.length)),
+        0,
+        active.status === targetStatus
+            ? active
+            : { ...active, status: targetStatus },
+    );
+
+    return next;
+}
+
 export default function ProjectBoard({
     project,
     tasks,
@@ -55,17 +135,25 @@ export default function ProjectBoard({
     can,
 }: PageProps) {
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
-    const [createOpen, setCreateOpen] = useState(false);
+    /** The column whose "Buat" button opened the create dialog. */
+    const [createIn, setCreateIn] = useState<TaskStatus | null>(null);
     const [draggingId, setDraggingId] = useState<number | null>(null);
+    const [items, setItems] = useState<TaskNode[]>(() => rootOrder(tasks));
+    const [source, setSource] = useState<TaskNode[]>(tasks);
+
+    /** Order to fall back to when a drag is cancelled or the server rejects it. */
+    const snapshot = useRef<TaskNode[]>(items);
 
     const applyFilters = useTaskFilters(filters, show(project.id).url);
 
-    // Only root tasks appear as cards (BRD-4).
-    const rootTasks = useMemo(
-        () => tasks.filter((task) => task.depth === 0),
-        [tasks],
-    );
+    // Re-sync with the server on every new page response. Done during render
+    // rather than in an effect so the board never paints a stale order.
+    if (source !== tasks) {
+        setSource(tasks);
+        setItems(rootOrder(tasks));
+    }
 
+    // Only root tasks appear as cards (BRD-4).
     const columns = useMemo(() => {
         const grouped: Record<TaskStatus, TaskNode[]> = {
             todo: [],
@@ -73,71 +161,115 @@ export default function ProjectBoard({
             done: [],
         };
 
-        for (const task of rootTasks) {
+        for (const task of items) {
             grouped[task.status].push(task);
         }
 
-        for (const status of TASK_STATUS_ORDER) {
-            grouped[status].sort((a, b) => a.position - b.position);
-        }
-
         return grouped;
-    }, [rootTasks]);
+    }, [items]);
 
     const sensors = useSensors(
         // A small distance threshold keeps a tap from becoming a drag.
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        }),
     );
 
-    const findTask = (id: number | string) =>
-        rootTasks.find((task) => task.id === Number(id)) ?? null;
+    const handleDragStart = (event: DragStartEvent) => {
+        snapshot.current = items;
+        setDraggingId(Number(event.active.id));
+    };
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        setDraggingId(null);
-
-        const { active, over } = event;
-
+    /**
+     * Cross-column preview: the card is really moved into the hovered column
+     * while the pointer is still down, so the columns reflow during the drag.
+     */
+    const handleDragOver = ({ active, over }: DragOverEvent) => {
         if (!over) {
             return;
         }
 
-        const task = findTask(active.id);
+        const activeId = Number(active.id);
+        const overNumeric = Number(over.id);
 
-        if (!task) {
+        setItems((current) => {
+            const activeTask = current.find((task) => task.id === activeId);
+
+            if (!activeTask) {
+                return current;
+            }
+
+            const overTask = Number.isNaN(overNumeric)
+                ? undefined
+                : current.find((task) => task.id === overNumeric);
+
+            const targetStatus = overTask ? overTask.status : over.id;
+
+            // Same-column sorting is settled on drop; this handler only deals
+            // with the hand-over between two columns.
+            if (!isStatus(targetStatus) || targetStatus === activeTask.status) {
+                return current;
+            }
+
+            return applyMove(current, activeId, over.id, 0);
+        });
+    };
+
+    const handleDragEnd = ({ active, over }: DragEndEvent) => {
+        setDraggingId(null);
+
+        const before = snapshot.current;
+
+        if (!over) {
+            setItems(before);
+
             return;
         }
 
-        const overTask = findTask(over.id);
-        const targetStatus = (
-            overTask ? overTask.status : (over.id as TaskStatus)
-        ) as TaskStatus;
+        const activeId = Number(active.id);
+        const translated = active.rect.current.translated;
+        const modifier =
+            translated && translated.top > over.rect.top + over.rect.height / 2
+                ? 1
+                : 0;
 
-        if (!TASK_STATUS_ORDER.includes(targetStatus)) {
+        const next = applyMove(items, activeId, over.id, modifier);
+        const position = next.findIndex((task) => task.id === activeId);
+
+        if (position === -1) {
+            setItems(before);
+
             return;
         }
 
-        const column = columns[targetStatus].filter(
-            (item) => item.id !== task.id,
-        );
-        const index = overTask
-            ? column.findIndex((item) => item.id === overTask.id)
-            : column.length;
+        const task = next[position];
+        const previous = before.findIndex((item) => item.id === activeId);
 
-        const position = index === -1 ? column.length : index;
+        if (position === previous && task.status === before[previous]?.status) {
+            setItems(before);
 
-        if (targetStatus === task.status && position === task.position) {
             return;
         }
+
+        setItems(next);
 
         router.post(
             move(task.id).url,
-            { status: targetStatus, position },
-            { preserveScroll: true, preserveState: false },
+            { status: task.status, position },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: () => setItems(before),
+            },
         );
     };
 
     const openTask = tasks.find((task) => task.id === openTaskId) ?? null;
-    const draggingTask = draggingId === null ? null : findTask(draggingId);
+    const draggingTask =
+        draggingId === null
+            ? null
+            : (items.find((task) => task.id === draggingId) ?? null);
 
     return (
         <>
@@ -146,50 +278,57 @@ export default function ProjectBoard({
             <div className="space-y-6">
                 <ProjectHeader project={project} active="board" />
 
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <TaskFilterBar
-                        filters={filters}
-                        assignees={assignees}
-                        statuses={statuses}
-                        priorities={priorities}
-                        onChange={applyFilters}
-                    />
-
-                    {can.contribute && (
-                        <Button size="sm" onClick={() => setCreateOpen(true)}>
-                            <Plus className="size-4" aria-hidden="true" />
-                            Task baru
-                        </Button>
-                    )}
-                </div>
+                {/* Creating a task is done from the column it belongs in, so
+                    the board has no second global "new task" button. */}
+                <TaskFilterBar
+                    filters={filters}
+                    assignees={assignees}
+                    statuses={statuses}
+                    priorities={priorities}
+                    onChange={applyFilters}
+                />
 
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCorners}
-                    onDragStart={(event: DragStartEvent) =>
-                        setDraggingId(Number(event.active.id))
-                    }
-                    onDragCancel={() => setDraggingId(null)}
+                    // Columns change height while dragging, so their rects have
+                    // to be re-measured continuously or drops land in the gap.
+                    measuring={{
+                        droppable: { strategy: MeasuringStrategy.Always },
+                    }}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragCancel={() => {
+                        setDraggingId(null);
+                        setItems(snapshot.current);
+                    }}
                     onDragEnd={handleDragEnd}
                 >
-                    <div className="grid gap-4 overflow-x-auto md:grid-cols-3">
+                    <div className="grid items-start gap-3 overflow-x-auto md:grid-cols-3">
                         {TASK_STATUS_ORDER.map((status) => (
                             <BoardColumn
                                 key={status}
                                 status={status}
                                 tasks={columns[status]}
                                 canDrag={can.contribute}
-                                statuses={statuses}
+                                isDragging={draggingId !== null}
                                 onOpen={setOpenTaskId}
+                                onCreate={setCreateIn}
                             />
                         ))}
                     </div>
 
-                    <DragOverlay>
+                    <DragOverlay
+                        dropAnimation={{
+                            duration: 180,
+                            easing: 'cubic-bezier(0.2, 0, 0, 1)',
+                        }}
+                    >
                         {draggingTask && (
                             <TaskCard
                                 task={draggingTask}
                                 draggable={false}
+                                overlay
                                 onOpen={() => undefined}
                             />
                         )}
@@ -197,8 +336,11 @@ export default function ProjectBoard({
                 </DndContext>
             </div>
 
-            <TaskDetailSheet
+            <TaskDetailModal
                 task={openTask}
+                subtasks={tasks.filter(
+                    (item) => item.parent_task_id === openTaskId,
+                )}
                 assignees={assignees}
                 statuses={statuses}
                 priorities={priorities}
@@ -206,12 +348,13 @@ export default function ProjectBoard({
             />
 
             <TaskCreateDialog
-                open={createOpen}
+                open={createIn !== null}
                 projectId={project.id}
                 parent={null}
+                status={createIn ?? 'todo'}
                 assignees={assignees}
                 priorities={priorities}
-                onClose={() => setCreateOpen(false)}
+                onClose={() => setCreateIn(null)}
             />
         </>
     );
@@ -221,32 +364,36 @@ function BoardColumn({
     status,
     tasks,
     canDrag,
-    statuses,
+    isDragging,
     onOpen,
+    onCreate,
 }: {
     status: TaskStatus;
     tasks: TaskNode[];
     canDrag: boolean;
-    statuses: Option[];
+    isDragging: boolean;
     onOpen: (id: number) => void;
+    onCreate: (status: TaskStatus) => void;
 }) {
+    // The column is a droppable in its own right; without it an empty column
+    // has nothing to collide with and cards cannot be dropped into it at all.
+    const { setNodeRef, isOver } = useDroppable({ id: status });
+
     return (
         <section
-            className="flex min-w-64 flex-col overflow-hidden rounded-xl border bg-muted/40"
+            className={cn(
+                // The sunken well: a step darker than the page, so the raised
+                // cards inside it read without needing borders.
+                'flex min-w-64 flex-col rounded bg-muted/50 transition-colors',
+                isOver && 'bg-primary/10',
+            )}
             aria-label={TASK_STATUS_LABELS[status]}
         >
-            {/* Accent rail carries the column's status colour without tinting
-                the cards inside it. */}
-            <div
-                className={cn('h-1 w-full', TASK_STATUS_ACCENT[status])}
-                aria-hidden="true"
-            />
-
-            <header className="flex items-center justify-between gap-2 border-b bg-card/60 px-3 py-2.5">
-                <h2 className="text-sm font-semibold">
+            <header className="flex items-center gap-2 px-3 pt-3 pb-2">
+                <h2 className="text-sm font-medium text-muted-foreground">
                     {TASK_STATUS_LABELS[status]}
                 </h2>
-                <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+                <span className="rounded bg-foreground/10 px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
                     {tasks.length}
                 </span>
             </header>
@@ -256,68 +403,45 @@ function BoardColumn({
                 items={tasks.map((task) => task.id)}
                 strategy={verticalListSortingStrategy}
             >
-                <div className="flex min-h-24 flex-1 flex-col gap-2 p-2">
-                    {tasks.length === 0 && (
-                        <p className="px-1 py-6 text-center text-xs text-muted-foreground">
-                            Belum ada task di kolom ini.
+                <div
+                    ref={setNodeRef}
+                    className="flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-1 md:max-h-[calc(100vh-19rem)]"
+                >
+                    {/* An empty column shows nothing but its "Buat" button,
+                        exactly as it does on a Jira board. The drop target only
+                        announces itself once something is being dragged. */}
+                    {tasks.length === 0 && isDragging && (
+                        <p className="rounded border border-dashed border-primary/40 px-1 py-5 text-center text-xs text-primary">
+                            Lepas di sini
                         </p>
                     )}
 
                     {tasks.map((task) => (
-                        <div key={task.id} className="space-y-1">
-                            <TaskCard
-                                task={task}
-                                draggable={canDrag && task.can_edit}
-                                onOpen={() => onOpen(task.id)}
-                            />
-
-                            {canDrag && task.can_edit && (
-                                <StatusFallback
-                                    task={task}
-                                    statuses={statuses}
-                                />
-                            )}
-                        </div>
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            draggable={canDrag && task.can_edit}
+                            onOpen={() => onOpen(task.id)}
+                        />
                     ))}
                 </div>
             </SortableContext>
-        </section>
-    );
-}
 
-/**
- * Keyboard and screen-reader alternative to dragging between columns
- * (accessibility: drag and drop must have a non-drag equivalent).
- */
-function StatusFallback({
-    task,
-    statuses,
-}: {
-    task: TaskNode;
-    statuses: Option[];
-}) {
-    return (
-        <label className="flex items-center gap-1 px-1 text-[11px] text-muted-foreground">
-            <span className="sr-only">Pindahkan {task.title} ke kolom</span>
-            <select
-                value={task.status}
-                onChange={(event) =>
-                    router.post(
-                        move(task.id).url,
-                        { status: event.target.value },
-                        { preserveScroll: true, preserveState: false },
-                    )
-                }
-                className="w-full rounded border border-transparent bg-transparent py-1 hover:border-input focus-visible:border-ring"
-                aria-label={`Pindahkan ${task.title} ke kolom lain`}
-            >
-                {statuses.map((status) => (
-                    <option key={status.value} value={status.value}>
-                        Pindah ke {status.label}
-                    </option>
-                ))}
-            </select>
-        </label>
+            {canDrag && (
+                <button
+                    type="button"
+                    onClick={() => onCreate(status)}
+                    className="m-2 mt-1 flex items-center gap-1.5 rounded px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                    <Plus className="size-4" aria-hidden="true" />
+                    Buat
+                    <span className="sr-only">
+                        {' '}
+                        task di kolom {TASK_STATUS_LABELS[status]}
+                    </span>
+                </button>
+            )}
+        </section>
     );
 }
 
