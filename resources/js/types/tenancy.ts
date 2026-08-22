@@ -17,8 +17,6 @@ export type Membership = {
     can_manage: boolean;
     /** False for someone whose scope covers only themselves. */
     can_monitor: boolean;
-    /** True when a super admin is looking into a workspace they do not belong to. */
-    is_super_admin: boolean;
 };
 
 /** Project entry listed in the sidebar. */

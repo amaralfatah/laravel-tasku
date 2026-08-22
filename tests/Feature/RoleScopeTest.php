@@ -18,7 +18,7 @@ use Inertia\Testing\AssertableInertia;
 function twoBranchWorkspace(): array
 {
     $workspace = Workspace::factory()->create();
-    $root = OrgUnit::factory()->for($workspace)->create(['name' => 'Divisi']);
+    $root = OrgUnit::factory()->rootOf($workspace)->create(['name' => 'Divisi']);
     $marketing = OrgUnit::factory()->childOf($root)->create(['name' => 'Marketing']);
     $engineering = OrgUnit::factory()->childOf($root)->create(['name' => 'Engineering']);
     $backend = OrgUnit::factory()->childOf($engineering)->create(['name' => 'Backend']);
@@ -199,7 +199,7 @@ test('an ODS is kept out of the roster and the organisation page', function () {
         ->get(route('organization.index'))->assertForbidden();
 });
 
-test('a leader opens the org tree at their own unit', function () {
+test('a leader does not shape the structure, they only search it', function () {
     ['workspace' => $workspace] = twoBranchWorkspace();
 
     $leader = WorkspaceMember::factory()
@@ -207,20 +207,21 @@ test('a leader opens the org tree at their own unit', function () {
         ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Bod2)
         ->create();
 
+    // The org tree is platform master data the operator maintains, so the
+    // structure page is closed even to the leader of a branch.
     $this->actingAs($leader->user)
         ->withSession(['workspace_id' => $workspace->id])
         ->get(route('organization.index'))
+        ->assertForbidden();
+
+    $this->actingAs($leader->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->getJson(route('org-units.search', ['q' => 'Engineering']))
         ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
-            // Only the entry point ships with the page; Backend arrives when
-            // the branch is opened. Divisi and Marketing stay out entirely.
-            ->has('units', 1)
-            ->where('units.0.name', 'Engineering')
-            ->where('units.0.children_count', 1)
-        );
+        ->assertJsonPath('units.0.name', 'Engineering');
 });
 
-test('a leader can open a branch inside their scope but not outside it', function () {
+test('a leader searches inside their scope but not outside it', function () {
     ['workspace' => $workspace, 'marketing' => $marketing] = twoBranchWorkspace();
 
     $engineering = OrgUnit::whereName('Engineering')->firstOrFail();
@@ -230,14 +231,7 @@ test('a leader can open a branch inside their scope but not outside it', functio
         ->leading($engineering, WorkspaceRole::Bod2)
         ->create();
 
-    $this->actingAs($leader->user)
-        ->withSession(['workspace_id' => $workspace->id])
-        ->getJson(route('org-units.children', $engineering))
-        ->assertOk()
-        ->assertJsonPath('units.0.name', 'Backend');
-
-    // Reading a unit is workspace wide, but nothing outside the branch is
-    // reachable from the page itself.
+    // Nothing outside the branch is reachable.
     $this->actingAs($leader->user)
         ->withSession(['workspace_id' => $workspace->id])
         ->getJson(route('org-units.search', ['q' => 'Marketing']))

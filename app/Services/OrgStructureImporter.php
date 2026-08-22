@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Workspace;
 use App\Services\Sap\CdsClient;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -36,7 +35,7 @@ class OrgStructureImporter
      * a parent edge for — `KEBUN 2 PAN`, `DISTRIK TANDUN`, four units named
      * `-`. Only this one is a real top. The import therefore keeps its subtree
      * and drops the rest, and the holding itself is dropped too so the operating
-     * companies below it stand as the roots of the workspace.
+     * companies below it stand as the roots of the master tree.
      */
     public const HOLDING = '10000000';
 
@@ -199,16 +198,15 @@ class OrgStructureImporter
     }
 
     /**
-     * Write the forest into a workspace and rebuild the materialized paths.
+     * Write the forest into the master tree and rebuild the materialized paths.
      *
      * @param  array<string, array{external_id: string, name: string, parent: string|null, depth: int}>  $nodes
      * @return array{created: int, updated: int, unchanged: int, stale: int}
      */
-    public function sync(Workspace $workspace, array $nodes): array
+    public function sync(array $nodes): array
     {
-        return DB::transaction(function () use ($workspace, $nodes): array {
+        return DB::transaction(function () use ($nodes): array {
             $existing = DB::table('org_units')
-                ->where('workspace_id', $workspace->id)
                 ->whereNotNull('external_id')
                 ->get(['id', 'external_id', 'parent_id', 'name', 'depth'])
                 ->keyBy('external_id');
@@ -237,7 +235,6 @@ class OrgStructureImporter
 
                     if ($current === null) {
                         $insert[] = [
-                            'workspace_id' => $workspace->id,
                             'external_id' => $node['external_id'],
                             'parent_id' => $parentId,
                             'name' => $node['name'],
@@ -273,10 +270,10 @@ class OrgStructureImporter
 
                 $created += count($insert);
 
-                $this->mapNewIds($workspace, array_column($insert, 'external_id'), $localId);
+                $this->mapNewIds(array_column($insert, 'external_id'), $localId);
             }
 
-            $this->rebuildPaths($workspace, $maxDepth);
+            $this->rebuildPaths($maxDepth);
 
             return [
                 'created' => $created,
@@ -297,11 +294,10 @@ class OrgStructureImporter
      * @param  array<string, array{external_id: string, name: string, parent: string|null, depth: int}>  $nodes
      * @return array{deleted: int, kept: int}
      */
-    public function prune(Workspace $workspace, array $nodes): array
+    public function prune(array $nodes): array
     {
-        return DB::transaction(function () use ($workspace, $nodes): array {
+        return DB::transaction(function () use ($nodes): array {
             $stale = DB::table('org_units')
-                ->where('workspace_id', $workspace->id)
                 ->whereNotNull('external_id')
                 ->orderByDesc('depth')
                 ->get(['id', 'external_id'])
@@ -467,11 +463,10 @@ class OrgStructureImporter
      * @param  array<int, string>  $externalIds
      * @param  array<string, int>  $localId
      */
-    protected function mapNewIds(Workspace $workspace, array $externalIds, array &$localId): void
+    protected function mapNewIds(array $externalIds, array &$localId): void
     {
         foreach (array_chunk($externalIds, 1000) as $chunk) {
             DB::table('org_units')
-                ->where('workspace_id', $workspace->id)
                 ->whereIn('external_id', $chunk)
                 ->get(['id', 'external_id'])
                 ->each(function (object $unit) use (&$localId): void {
@@ -485,16 +480,15 @@ class OrgStructureImporter
      * that is already correct. Far cheaper than 26k round trips through the
      * model, and it leaves hand-made units alone.
      */
-    protected function rebuildPaths(Workspace $workspace, int $maxDepth): void
+    protected function rebuildPaths(int $maxDepth): void
     {
         for ($depth = 0; $depth <= $maxDepth; $depth++) {
             DB::update(
                 "update org_units
                     set path = coalesce((select p.path from org_units p where p.id = org_units.parent_id), '/') || org_units.id || '/'
-                  where workspace_id = ?
-                    and depth = ?
+                  where depth = ?
                     and external_id is not null",
-                [$workspace->id, $depth],
+                [$depth],
             );
         }
     }

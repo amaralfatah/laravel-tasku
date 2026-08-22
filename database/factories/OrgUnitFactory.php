@@ -17,7 +17,6 @@ class OrgUnitFactory extends Factory
     public function definition(): array
     {
         return [
-            'workspace_id' => Workspace::factory(),
             'parent_id' => null,
             'name' => fake()->unique()->words(2, true),
             'type' => 'division',
@@ -27,12 +26,21 @@ class OrgUnitFactory extends Factory
     }
 
     /**
+     * Create the unit and hand it to a workspace as the slice it runs.
+     */
+    public function rootOf(Workspace $workspace): static
+    {
+        return $this->afterCreating(function (OrgUnit $unit) use ($workspace): void {
+            $workspace->forceFill(['root_org_unit_id' => $unit->id])->save();
+        });
+    }
+
+    /**
      * Nest the unit under an existing parent.
      */
     public function childOf(OrgUnit $parent): static
     {
         return $this->state(fn (array $attributes): array => [
-            'workspace_id' => $parent->workspace_id,
             'parent_id' => $parent->id,
             'type' => 'sub_division',
             'depth' => $parent->depth + 1,

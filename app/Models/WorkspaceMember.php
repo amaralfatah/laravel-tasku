@@ -93,23 +93,34 @@ class WorkspaceMember extends Model
      */
     public function covers(?int $orgUnitId): bool
     {
-        if ($this->hasFullScope()) {
-            return true;
+        if (! $this->managesTeam()) {
+            return false;
         }
 
-        if (! $this->managesTeam() || $orgUnitId === null) {
+        // Full scope means the workspace, not the platform: the org tree is
+        // master data shared by every company, so even BOD-1 only reaches the
+        // subtree their workspace was placed on.
+        if ($this->hasFullScope()) {
+            return $orgUnitId === null || $this->unitPath($orgUnitId) !== null;
+        }
+
+        if ($orgUnitId === null) {
             return false;
         }
 
         $scopePath = $this->scopePath();
-
-        if ($scopePath === null) {
-            return false;
-        }
-
-        $unitPath = OrgUnit::query()->whereKey($orgUnitId)->value('path');
+        $unitPath = $scopePath === null ? null : $this->unitPath($orgUnitId);
 
         return $unitPath !== null && str_starts_with($unitPath, $scopePath);
+    }
+
+    /**
+     * Path of a unit, looked up inside this member's workspace so a unit from
+     * another company's branch never resolves.
+     */
+    protected function unitPath(int $orgUnitId): ?string
+    {
+        return $this->workspace->orgUnits()->whereKey($orgUnitId)->value('path');
     }
 
     /**

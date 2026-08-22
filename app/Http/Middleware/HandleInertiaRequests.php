@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use App\Enums\ProjectStatus;
 use App\Models\Project;
-use App\Models\Workspace;
 use App\Support\Tenancy;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -74,15 +73,12 @@ class HandleInertiaRequests extends Middleware
             ],
             'membership' => $member === null ? null : [
                 'role' => $member->role->value,
-                'role_label' => $tenancy->actingAsSuperAdmin()
-                    ? 'Super Admin'
-                    : $member->role->label(),
-                'role_code' => $tenancy->actingAsSuperAdmin() ? 'SA' : $member->role->code(),
+                'role_label' => $member->role->label(),
+                'role_code' => $member->role->code(),
                 'can_manage' => $member->managesTeam(),
                 // Someone who leads nobody has no use for the roster or the
                 // monitoring pages; "Task saya" already is that page for them.
                 'can_monitor' => $member->leadsAnyone(),
-                'is_super_admin' => $tenancy->actingAsSuperAdmin(),
             ],
             'workspaces' => $this->switchableWorkspaces($request),
             'projects' => $workspace === null ? [] : $this->sidebarProjects($request),
@@ -117,10 +113,8 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Workspaces the switcher may offer.
-     *
-     * A super admin belongs to none of them but may open any, so they get the
-     * full list instead of their own memberships.
+     * Workspaces the switcher may offer: the user's own memberships. A super
+     * admin belongs to none and manages them from the roster instead (SA-4).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -132,11 +126,7 @@ class HandleInertiaRequests extends Middleware
             return [];
         }
 
-        $query = $user->is_super_admin
-            ? Workspace::query()
-            : $user->workspaces();
-
-        return $query
+        return $user->workspaces()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['workspaces.id', 'workspaces.name', 'workspaces.slug'])

@@ -18,13 +18,9 @@ use Illuminate\Support\Facades\Route;
  * harder to guess.
  */
 Route::middleware(['auth', 'workspace'])->group(function () {
-    Route::get('organization', [OrgUnitController::class, 'index'])->name('organization.index');
-
+    // The structure itself is master data an operator maintains (see
+    // routes/organization.php); a leader only searches it to place someone.
     Route::get('org-units/search', [OrgUnitController::class, 'search'])->name('org-units.search');
-    Route::get('org-units/{orgUnit}/children', [OrgUnitController::class, 'children'])->name('org-units.children');
-    Route::post('org-units', [OrgUnitController::class, 'store'])->name('org-units.store');
-    Route::patch('org-units/{orgUnit}', [OrgUnitController::class, 'update'])->name('org-units.update');
-    Route::delete('org-units/{orgUnit}', [OrgUnitController::class, 'destroy'])->name('org-units.destroy');
 
     Route::get('members', [MemberController::class, 'index'])->name('members.index');
     Route::patch('members/{member}', [MemberController::class, 'update'])->name('members.update');

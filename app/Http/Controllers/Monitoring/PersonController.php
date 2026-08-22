@@ -10,7 +10,6 @@ use App\Models\WorkspaceMember;
 use App\Queries\MemberWorkloadQuery;
 use App\Support\TaskPresenter;
 use App\Support\Tenancy;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -75,19 +74,12 @@ class PersonController extends Controller
 
     /**
      * Shortcut to the current user's own page, used as the landing page (MON-7).
-     *
-     * A super admin has no membership of their own, so they land on the roster
-     * instead of a personal page.
      */
-    public function me(Request $request): Response|RedirectResponse
+    public function me(Request $request): Response
     {
         $member = $this->tenancy->member();
 
         abort_if($member === null, 403);
-
-        if ($this->tenancy->actingAsSuperAdmin()) {
-            return to_route('monitoring.people');
-        }
 
         return $this->show($request, $member);
     }

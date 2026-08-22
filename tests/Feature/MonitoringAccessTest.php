@@ -12,7 +12,7 @@ use Inertia\Testing\AssertableInertia;
 test('my own task page lets me edit the tasks of projects i belong to', function () {
     // MON-7: this is the landing page, so the work has to be doable here.
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
         ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
@@ -39,7 +39,7 @@ test('an asisten may edit the tasks of a project inside their own subtree', func
     // Scope is authority now: a leader owns delivery everywhere below their
     // own unit, without having to join every project.
     $workspace = Workspace::factory()->create();
-    $root = OrgUnit::factory()->for($workspace)->create();
+    $root = OrgUnit::factory()->rootOf($workspace)->create();
     $child = OrgUnit::factory()->childOf($root)->create();
 
     $viewer = WorkspaceMember::factory()
@@ -66,7 +66,7 @@ test('an asisten may edit the tasks of a project inside their own subtree', func
 
 test('an ODS cannot open someone elses task page', function () {
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
 
     $member = WorkspaceMember::factory()
         ->for($workspace)
@@ -95,7 +95,7 @@ test('the people roster is closed to someone who can only see themselves', funct
 
 test('a leader placed in a unit opens the roster and the division page', function () {
     $workspace = Workspace::factory()->create();
-    $root = OrgUnit::factory()->for($workspace)->create();
+    $root = OrgUnit::factory()->rootOf($workspace)->create();
 
     $viewer = WorkspaceMember::factory()
         ->for($workspace)
@@ -123,20 +123,20 @@ test('division monitoring is closed to an ODS', function () {
         ->assertForbidden();
 });
 
-test('a super admin looking into a workspace lands on the roster, not a personal page', function () {
+test('a super admin cannot open a workspace page at all', function () {
     $workspace = Workspace::factory()->create();
 
     $this->actingAs(User::factory()->create(['is_super_admin' => true]))
         ->withSession(['workspace_id' => $workspace->id])
         ->get(route('monitoring.me'))
-        ->assertRedirect(route('monitoring.people'));
+        ->assertRedirect(route('workspaces.index'));
 });
 
 test('my own task page keeps edit rights on a project i started myself', function () {
     // The person page loads projects with a narrow column list; if it drops
     // `created_by` the owner silently loses their own project.
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
 
     $owner = WorkspaceMember::factory()
         ->for($workspace)

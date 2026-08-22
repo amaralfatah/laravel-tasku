@@ -20,7 +20,7 @@ class MemberUpdateRequest extends FormRequest
     {
         return [
             'role' => ['sometimes', Rule::in($this->assignableRoleValues())],
-            'org_unit_id' => ['sometimes', 'nullable', 'integer', $this->existsInWorkspace('org_units')],
+            'org_unit_id' => ['sometimes', 'nullable', 'integer', $this->existsAsOrgUnit()],
             'manager_id' => ['sometimes', 'nullable', 'integer', $this->existsAsWorkspaceMember()],
         ];
     }

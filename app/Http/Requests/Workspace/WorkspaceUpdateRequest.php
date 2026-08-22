@@ -14,6 +14,9 @@ class WorkspaceUpdateRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            // The node of the platform org tree this workspace runs. Any node
+            // qualifies: the operator is the one who decides the slice.
+            'root_org_unit_id' => ['sometimes', 'nullable', 'integer', 'exists:org_units,id'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
@@ -25,6 +28,7 @@ class WorkspaceUpdateRequest extends FormRequest
     {
         return [
             'name' => 'nama workspace',
+            'root_org_unit_id' => 'unit organisasi',
             'is_active' => 'status aktif',
         ];
     }

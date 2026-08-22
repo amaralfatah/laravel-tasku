@@ -13,7 +13,7 @@ use Inertia\Testing\AssertableInertia;
 
 test('opening a notification lands on the task itself, even a nested one', function () {
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
         ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
@@ -61,7 +61,7 @@ test('opening a notification lands on the task itself, even a nested one', funct
 
 test('someone elses notification cannot be read', function () {
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()->for($workspace)->create(['org_unit_id' => $unit->id]);
     $other = WorkspaceMember::factory()->for($workspace)->create(['org_unit_id' => $unit->id]);
 

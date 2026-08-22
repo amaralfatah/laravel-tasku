@@ -20,7 +20,7 @@ class ProjectUpdateRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
-            'org_unit_id' => ['sometimes', 'required', 'integer', $this->existsInWorkspace('org_units')],
+            'org_unit_id' => ['sometimes', 'required', 'integer', $this->existsAsOrgUnit()],
             'status' => ['sometimes', Rule::enum(ProjectStatus::class)],
         ];
     }

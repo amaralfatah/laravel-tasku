@@ -2,6 +2,7 @@
 
 use App\Enums\WorkspaceRole;
 use App\Models\OrgUnit;
+use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Inertia\Testing\AssertableInertia;
@@ -18,7 +19,7 @@ use Inertia\Testing\AssertableInertia;
 function wideWorkspace(int $children = 40): array
 {
     $workspace = Workspace::factory()->create();
-    $root = OrgUnit::factory()->for($workspace)->create(['name' => 'Perusahaan']);
+    $root = OrgUnit::factory()->rootOf($workspace)->create(['name' => 'Perusahaan']);
 
     for ($i = 1; $i <= $children; $i++) {
         OrgUnit::factory()->childOf($root)->create(['name' => "Unit {$i}"]);
@@ -32,11 +33,11 @@ function wideWorkspace(int $children = 40): array
     return compact('workspace', 'leader', 'root');
 }
 
-test('the organisation page ships only the top level, never the whole tree', function () {
-    ['workspace' => $workspace, 'leader' => $leader] = wideWorkspace();
+test('the structure page ships only the top level, never the whole tree', function () {
+    wideWorkspace();
 
-    $this->actingAs($leader->user)
-        ->withSession(['workspace_id' => $workspace->id])
+    // The structure is master data, so the page belongs to the operator.
+    $this->actingAs(User::factory()->create(['is_super_admin' => true]))
         ->get(route('organization.index'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
@@ -47,10 +48,9 @@ test('the organisation page ships only the top level, never the whole tree', fun
 });
 
 test('a branch arrives only when it is opened', function () {
-    ['workspace' => $workspace, 'leader' => $leader, 'root' => $root] = wideWorkspace();
+    ['root' => $root] = wideWorkspace();
 
-    $this->actingAs($leader->user)
-        ->withSession(['workspace_id' => $workspace->id])
+    $this->actingAs(User::factory()->create(['is_super_admin' => true]))
         ->getJson(route('org-units.children', $root))
         ->assertOk()
         ->assertJsonCount(40, 'units');

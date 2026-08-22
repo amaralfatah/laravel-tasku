@@ -6,6 +6,7 @@ use App\Enums\TaskStatus;
 use App\Models\OrgUnit;
 use App\Models\Project;
 use App\Models\Task;
+use App\Support\Tenancy;
 
 /**
  * Per-unit rollups for the division monitoring page (6.11).
@@ -18,8 +19,8 @@ use App\Models\Task;
 class DivisionSummaryQuery
 {
     /**
-     * Summaries for the direct children of `$parent`, or for the roots when it
-     * is null (DIV-1, DIV-2).
+     * Summaries for the direct children of `$parent`, or for the top of the
+     * workspace when it is null (DIV-1, DIV-2).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -34,8 +35,14 @@ class DivisionSummaryQuery
         $projectCounts = $this->projectCountsByUnit();
         $taskCounts = $this->taskCountsByUnit();
 
+        // The tree is platform master data, so a workspace has no root of its
+        // own: its top row is the node it was placed on.
+        $topId = app(Tenancy::class)->workspace()?->root_org_unit_id;
+
         $children = $units->filter(
-            fn (OrgUnit $unit): bool => $unit->parent_id === $parent?->id,
+            fn (OrgUnit $unit): bool => $parent === null
+                ? $unit->id === $topId
+                : $unit->parent_id === $parent->id,
         );
 
         return $children

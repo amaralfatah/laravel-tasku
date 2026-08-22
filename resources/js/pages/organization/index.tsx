@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import {
     destroy as destroyUnit,
+    masterSearch,
     store as storeUnit,
     update as updateUnit,
 } from '@/routes/org-units';
@@ -142,7 +143,7 @@ export default function Organization({
             <div className="space-y-6">
                 <PageHeader
                     title="Organisasi"
-                    description="Struktur unit organisasi di workspace ini."
+                    description="Data master struktur organisasi, dicerminkan dari SAP dan dipakai seluruh workspace."
                 />
 
                 <section className="space-y-3">
@@ -158,6 +159,7 @@ export default function Organization({
                     </div>
 
                     <OrgUnitSearch
+                        endpoint={masterSearch}
                         onSelect={(hit) => setRevealPath(hit.path)}
                         placeholder="Cari unit di seluruh struktur…"
                         emptyHint="Ketik minimal 2 huruf untuk mencari unit tanpa membuka satu per satu."
@@ -283,6 +285,7 @@ export default function Organization({
                                 {/* A unit cannot be moved into itself or its own subtree. */}
                                 <OrgUnitSearch
                                     autoFocus
+                                    endpoint={masterSearch}
                                     excludeSubtreeOf={target?.path ?? null}
                                     placeholder="Cari unit induk…"
                                     onSelect={(hit) => {

@@ -17,33 +17,16 @@ class Tenancy
 
     protected ?WorkspaceMember $member = null;
 
-    /**
-     * True when the membership is the virtual one handed to a super admin
-     * rather than a real row in `workspace_members`.
-     */
-    protected bool $superAdmin = false;
-
-    public function set(Workspace $workspace, ?WorkspaceMember $member = null, bool $superAdmin = false): void
+    public function set(Workspace $workspace, ?WorkspaceMember $member = null): void
     {
         $this->workspace = $workspace;
         $this->member = $member;
-        $this->superAdmin = $superAdmin;
     }
 
     public function forget(): void
     {
         $this->workspace = null;
         $this->member = null;
-        $this->superAdmin = false;
-    }
-
-    /**
-     * Whether the current request is a super admin looking into a workspace
-     * they are not actually a member of.
-     */
-    public function actingAsSuperAdmin(): bool
-    {
-        return $this->superAdmin;
     }
 
     public function workspace(): ?Workspace
@@ -76,7 +59,6 @@ class Tenancy
     {
         $workspace = $this->workspace;
         $member = $this->member;
-        $superAdmin = $this->superAdmin;
         $this->forget();
 
         try {
@@ -84,7 +66,6 @@ class Tenancy
         } finally {
             $this->workspace = $workspace;
             $this->member = $member;
-            $this->superAdmin = $superAdmin;
         }
     }
 
@@ -95,7 +76,6 @@ class Tenancy
     {
         $previousWorkspace = $this->workspace;
         $previousMember = $this->member;
-        $previousSuperAdmin = $this->superAdmin;
         $this->set($workspace);
 
         try {
@@ -103,7 +83,6 @@ class Tenancy
         } finally {
             $this->workspace = $previousWorkspace;
             $this->member = $previousMember;
-            $this->superAdmin = $previousSuperAdmin;
         }
     }
 }

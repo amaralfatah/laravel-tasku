@@ -28,10 +28,17 @@ class ProjectFactory extends Factory
         ];
     }
 
+    /**
+     * Place the project in a unit. Units are platform master data, so the
+     * workspace is the one whose root sits above the unit in the tree.
+     */
     public function in(OrgUnit $unit): static
     {
         return $this->state(fn (array $attributes): array => [
-            'workspace_id' => $unit->workspace_id,
+            'workspace_id' => Workspace::query()
+                ->join('org_units as root', 'root.id', '=', 'workspaces.root_org_unit_id')
+                ->whereRaw("? like root.path || '%'", [$unit->path])
+                ->value('workspaces.id') ?? Workspace::factory(),
             'org_unit_id' => $unit->id,
         ]);
     }

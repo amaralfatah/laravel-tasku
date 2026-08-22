@@ -24,6 +24,7 @@ export function OrgUnitSearch({
     placeholder = 'Cari unit…',
     autoFocus = false,
     emptyHint,
+    endpoint = searchUnits,
 }: {
     onSelect: (unit: OrgUnitHit) => void;
     /** Hide the unit at this path and everything under it. */
@@ -31,6 +32,12 @@ export function OrgUnitSearch({
     placeholder?: string;
     autoFocus?: boolean;
     emptyHint?: string;
+    /**
+     * Which search to call. The default is the workspace one, scoped to the
+     * branch the viewer leads; the operator's structure page passes the master
+     * search, which covers the whole tree.
+     */
+    endpoint?: typeof searchUnits;
 }) {
     const [term, setTerm] = useState('');
     const [hits, setHits] = useState<OrgUnitHit[] | null>(null);
@@ -55,7 +62,7 @@ export function OrgUnitSearch({
         setSearching(true);
 
         const timer = window.setTimeout(() => {
-            fetch(searchUnits({ query: { q: trimmed } }).url, {
+            fetch(endpoint({ query: { q: trimmed } }).url, {
                 headers: { Accept: 'application/json' },
                 credentials: 'same-origin',
                 signal: controller.signal,
@@ -82,7 +89,7 @@ export function OrgUnitSearch({
             window.clearTimeout(timer);
             controller.abort();
         };
-    }, [term]);
+    }, [term, endpoint]);
 
     const visible = (hits ?? []).filter(
         (hit) =>

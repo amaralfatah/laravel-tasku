@@ -6,11 +6,10 @@ use Illuminate\Support\Facades\Route;
 /*
  * Workspace administration, for the platform super admin only.
  *
- * `workspace:optional` resolves the active workspace when there is one, so the
- * sidebar keeps its context, but never redirects away — this page has to stay
- * reachable when no workspace exists yet.
+ * No `workspace` middleware: a super admin never enters a workspace (SA-4), so
+ * these routes carry no tenant context and scope their own queries.
  */
-Route::middleware(['auth', 'super-admin', 'workspace:optional'])
+Route::middleware(['auth', 'super-admin'])
     ->prefix('workspaces')
     ->name('workspaces.')
     ->group(function () {

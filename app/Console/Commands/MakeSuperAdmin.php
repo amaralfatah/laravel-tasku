@@ -43,6 +43,14 @@ class MakeSuperAdmin extends Command
             $user->forceFill(['email_verified_at' => now()]);
         }
 
+        // A super admin belongs to no workspace (SA-4), so an account that is
+        // already a member cannot be promoted without first being removed.
+        if ($user->exists && $user->workspaceMembers()->exists()) {
+            $this->error("{$user->email} masih anggota workspace. Keluarkan dari workspace dulu.");
+
+            return self::FAILURE;
+        }
+
         $user->is_super_admin = true;
         $user->save();
 

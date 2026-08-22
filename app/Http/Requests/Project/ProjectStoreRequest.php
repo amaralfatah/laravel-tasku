@@ -44,7 +44,7 @@ class ProjectStoreRequest extends FormRequest
                 $this->uniqueInWorkspace('projects', 'key'),
             ],
             'description' => ['nullable', 'string', 'max:5000'],
-            'org_unit_id' => ['required', 'integer', $this->existsInWorkspace('org_units')],
+            'org_unit_id' => ['required', 'integer', $this->existsAsOrgUnit()],
             'status' => ['sometimes', Rule::enum(ProjectStatus::class)],
             'member_ids' => ['sometimes', 'array'],
             'member_ids.*' => ['integer', $this->existsAsWorkspaceMember()],

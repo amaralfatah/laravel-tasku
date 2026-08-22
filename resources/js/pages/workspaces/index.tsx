@@ -12,6 +12,7 @@ import {
 import { useEffect, useState } from 'react';
 import WorkspaceController from '@/actions/App/Http/Controllers/WorkspaceController';
 import InputError from '@/components/input-error';
+import { OrgUnitSearch } from '@/components/org-unit-search';
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { masterSearch } from '@/routes/org-units';
 import { change as changeWorkspace } from '@/routes/workspace';
 import { index as workspacesIndex } from '@/routes/workspaces';
 
@@ -51,6 +53,8 @@ type WorkspaceRow = {
     id: number;
     name: string;
     slug: string;
+    /** Node of the platform org tree this workspace runs. */
+    root_org_unit: { id: number; name: string } | null;
     is_active: boolean;
     members_count: number;
     created_at: string;
@@ -549,6 +553,7 @@ function RenameDialog({
 }) {
     // Remounted per workspace via a key, so the initial value is always right.
     const [name, setName] = useState(workspace?.name ?? '');
+    const [unit, setUnit] = useState(workspace?.root_org_unit ?? null);
 
     if (!workspace) {
         return null;
@@ -558,7 +563,7 @@ function RenameDialog({
         <Dialog open onOpenChange={(open) => !open && onClose()}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Ubah nama workspace</DialogTitle>
+                    <DialogTitle>Ubah workspace</DialogTitle>
                     <DialogDescription>
                         Alamat /{workspace.slug} tidak ikut berubah, jadi tautan
                         lama tetap berfungsi.
@@ -571,7 +576,7 @@ function RenameDialog({
                         event.preventDefault();
                         router.patch(
                             WorkspaceController.update.url(workspace.slug),
-                            { name },
+                            { name, root_org_unit_id: unit?.id ?? null },
                             { preserveScroll: true, onSuccess: onClose },
                         );
                     }}
@@ -584,6 +589,22 @@ function RenameDialog({
                             onChange={(event) => setName(event.target.value)}
                             required
                             autoFocus
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label>Unit organisasi</Label>
+                        <p className="text-sm text-muted-foreground">
+                            {unit
+                                ? `Workspace ini menjalankan ${unit.name} beserta seluruh unit di bawahnya.`
+                                : 'Belum dipilih. Tanpa unit, workspace tidak punya struktur untuk menempatkan anggota dan project.'}
+                        </p>
+                        <OrgUnitSearch
+                            endpoint={masterSearch}
+                            placeholder="Cari unit di struktur SAP…"
+                            onSelect={(hit) =>
+                                setUnit({ id: hit.id, name: hit.name })
+                            }
                         />
                     </div>
 

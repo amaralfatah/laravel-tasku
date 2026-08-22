@@ -16,11 +16,18 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The tree is served one level at a time. The SAP import puts tens of
- * thousands of units in a workspace, so shipping the whole structure in the
- * page props would stall both the query and the browser; `children()` fills a
- * branch in when the viewer actually opens it, and `search()` is how anyone
- * reaches a unit buried eleven levels down.
+ * The org structure, which is platform master data mirrored from SAP.
+ *
+ * Everything but `search()` belongs to the super admin: the structure page and
+ * the writes behind it run without tenant context and therefore see the whole
+ * tree. `search()` is the one action a workspace leader reaches, and it is
+ * scoped to the branch they lead so the member and project pickers can place
+ * someone without exposing another company.
+ *
+ * The tree is served one level at a time. The import puts tens of thousands of
+ * units in the table, so shipping the whole structure in the page props would
+ * stall both the query and the browser; `children()` fills a branch in when it
+ * is opened, and `search()` reaches a unit buried eleven levels down.
  */
 class OrgUnitController extends Controller
 {
@@ -155,18 +162,14 @@ class OrgUnitController extends Controller
      */
     protected function level(?OrgUnit $parent): array
     {
-        $viewer = $this->tenancy->member();
-
         return OrgUnit::query()
             ->withCount(['children', 'projects', 'assignedMembers'])
             ->when(
                 $parent !== null,
                 fn (Builder $query) => $query->where('parent_id', $parent->id),
-                // `viewAny` already guarantees the viewer leads someone, so a
-                // viewer without full scope always has a unit to start from.
-                fn (Builder $query) => $viewer === null || $viewer->hasFullScope()
-                    ? $query->whereNull('parent_id')
-                    : $query->whereKey($viewer->org_unit_id),
+                // The page belongs to the operator, who starts at the top of
+                // the master tree: the operating companies SAP hands over.
+                fn (Builder $query) => $query->whereNull('parent_id'),
             )
             ->orderBy('name')
             ->get()
@@ -185,8 +188,9 @@ class OrgUnitController extends Controller
     }
 
     /**
-     * Restrict a query to the branch the member runs. BOD-1 covers the whole
-     * workspace and is left unfiltered.
+     * Restrict a query to the branch the member runs. BOD-1 is left unfiltered
+     * because the global scope already trims the tree to their workspace; a
+     * super admin has no member at all and searches the whole master tree.
      *
      * @param  Builder<OrgUnit>  $query
      */

@@ -18,10 +18,10 @@ use Inertia\Response;
 /**
  * Workspace roster for the platform super admin (SA-1..SA-3).
  *
- * Lives inside the ordinary app shell rather than a separate panel: a super
- * admin also works inside workspaces, so a second chrome only split the
- * navigation in two. The routes resolve a workspace optionally, which keeps
- * this page reachable while no workspace exists yet.
+ * Lives inside the ordinary app shell rather than a separate panel, but with
+ * no tenant context: a super admin never enters a workspace (SA-4), so every
+ * query here scopes itself and passes `withoutGlobalScopes()` where the model
+ * is tenant-owned.
  */
 class WorkspaceController extends Controller
 {
@@ -35,6 +35,7 @@ class WorkspaceController extends Controller
             ->when($status === 'active', fn ($query) => $query->where('is_active', true))
             ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
             ->withCount('members')
+            ->with('rootOrgUnit:id,name')
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString()
@@ -42,6 +43,9 @@ class WorkspaceController extends Controller
                 'id' => $workspace->id,
                 'name' => $workspace->name,
                 'slug' => $workspace->slug,
+                // Which node of the platform org tree the workspace runs;
+                // without one it has no units, members or projects to place.
+                'root_org_unit' => $workspace->rootOrgUnit?->only(['id', 'name']),
                 'is_active' => $workspace->is_active,
                 'members_count' => $workspace->members_count,
                 'created_at' => $workspace->created_at->toDateString(),

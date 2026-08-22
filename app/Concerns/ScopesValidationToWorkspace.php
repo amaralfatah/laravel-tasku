@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Support\Tenancy;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Unique;
@@ -34,6 +35,23 @@ trait ScopesValidationToWorkspace
     {
         return Rule::unique($table, $column)
             ->where('workspace_id', app(Tenancy::class)->id());
+    }
+
+    /**
+     * An org unit inside the active workspace's slice of the master tree.
+     *
+     * Units are platform-wide, so they carry no `workspace_id`; the boundary
+     * is the `path` prefix of the node the workspace was placed on.
+     */
+    protected function existsAsOrgUnit(): Exists
+    {
+        $path = app(Tenancy::class)->workspace()?->orgUnitRootPath();
+
+        return Rule::exists('org_units', 'id')->where(
+            fn (Builder $query) => $path === null
+                ? $query->whereRaw('1 = 0')
+                : $query->where('path', 'like', $path.'%'),
+        );
     }
 
     /**

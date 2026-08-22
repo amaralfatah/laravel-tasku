@@ -63,6 +63,14 @@ class InvitationAcceptController extends Controller
 
         abort_if($invitation === null, 410, 'Undangan tidak berlaku lagi.');
 
+        // A super admin operates the platform and belongs to no workspace
+        // (SA-4); accepting an invitation would hand them a membership.
+        abort_if(
+            (bool) $request->user()?->is_super_admin,
+            403,
+            'Super admin tidak dapat bergabung ke workspace.',
+        );
+
         $existing = User::where('email', $invitation->email)->first();
 
         if ($existing !== null && $request->user()?->id !== $existing->id) {

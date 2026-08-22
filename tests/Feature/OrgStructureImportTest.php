@@ -2,7 +2,6 @@
 
 use App\Models\OrgUnit;
 use App\Models\Project;
-use App\Models\Workspace;
 use App\Services\OrgStructureImporter;
 use Illuminate\Support\Facades\Http;
 
@@ -153,12 +152,10 @@ test('a loop in the export is cut instead of hanging the import', function () {
 test('the command writes the whole forest with correct paths and depths', function () {
     fakeCds(cdsSample());
 
-    $workspace = Workspace::factory()->create();
-
-    $this->artisan('tasku:import-org-structure', ['--workspace' => $workspace->id])
+    $this->artisan('tasku:import-org-structure')
         ->assertSuccessful();
 
-    $units = OrgUnit::withoutGlobalScopes()->where('workspace_id', $workspace->id)->get()->keyBy('external_id');
+    $units = OrgUnit::withoutGlobalScopes()->get()->keyBy('external_id');
 
     expect($units)->toHaveCount(4)
         ->and($units)->not->toHaveKey('10000000')
@@ -194,18 +191,15 @@ test('prune removes units a previous import created that SAP no longer sends', f
         'services.sap.pass' => 'secret',
     ]);
 
-    $workspace = Workspace::factory()->create();
-    $units = fn () => OrgUnit::withoutGlobalScopes()->where('workspace_id', $workspace->id);
+    $units = fn () => OrgUnit::withoutGlobalScopes();
 
     $this->artisan('tasku:import-org-structure', [
-        '--workspace' => $workspace->id,
         '--all' => true,
     ])->assertSuccessful();
 
     expect($units()->count())->toBe(7);
 
     $this->artisan('tasku:import-org-structure', [
-        '--workspace' => $workspace->id,
         '--prune' => true,
     ])->assertSuccessful();
 
@@ -227,28 +221,23 @@ test('prune keeps a retired unit that still holds a project', function () {
         'services.sap.pass' => 'secret',
     ]);
 
-    $workspace = Workspace::factory()->create();
-
     $this->artisan('tasku:import-org-structure', [
-        '--workspace' => $workspace->id,
         '--all' => true,
     ])->assertSuccessful();
 
     $fragment = OrgUnit::withoutGlobalScopes()
-        ->where('workspace_id', $workspace->id)
         ->where('external_id', '11900222')
         ->firstOrFail();
 
     Project::factory()->in($fragment)->create();
 
     $this->artisan('tasku:import-org-structure', [
-        '--workspace' => $workspace->id,
         '--prune' => true,
     ])->assertSuccessful();
 
     // The unit holding the project survives, and so does its parent, because
     // deleting it would orphan a live subtree.
-    expect(OrgUnit::withoutGlobalScopes()->where('workspace_id', $workspace->id)->whereKey($fragment->id)->exists())
+    expect(OrgUnit::withoutGlobalScopes()->whereKey($fragment->id)->exists())
         ->toBeTrue();
 });
 
@@ -269,15 +258,13 @@ test('a second import updates in place instead of duplicating the tree', functio
         'services.sap.pass' => 'secret',
     ]);
 
-    $workspace = Workspace::factory()->create();
+    $this->artisan('tasku:import-org-structure')->assertSuccessful();
 
-    $this->artisan('tasku:import-org-structure', ['--workspace' => $workspace->id])->assertSuccessful();
+    $before = OrgUnit::withoutGlobalScopes()->pluck('id', 'external_id');
 
-    $before = OrgUnit::withoutGlobalScopes()->where('workspace_id', $workspace->id)->pluck('id', 'external_id');
+    $this->artisan('tasku:import-org-structure')->assertSuccessful();
 
-    $this->artisan('tasku:import-org-structure', ['--workspace' => $workspace->id])->assertSuccessful();
-
-    $after = OrgUnit::withoutGlobalScopes()->where('workspace_id', $workspace->id)->get()->keyBy('external_id');
+    $after = OrgUnit::withoutGlobalScopes()->get()->keyBy('external_id');
 
     expect($after)->toHaveCount(4)
         ->and($after['12100000']->id)->toBe($before['12100000'])
@@ -287,10 +274,9 @@ test('a second import updates in place instead of duplicating the tree', functio
 test('units created by hand are left alone by the import', function () {
     fakeCds(cdsSample());
 
-    $workspace = Workspace::factory()->create();
-    $manual = OrgUnit::factory()->for($workspace)->create(['name' => 'Divisi Internal']);
+    $manual = OrgUnit::factory()->create(['name' => 'Divisi Internal']);
 
-    $this->artisan('tasku:import-org-structure', ['--workspace' => $workspace->id])->assertSuccessful();
+    $this->artisan('tasku:import-org-structure')->assertSuccessful();
 
     $manual->refresh();
 
@@ -302,13 +288,11 @@ test('units created by hand are left alone by the import', function () {
 test('a dry run reports the shape without writing anything', function () {
     fakeCds(cdsSample());
 
-    $workspace = Workspace::factory()->create();
-
-    $this->artisan('tasku:import-org-structure', ['--workspace' => $workspace->id, '--dry-run' => true])
+    $this->artisan('tasku:import-org-structure', ['--dry-run' => true])
         ->expectsOutputToContain('4 unit dipakai')
         ->assertSuccessful();
 
-    expect(OrgUnit::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(0);
+    expect(OrgUnit::withoutGlobalScopes()->count())->toBe(0);
 });
 
 test('the import stops when the bridge answers with an error', function () {
@@ -320,11 +304,9 @@ test('the import stops when the bridge answers with an error', function () {
         'services.sap.pass' => 'secret',
     ]);
 
-    $workspace = Workspace::factory()->create();
+    $this->artisan('tasku:import-org-structure')->assertFailed();
 
-    $this->artisan('tasku:import-org-structure', ['--workspace' => $workspace->id])->assertFailed();
-
-    expect(OrgUnit::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(0);
+    expect(OrgUnit::withoutGlobalScopes()->count())->toBe(0);
 });
 
 test('the import stops when SAP credentials are missing', function () {
@@ -334,7 +316,5 @@ test('the import stops when SAP credentials are missing', function () {
         'services.sap.pass' => null,
     ]);
 
-    $workspace = Workspace::factory()->create();
-
-    $this->artisan('tasku:import-org-structure', ['--workspace' => $workspace->id])->assertFailed();
+    $this->artisan('tasku:import-org-structure')->assertFailed();
 });

@@ -8,32 +8,25 @@ use Illuminate\Console\Command;
 use Throwable;
 
 /**
- * Pulls the SAP org structure into a workspace.
+ * Pulls the SAP org structure into the platform-wide org tree.
  *
- * The whole tree is fetched from the HRIS bridge in one call, so this is a
- * scheduled or manual job, never something a web request triggers.
+ * The structure is master data shared by every workspace, so this writes one
+ * tree and no workspace is named. The whole thing is fetched from the HRIS
+ * bridge in one call, making this a scheduled or manual job, never something a
+ * web request triggers.
  */
 class ImportOrgStructure extends Command
 {
     protected $signature = 'tasku:import-org-structure
-                            {--workspace= : Target workspace id}
                             {--root= : SAP object id of the holding whose children become the roots, defaults to PT PERKEBUNANAN NUSANTARA I}
                             {--all : Import every root the view carries, including the fragments SAP sends no parent for}
                             {--prune : Delete units an earlier import created that the view no longer carries}
                             {--dry-run : Fetch and report the shape without writing}';
 
-    protected $description = 'Import the SAP org structure (ZA_HRIS_ORGZ) into a workspace';
+    protected $description = 'Import the SAP org structure (ZA_HRIS_ORGZ) as platform master data';
 
     public function handle(OrgStructureImporter $importer): int
     {
-        $workspace = Workspace::query()->find($this->option('workspace'));
-
-        if ($workspace === null && ! $this->option('dry-run')) {
-            $this->error('Workspace tidak ditemukan. Gunakan --workspace=<id>.');
-
-            return self::FAILURE;
-        }
-
         $holding = $this->option('all')
             ? null
             : ((string) $this->option('root') ?: OrgStructureImporter::HOLDING);
@@ -69,15 +62,15 @@ class ImportOrgStructure extends Command
         }
 
         try {
-            $result = $importer->sync($workspace, $forest['nodes']);
-            $pruned = $this->option('prune') ? $importer->prune($workspace, $forest['nodes']) : null;
+            $result = $importer->sync($forest['nodes']);
+            $pruned = $this->option('prune') ? $importer->prune($forest['nodes']) : null;
         } catch (Throwable $e) {
             $this->error('Import dibatalkan, tidak ada data yang tersimpan: '.$e->getMessage());
 
             return self::FAILURE;
         }
 
-        $this->info("{$result['created']} unit dibuat, {$result['updated']} diperbarui, {$result['unchanged']} tidak berubah di workspace {$workspace->name}.");
+        $this->info("{$result['created']} unit dibuat, {$result['updated']} diperbarui, {$result['unchanged']} tidak berubah.");
 
         if ($pruned !== null) {
             $this->info("{$pruned['deleted']} unit lama dihapus.");

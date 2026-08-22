@@ -42,9 +42,14 @@ class DemoWorkspaceSeeder extends Seeder
         $tenancy = app(Tenancy::class);
 
         $workspace = Workspace::create(['name' => 'Perkebunan Nusantara']);
-        $tenancy->set($workspace);
 
+        // Org units are platform master data, so they are seeded before any
+        // tenant context exists; the workspace then adopts the top one as the
+        // slice of the tree it runs.
         $units = $this->seedUnits(app(OrgUnitTree::class));
+        $workspace->update(['root_org_unit_id' => $units['transformasi']->id]);
+
+        $tenancy->set($workspace);
         $people = $this->seedMembers($workspace, $units, $tenancy);
 
         $projects = $this->seedProjects($units['pengembangan'], $people);

@@ -18,7 +18,7 @@ use App\Models\WorkspaceMember;
 function workspaceWith(WorkspaceRole $role = WorkspaceRole::Bod1): array
 {
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
         ->create(['role' => $role, 'org_unit_id' => $unit->id]);
@@ -63,6 +63,45 @@ test('a project cannot be attached to another workspace org unit', function () {
         ->assertSessionHasErrors('org_unit_id');
 
     expect(Project::withoutGlobalScopes()->where('name', 'Project selundupan')->exists())->toBeFalse();
+});
+
+test('a sibling branch of the master tree stays out of the workspace', function () {
+    // Units are shared master data, so the boundary is the subtree a workspace
+    // was placed on, not a foreign key.
+    $holding = OrgUnit::factory()->create(['name' => 'Holding']);
+    $mine = OrgUnit::factory()->childOf($holding)->create(['name' => 'PalmCo']);
+    $theirs = OrgUnit::factory()->childOf($holding)->create(['name' => 'SupportingCo']);
+
+    $workspace = Workspace::factory()->create(['root_org_unit_id' => $mine->id]);
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Bod1, 'org_unit_id' => $mine->id]);
+
+    expect($member->covers($mine->id))->toBeTrue()
+        ->and($member->covers($theirs->id))->toBeFalse()
+        ->and($member->covers($holding->id))->toBeFalse();
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->getJson(route('org-units.search', ['q' => 'Co']))
+        ->assertOk()
+        ->assertJsonCount(1, 'units')
+        ->assertJsonPath('units.0.name', 'PalmCo');
+});
+
+test('a workspace with no place in the tree has no units at all', function () {
+    OrgUnit::factory()->create(['name' => 'Holding']);
+
+    $workspace = Workspace::factory()->create(['root_org_unit_id' => null]);
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Bod1]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->getJson(route('org-units.search', ['q' => 'Holding']))
+        ->assertOk()
+        ->assertJsonCount(0, 'units');
 });
 
 test('a member cannot be moved into another workspace org unit', function () {

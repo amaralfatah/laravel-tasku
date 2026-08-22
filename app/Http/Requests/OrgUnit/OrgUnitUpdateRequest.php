@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\OrgUnit;
 
-use App\Concerns\ScopesValidationToWorkspace;
 use App\Models\OrgUnit;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -10,8 +9,6 @@ use Illuminate\Validation\Rule;
 
 class OrgUnitUpdateRequest extends FormRequest
 {
-    use ScopesValidationToWorkspace;
-
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -20,7 +17,7 @@ class OrgUnitUpdateRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'type' => ['sometimes', 'nullable', 'string', Rule::in(['company', 'division', 'sub_division', 'team'])],
-            'parent_id' => ['sometimes', 'nullable', 'integer', $this->existsInWorkspace('org_units')],
+            'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:org_units,id'],
         ];
     }
 

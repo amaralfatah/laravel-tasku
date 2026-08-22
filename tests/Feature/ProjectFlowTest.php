@@ -14,7 +14,7 @@ use Inertia\Testing\AssertableInertia;
 function projectWorkspace(WorkspaceRole $role): array
 {
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
         ->create(['role' => $role, 'org_unit_id' => $unit->id]);
@@ -98,7 +98,7 @@ test('an ODS starts a project in their own unit and runs it', function () {
 
 test('an ODS cannot start a project outside their own unit', function () {
     [$member] = projectWorkspace(WorkspaceRole::Bod4);
-    $elsewhere = OrgUnit::factory()->for($member->workspace)->create();
+    $elsewhere = OrgUnit::factory()->rootOf($member->workspace)->create();
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $member->workspace_id])
@@ -116,7 +116,7 @@ test('someone with no unit at all cannot create a project', function () {
         ->for($workspace)
         ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => null]);
 
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -183,7 +183,7 @@ test('the leader above still runs a project an ODS started', function () {
     // Team-managed does not carve the project out of the org tree: whoever
     // covers the unit keeps their authority over it.
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $child = OrgUnit::factory()->childOf($unit)->create();
 
     $asisten = WorkspaceMember::factory()

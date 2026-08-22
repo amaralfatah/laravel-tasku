@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Workspace;
 use App\Services\OrgUnitTree;
 use Illuminate\Console\Command;
 
@@ -12,27 +11,15 @@ use Illuminate\Console\Command;
  */
 class RebuildOrgUnitPaths extends Command
 {
-    protected $signature = 'orgunit:rebuild-path {--workspace= : Limit to one workspace id}';
+    protected $signature = 'orgunit:rebuild-path';
 
     protected $description = 'Recompute org unit path and depth from parent_id';
 
     public function handle(OrgUnitTree $tree): int
     {
-        $workspaces = Workspace::query()
-            ->when($this->option('workspace'), fn ($query, $id) => $query->whereKey($id))
-            ->orderBy('id')
-            ->get();
+        $touched = $tree->rebuild();
 
-        $total = 0;
-
-        foreach ($workspaces as $workspace) {
-            $touched = $tree->rebuild($workspace->id);
-            $total += $touched;
-
-            $this->line("{$workspace->name}: {$touched} unit diperbaiki.");
-        }
-
-        $this->info("Selesai. {$total} unit diperbarui.");
+        $this->info("Selesai. {$touched} unit diperbarui.");
 
         return self::SUCCESS;
     }

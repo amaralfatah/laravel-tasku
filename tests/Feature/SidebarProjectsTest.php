@@ -14,7 +14,7 @@ use Inertia\Testing\AssertableInertia;
 function sidebarWorkspace(WorkspaceRole $role): array
 {
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->for($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
         ->create(['role' => $role, 'org_unit_id' => $unit->id]);

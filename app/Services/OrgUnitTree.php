@@ -68,9 +68,8 @@ class OrgUnitTree
                 'update org_units
                     set path = ? || substring(path from ?),
                         depth = depth + ?
-                  where workspace_id = ?
-                    and path like ?',
-                [$newPath, strlen($oldPath) + 1, $depthShift, $unit->workspace_id, $oldPath.'_%'],
+                  where path like ?',
+                [$newPath, strlen($oldPath) + 1, $depthShift, $oldPath.'_%'],
             );
 
             $unit->forceFill([
@@ -84,13 +83,12 @@ class OrgUnitTree
     }
 
     /**
-     * Rebuild path and depth for a whole workspace, used by the repair command.
+     * Rebuild path and depth for the whole tree, used by the repair command.
      */
-    public function rebuild(int $workspaceId): int
+    public function rebuild(): int
     {
-        return DB::transaction(function () use ($workspaceId): int {
+        return DB::transaction(function (): int {
             $units = OrgUnit::withoutGlobalScopes()
-                ->where('workspace_id', $workspaceId)
                 ->orderBy('id')
                 ->get()
                 ->keyBy('id');

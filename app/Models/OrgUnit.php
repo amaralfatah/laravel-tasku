@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Concerns\BelongsToWorkspace;
+use App\Models\Scopes\WorkspaceOrgUnitScope;
 use Database\Factories\OrgUnitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,7 +14,6 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property int $workspace_id
  * @property string|null $external_id SAP object id when the unit came from the CDS import
  * @property int|null $parent_id
  * @property string $name
@@ -28,7 +27,12 @@ use Illuminate\Support\Carbon;
 class OrgUnit extends Model
 {
     /** @use HasFactory<OrgUnitFactory> */
-    use BelongsToWorkspace, HasFactory;
+    use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new WorkspaceOrgUnitScope);
+    }
 
     /**
      * Root unit is depth 0, so this allows depth 0 through 11.
