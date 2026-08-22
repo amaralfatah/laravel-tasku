@@ -46,11 +46,11 @@ export default function MonitoringPeople({
 
     return (
         <>
-            <Head title="Monitoring per orang" />
+            <Head title="Monitoring per anggota" />
 
             <div className="space-y-6">
                 <PageHeader
-                    title="Monitoring per orang"
+                    title="Monitoring per anggota"
                     description="Beban kerja setiap anggota dalam cakupan Anda, lintas project."
                 />
 
@@ -200,5 +200,5 @@ export default function MonitoringPeople({
 }
 
 MonitoringPeople.layout = {
-    breadcrumbs: [{ title: 'Monitoring per orang', href: people() }],
+    breadcrumbs: [{ title: 'Monitoring per anggota', href: people() }],
 };

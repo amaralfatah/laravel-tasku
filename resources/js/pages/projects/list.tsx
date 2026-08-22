@@ -3,7 +3,7 @@ import { ListChecks, ListTree, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProjectHeader } from '@/components/project/project-header';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
-import { TaskDetailSheet } from '@/components/task/task-detail-sheet';
+import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
 import { TaskTreeRow } from '@/components/task/task-tree-row';
 import { Button } from '@/components/ui/button';
@@ -213,8 +213,11 @@ export default function ProjectList({
                 </div>
             </div>
 
-            <TaskDetailSheet
+            <TaskDetailModal
                 task={openTask}
+                subtasks={tasks.filter(
+                    (item) => item.parent_task_id === openTaskId,
+                )}
                 assignees={assignees}
                 statuses={statuses}
                 priorities={priorities}

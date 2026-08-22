@@ -22,7 +22,12 @@ import {
 import { WeekPicker } from '@/components/week-picker';
 import { store } from '@/routes/tasks';
 import type { Option } from '@/types/members';
-import type { TaskAssignee, TaskNode, TaskPriority } from '@/types/tasks';
+import type {
+    TaskAssignee,
+    TaskNode,
+    TaskPriority,
+    TaskStatus,
+} from '@/types/tasks';
 
 const UNASSIGNED = 'none';
 
@@ -34,6 +39,7 @@ export function TaskCreateDialog({
     open,
     projectId,
     parent,
+    status = 'todo',
     assignees,
     priorities,
     onClose,
@@ -41,6 +47,8 @@ export function TaskCreateDialog({
     open: boolean;
     projectId: number;
     parent: TaskNode | null;
+    /** Column the task should land in when opened from a board column. */
+    status?: TaskStatus;
     assignees: TaskAssignee[];
     priorities: Option[];
     onClose: () => void;
@@ -48,6 +56,7 @@ export function TaskCreateDialog({
     const form = useForm({
         title: '',
         parent_task_id: parent?.id ?? null,
+        status,
         assignee_id: null as number | null,
         priority: 'medium' as TaskPriority,
         start_date: null as string | null,
@@ -59,6 +68,7 @@ export function TaskCreateDialog({
             form.setDefaults({
                 title: '',
                 parent_task_id: parent?.id ?? null,
+                status,
                 assignee_id: null,
                 priority: 'medium',
                 start_date: null,
@@ -68,7 +78,7 @@ export function TaskCreateDialog({
             form.clearErrors();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, parent?.id]);
+    }, [open, parent?.id, status]);
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>

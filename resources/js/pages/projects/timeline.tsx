@@ -2,17 +2,16 @@ import { Head } from '@inertiajs/react';
 import { CalendarOff, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProjectHeader } from '@/components/project/project-header';
-import { TaskDetailSheet } from '@/components/task/task-detail-sheet';
+import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
 import {
     TimelineBar,
     TimelineHeader,
     TimelineToday,
     ZOOM_LABELS,
-    useTimelineScale
-    
+    useTimelineScale,
 } from '@/components/task/timeline-scale';
-import type {Zoom} from '@/components/task/timeline-scale';
+import type { Zoom } from '@/components/task/timeline-scale';
 import { Button } from '@/components/ui/button';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { cn } from '@/lib/utils';
@@ -54,8 +53,7 @@ function resolveSpans(tasks: TaskNode[]): Map<number, Span> {
 
     for (const task of ordered) {
         const descendants = tasks.filter(
-            (other) =>
-                other.id !== task.id && other.path.startsWith(task.path),
+            (other) => other.id !== task.id && other.path.startsWith(task.path),
         );
 
         const starts = [
@@ -69,9 +67,12 @@ function resolveSpans(tasks: TaskNode[]): Map<number, Span> {
         ].filter((value): value is string => Boolean(value));
 
         spans.set(task.id, {
-            start: starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : null,
+            start: starts.length
+                ? starts.reduce((a, b) => (a < b ? a : b))
+                : null,
             end: ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : null,
-            derived: descendants.length > 0 && !(task.start_date && task.due_date),
+            derived:
+                descendants.length > 0 && !(task.start_date && task.due_date),
         });
     }
 
@@ -95,13 +96,20 @@ export default function ProjectTimeline({
     const spans = useMemo(() => resolveSpans(tasks), [tasks]);
 
     const scheduled = useMemo(
-        () => tasks.filter((task) => spans.get(task.id)?.start && spans.get(task.id)?.end),
+        () =>
+            tasks.filter(
+                (task) => spans.get(task.id)?.start && spans.get(task.id)?.end,
+            ),
         [tasks, spans],
     );
 
     // TML-9: tasks with no dates of their own or below them.
     const unscheduled = useMemo(
-        () => tasks.filter((task) => !spans.get(task.id)?.start || !spans.get(task.id)?.end),
+        () =>
+            tasks.filter(
+                (task) =>
+                    !spans.get(task.id)?.start || !spans.get(task.id)?.end,
+            ),
         [tasks, spans],
     );
 
@@ -358,13 +366,16 @@ export default function ProjectTimeline({
 
                 <p className="text-xs text-muted-foreground">
                     Bar abu-abu berarti rentangnya dihitung dari sub task. Garis
-                    merah menandai hari ini. Bar tidak bisa digeser di versi
-                    ini — ubah tanggal lewat panel detail task.
+                    merah menandai hari ini. Bar tidak bisa digeser di versi ini
+                    — ubah tanggal lewat panel detail task.
                 </p>
             </div>
 
-            <TaskDetailSheet
+            <TaskDetailModal
                 task={openTask}
+                subtasks={tasks.filter(
+                    (item) => item.parent_task_id === openTaskId,
+                )}
                 assignees={assignees}
                 statuses={statuses}
                 priorities={priorities}

@@ -2,7 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { CalendarOff, ClipboardList } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProgressBar } from '@/components/task/progress-bar';
-import { TaskDetailSheet } from '@/components/task/task-detail-sheet';
+import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import {
     TimelineBar,
     TimelineHeader,
@@ -223,7 +223,9 @@ export default function MonitoringPerson({
                                             </Link>
                                         </div>
                                         <div
-                                            style={{ width: `${scale.width}px` }}
+                                            style={{
+                                                width: `${scale.width}px`,
+                                            }}
                                         />
                                     </div>
 
@@ -326,7 +328,7 @@ export default function MonitoringPerson({
                 )}
             </div>
 
-            <TaskDetailSheet
+            <TaskDetailModal
                 task={open?.task ?? null}
                 assignees={open?.assignees ?? []}
                 statuses={statuses}
@@ -339,7 +341,7 @@ export default function MonitoringPerson({
 
 MonitoringPerson.layout = ({ member }: { member: Member }) => ({
     breadcrumbs: [
-        { title: 'Monitoring per orang', href: people() },
+        { title: 'Monitoring per anggota', href: people() },
         { title: member.name, href: personRoute(member.id) },
     ],
 });
