@@ -24,29 +24,24 @@ import type { MemberRow, Option, OrgUnitOption } from '@/types/members';
 const NONE = 'none';
 
 /**
- * Edits everything about a membership except the person: role (BOD-1 only),
- * unit assignment and monitoring scope.
+ * Edits everything about a membership except the person: their role and the
+ * unit they sit in. The unit is what decides how much of the org tree a
+ * leader reaches, so it is the only scope control there is.
  */
 export function MemberEditDialog({
     member,
     orgUnits,
     roles,
-    scopeTypes,
-    canChangeRole,
     onClose,
 }: {
     member: MemberRow | null;
     orgUnits: OrgUnitOption[];
     roles: Option[];
-    scopeTypes: Option[];
-    canChangeRole: boolean;
     onClose: () => void;
 }) {
     const form = useForm({
         role: member?.role ?? 'bod_4',
         org_unit_id: member?.org_unit?.id ?? null,
-        scope_type: member?.scope_type ?? 'project_only',
-        scope_org_unit_id: member?.scope_org_unit?.id ?? null,
     });
 
     useEffect(() => {
@@ -54,8 +49,6 @@ export function MemberEditDialog({
             form.setDefaults({
                 role: member.role,
                 org_unit_id: member.org_unit?.id ?? null,
-                scope_type: member.scope_type,
-                scope_org_unit_id: member.scope_org_unit?.id ?? null,
             });
             form.reset();
             form.clearErrors();
@@ -67,8 +60,7 @@ export function MemberEditDialog({
         return null;
     }
 
-    const isSubtree = form.data.scope_type === 'unit_subtree';
-    const roleLocked = !canChangeRole || member.is_last_top_role;
+    const roleLocked = !member.can_change_role;
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -119,9 +111,9 @@ export function MemberEditDialog({
                         <p className="text-xs text-muted-foreground">
                             {member.is_last_top_role
                                 ? 'Kepala Divisi terakhir tidak bisa diturunkan rolenya.'
-                                : canChangeRole
-                                  ? 'Role menentukan posisi di jenjang BOD dan hak aksesnya.'
-                                  : 'Hanya Kepala Divisi yang dapat mengubah role.'}
+                                : roleLocked
+                                  ? 'Anda tidak bisa mengubah role orang yang setara atau di atas Anda.'
+                                  : 'Role menentukan posisi di jenjang BOD; cakupannya mengikuti unit penempatan.'}
                         </p>
                         <InputError message={form.errors.role} />
                     </div>
@@ -155,81 +147,12 @@ export function MemberEditDialog({
                                 ))}
                             </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Seorang pemimpin memantau dan mengelola unit ini
+                            beserta seluruh turunannya.
+                        </p>
                         <InputError message={form.errors.org_unit_id} />
                     </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="member-scope">Cakupan pemantauan</Label>
-                        <Select
-                            value={form.data.scope_type}
-                            onValueChange={(value) =>
-                                form.setData(
-                                    'scope_type',
-                                    value as MemberRow['scope_type'],
-                                )
-                            }
-                        >
-                            <SelectTrigger id="member-scope">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {scopeTypes.map((scope) => (
-                                    <SelectItem
-                                        key={scope.value}
-                                        value={scope.value}
-                                    >
-                                        {scope.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                            Cakupan subtree memberi akses baca ke seluruh
-                            project unit tersebut dan turunannya. Untuk hak
-                            edit, anggota tetap harus didaftarkan di project.
-                        </p>
-                        <InputError message={form.errors.scope_type} />
-                    </div>
-
-                    {isSubtree && (
-                        <div className="grid gap-2">
-                            <Label htmlFor="member-scope-unit">
-                                Akar cakupan
-                            </Label>
-                            <Select
-                                value={String(
-                                    form.data.scope_org_unit_id ?? NONE,
-                                )}
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'scope_org_unit_id',
-                                        value === NONE ? null : Number(value),
-                                    )
-                                }
-                            >
-                                <SelectTrigger id="member-scope-unit">
-                                    <SelectValue placeholder="Pilih unit" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={NONE}>
-                                        Pilih unit
-                                    </SelectItem>
-                                    {orgUnits.map((unit) => (
-                                        <SelectItem
-                                            key={unit.id}
-                                            value={String(unit.id)}
-                                        >
-                                            {'— '.repeat(unit.depth)}
-                                            {unit.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError
-                                message={form.errors.scope_org_unit_id}
-                            />
-                        </div>
-                    )}
 
                     <DialogFooter>
                         <Button

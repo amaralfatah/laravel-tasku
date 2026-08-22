@@ -12,6 +12,11 @@ namespace App\Enums;
  *   BOD-2  Kepala Sub Divisi    runs a sub division
  *   BOD-3  Asisten              supervises the work, owns projects
  *   BOD-4  ODS / Programmer     does the work
+ *
+ * BOD-1 through BOD-3 all have the same abilities; what separates them is the
+ * slice of the org tree those abilities reach, and that comes from the
+ * member's own `org_unit_id`. BOD-4 leads nobody and only ever reaches their
+ * own tasks.
  */
 enum WorkspaceRole: string
 {
@@ -52,8 +57,8 @@ enum WorkspaceRole: string
     }
 
     /**
-     * The single role at the top of the entity. A workspace must always keep
-     * at least one, and only this role may change other people's roles.
+     * The single role at the top of the entity. Its scope is the whole
+     * workspace, and a workspace must always keep at least one.
      */
     public function isTop(): bool
     {
@@ -61,20 +66,44 @@ enum WorkspaceRole: string
     }
 
     /**
-     * Runs the organisation: org units, invitations, membership, and every
-     * project in the workspace.
+     * Leads other people: org units, membership, projects and monitoring — all
+     * of it limited to the leader's own subtree. BOD-1, BOD-2 and BOD-3 reach
+     * this bar; ODS does not.
      */
-    public function isManager(): bool
+    public function managesTeam(): bool
     {
-        return $this->rank() <= 2;
+        return $this->rank() <= 3;
     }
 
     /**
-     * Owns project delivery: create, edit and staff projects, and delete any
-     * task inside them. Asisten reaches this bar; ODS does not.
+     * Whether this role sits above another on the ladder. Nobody may hand out
+     * a role at or above their own.
      */
-    public function managesProjects(): bool
+    public function outranks(self $other): bool
     {
-        return $this->rank() <= 3;
+        return $this->rank() < $other->rank();
+    }
+
+    /**
+     * Whether this role may hand out another one. Peers are allowed — a
+     * Kepala Sub Divisi may appoint a second one for the same branch — but
+     * nobody reaches above their own rank.
+     */
+    public function mayAssign(self $role): bool
+    {
+        return ! $role->outranks($this);
+    }
+
+    /**
+     * Roles this one may invite people as, or promote someone to.
+     *
+     * @return array<int, self>
+     */
+    public function assignableRoles(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $role): bool => $this->mayAssign($role),
+        ));
     }
 }

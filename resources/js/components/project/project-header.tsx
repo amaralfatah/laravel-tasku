@@ -29,6 +29,9 @@ export function ProjectHeader({
         <div className="space-y-4">
             <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-accent px-1.5 py-0.5 font-mono text-xs tracking-wide text-accent-foreground">
+                        {project.key}
+                    </span>
                     <h1 className="text-xl font-semibold">{project.name}</h1>
                     <Badge variant={PROJECT_STATUS_VARIANT[project.status]}>
                         {project.status_label}

@@ -1,4 +1,4 @@
-import type { ScopeType, WorkspaceRole } from '@/types/tenancy';
+import type { WorkspaceRole } from '@/types/tenancy';
 
 export type NamedRef = { id: number; name: string };
 
@@ -14,11 +14,12 @@ export type MemberRow = {
     role_label: string;
     role_code: string;
     org_unit: NamedRef | null;
-    scope_type: ScopeType;
-    scope_org_unit: NamedRef | null;
     manager_id: number | null;
     is_last_top_role: boolean;
     is_self: boolean;
+    can_edit: boolean;
+    can_change_role: boolean;
+    can_remove: boolean;
 };
 
 export type InvitationRow = {

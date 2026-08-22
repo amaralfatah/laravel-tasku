@@ -23,6 +23,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    normalizeProjectKey,
+    PROJECT_KEY_MAX_LENGTH,
+    suggestProjectKey,
+} from '@/lib/project-key';
 import { index as projectsIndex, show, store } from '@/routes/projects';
 import type { Option, OrgUnitOption } from '@/types/members';
 import {
@@ -47,9 +52,13 @@ export default function Projects({
     can: { create: boolean };
 }) {
     const [createOpen, setCreateOpen] = useState(false);
+    // Once the key is typed by hand it stops following the name, the way the
+    // Jira create form behaves.
+    const [keyEdited, setKeyEdited] = useState(false);
 
     const form = useForm({
         name: '',
+        key: '',
         description: '',
         org_unit_id: orgUnits[0]?.id ?? null,
         status: 'active',
@@ -105,8 +114,11 @@ export default function Projects({
                                     onSubmit={(event) => {
                                         event.preventDefault();
                                         form.post(store().url, {
-                                            onSuccess: () =>
-                                                setCreateOpen(false),
+                                            onSuccess: () => {
+                                                setCreateOpen(false);
+                                                setKeyEdited(false);
+                                                form.reset();
+                                            },
                                         });
                                     }}
                                 >
@@ -119,17 +131,51 @@ export default function Projects({
                                             required
                                             autoFocus
                                             value={form.data.name}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'name',
-                                                    event.target.value,
-                                                )
-                                            }
+                                            onChange={(event) => {
+                                                const name = event.target.value;
+
+                                                form.setData((data) => ({
+                                                    ...data,
+                                                    name,
+                                                    key: keyEdited
+                                                        ? data.key
+                                                        : suggestProjectKey(
+                                                              name,
+                                                          ),
+                                                }));
+                                            }}
                                             placeholder="Aplikasi Absensi"
                                         />
                                         <InputError
                                             message={form.errors.name}
                                         />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="project-key">Key</Label>
+                                        <Input
+                                            id="project-key"
+                                            value={form.data.key}
+                                            maxLength={PROJECT_KEY_MAX_LENGTH}
+                                            className="w-40 font-mono tracking-wide uppercase"
+                                            onChange={(event) => {
+                                                setKeyEdited(true);
+                                                form.setData(
+                                                    'key',
+                                                    normalizeProjectKey(
+                                                        event.target.value,
+                                                    ),
+                                                );
+                                            }}
+                                            placeholder="AA"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Prefix singkat untuk mengenali
+                                            project ini, huruf kapital dan
+                                            angka. Dibuat otomatis dari nama
+                                            bila dibiarkan kosong.
+                                        </p>
+                                        <InputError message={form.errors.key} />
                                     </div>
 
                                     <div className="grid gap-2">
@@ -293,6 +339,9 @@ export default function Projects({
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <span className="font-medium">
+                                            <span className="mr-2 font-mono text-xs tracking-wide text-muted-foreground">
+                                                {project.key}
+                                            </span>
                                             {project.name}
                                         </span>
                                         <Badge

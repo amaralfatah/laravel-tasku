@@ -3,6 +3,7 @@ export type ProjectStatus = 'active' | 'completed' | 'archived';
 export type ProjectListItem = {
     id: number;
     name: string;
+    key: string;
     description: string | null;
     status: ProjectStatus;
     status_label: string;
@@ -21,6 +22,7 @@ export type ProjectMember = {
 export type ProjectDetail = {
     id: number;
     name: string;
+    key: string;
     description: string | null;
     status: ProjectStatus;
     status_label: string;

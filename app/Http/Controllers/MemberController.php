@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ScopeType;
 use App\Enums\WorkspaceRole;
 use App\Http\Requests\Member\MemberUpdateRequest;
 use App\Models\Invitation;
@@ -10,8 +9,10 @@ use App\Models\OrgUnit;
 use App\Models\WorkspaceMember;
 use App\Policies\WorkspaceMemberPolicy;
 use App\Support\Tenancy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,20 +23,19 @@ class MemberController extends Controller
 
     /**
      * Members page: the roster plus outstanding invitations (ORG-6..ORG-12).
+     *
+     * Everything on this page is cut to the viewer's own subtree — the roster,
+     * the units they may place someone in, and the roles they may hand out.
      */
     public function index(Request $request, WorkspaceMemberPolicy $policy): Response
     {
         $this->authorize('viewAny', WorkspaceMember::class);
 
+        $viewer = $this->tenancy->member();
         $canManage = $request->user()->can('manage', WorkspaceMember::class);
 
         return Inertia::render('members/index', [
-            'members' => WorkspaceMember::query()
-                ->with(['user:id,name,email,avatar_path', 'orgUnit:id,name', 'scopeOrgUnit:id,name'])
-                ->join('users', 'users.id', '=', 'workspace_members.user_id')
-                ->orderBy('users.name')
-                ->select('workspace_members.*')
-                ->get()
+            'members' => $this->roster($viewer)
                 ->map(fn (WorkspaceMember $member): array => [
                     'id' => $member->id,
                     'user' => [
@@ -48,44 +48,30 @@ class MemberController extends Controller
                     'role_label' => $member->role->label(),
                     'role_code' => $member->role->code(),
                     'org_unit' => $member->orgUnit?->only(['id', 'name']),
-                    'scope_type' => $member->scope_type->value,
-                    'scope_org_unit' => $member->scopeOrgUnit?->only(['id', 'name']),
                     'manager_id' => $member->manager_id,
                     'is_last_top_role' => $policy->isLastTopRole($member),
                     'is_self' => $member->user_id === $request->user()->id,
+                    'can_edit' => $request->user()->can('update', $member),
+                    'can_change_role' => $request->user()->can('changeRole', $member),
+                    'can_remove' => $request->user()->can('delete', $member),
                 ])
                 ->all(),
             'invitations' => $canManage ? $this->pendingInvitations() : [],
-            'orgUnits' => OrgUnit::query()
-                ->orderBy('path')
-                ->get(['id', 'name', 'depth'])
-                ->map(fn (OrgUnit $unit): array => [
-                    'id' => $unit->id,
-                    'name' => $unit->name,
-                    'depth' => $unit->depth,
-                ])
-                ->all(),
+            'orgUnits' => $this->unitOptions($viewer),
             'roles' => array_map(
                 fn (WorkspaceRole $role): array => [
                     'value' => $role->value,
                     'label' => $role->label(),
                     'code' => $role->code(),
                 ],
-                WorkspaceRole::cases(),
+                $viewer?->role->assignableRoles() ?? [],
             ),
-            'scopeTypes' => array_map(
-                fn (ScopeType $scope): array => ['value' => $scope->value, 'label' => $scope->label()],
-                ScopeType::cases(),
-            ),
-            'can' => [
-                'manage' => $canManage,
-                'change_role' => (bool) $this->tenancy->member()?->role->isTop(),
-            ],
+            'can' => ['manage' => $canManage],
         ]);
     }
 
     /**
-     * Update role, unit assignment and monitoring scope (ORG-8, ORG-12).
+     * Update role and unit assignment (ORG-8, ORG-12).
      */
     public function update(MemberUpdateRequest $request, WorkspaceMember $member): RedirectResponse
     {
@@ -95,6 +81,15 @@ class MemberController extends Controller
 
         if (array_key_exists('role', $data) && $data['role'] !== $member->role->value) {
             $this->authorize('changeRole', $member);
+        }
+
+        // Moving someone out of the viewer's subtree would hand them away for
+        // good, so the destination has to be covered as well.
+        if (array_key_exists('org_unit_id', $data)) {
+            abort_unless(
+                (bool) $this->tenancy->member()?->covers($data['org_unit_id']),
+                403,
+            );
         }
 
         $member->update($data);
@@ -122,6 +117,73 @@ class MemberController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Anggota dikeluarkan dari workspace.']);
 
         return back();
+    }
+
+    /**
+     * People the viewer leads, plus the viewer themselves.
+     *
+     * @return Collection<int, WorkspaceMember>
+     */
+    protected function roster(?WorkspaceMember $viewer): Collection
+    {
+        if ($viewer === null) {
+            return collect();
+        }
+
+        $query = WorkspaceMember::query()
+            ->with(['user:id,name,email,avatar_path', 'orgUnit:id,name'])
+            ->join('users', 'users.id', '=', 'workspace_members.user_id')
+            ->orderBy('users.name')
+            ->select('workspace_members.*');
+
+        $scopePath = $viewer->managesTeam() ? $viewer->scopePath() : null;
+
+        if (! $viewer->hasFullScope()) {
+            $query->where(function (Builder $inner) use ($viewer, $scopePath): void {
+                $inner->where('workspace_members.user_id', $viewer->user_id);
+
+                if ($scopePath !== null) {
+                    $inner->orWhereHas(
+                        'orgUnit',
+                        fn (Builder $unit) => $unit->where('path', 'like', $scopePath.'%'),
+                    );
+                }
+            });
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Units the viewer may place someone in.
+     *
+     * @return array<int, array{id: int, name: string, depth: int}>
+     */
+    protected function unitOptions(?WorkspaceMember $viewer): array
+    {
+        if ($viewer === null) {
+            return [];
+        }
+
+        $scopePath = $viewer->scopePath();
+
+        if (! $viewer->hasFullScope() && $scopePath === null) {
+            return [];
+        }
+
+        return OrgUnit::query()
+            ->when(
+                ! $viewer->hasFullScope(),
+                fn (Builder $query) => $query->where('path', 'like', $scopePath.'%'),
+            )
+            ->orderBy('path')
+            ->get(['id', 'name', 'depth'])
+            ->map(fn (OrgUnit $unit): array => [
+                'id' => $unit->id,
+                'name' => $unit->name,
+                'depth' => $unit->depth,
+            ])
+            ->all();
     }
 
     /**

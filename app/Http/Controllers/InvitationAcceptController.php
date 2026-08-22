@@ -98,6 +98,9 @@ class InvitationAcceptController extends Controller
                 $member = new WorkspaceMember([
                     'user_id' => $user->id,
                     'role' => $invitation->role,
+                    // Land in the inviter's unit: scope follows placement in
+                    // the org tree, so an unplaced leader would lead nobody.
+                    'org_unit_id' => $this->inviterUnitId($invitation),
                     'joined_at' => now(),
                 ]);
 
@@ -122,6 +125,24 @@ class InvitationAcceptController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Selamat datang di '.$invitation->workspace->name.'.']);
 
         return to_route('dashboard');
+    }
+
+    /**
+     * Unit the inviter sits in, which the new member inherits.
+     *
+     * An invitation sent by the platform super admin, or by a BOD-1 who is not
+     * placed anywhere, leaves the unit empty for a leader to fill in.
+     */
+    protected function inviterUnitId(Invitation $invitation): ?int
+    {
+        if ($invitation->invited_by === null) {
+            return null;
+        }
+
+        return WorkspaceMember::withoutGlobalScopes()
+            ->where('workspace_id', $invitation->workspace_id)
+            ->where('user_id', $invitation->invited_by)
+            ->value('org_unit_id');
     }
 
     /**

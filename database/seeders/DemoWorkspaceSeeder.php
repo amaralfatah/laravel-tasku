@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Enums\ScopeType;
 use App\Enums\TaskStatus;
 use App\Enums\WorkspaceRole;
 use App\Models\Comment;
@@ -108,14 +107,13 @@ class DemoWorkspaceSeeder extends Seeder
         $people = [
             'kadiv' => $kadiv['user'],
 
-            // Kepala Sub Divisi is BOD-2 and also monitors the whole
-            // Pengembangan Digital subtree (7.2 rule 2).
+            // Kepala Sub Divisi is BOD-2; sitting in Pengembangan Digital is
+            // what gives them that whole subtree (7.2 rule 2).
             'kasubdiv' => $this->seedMember(
                 $workspace,
                 'Rakhmat Akbar Sinaga',
                 'kasubdiv@perkebunan.test',
                 WorkspaceRole::Bod2,
-                $units['pengembangan'],
                 $units['pengembangan'],
             )['user'],
 
@@ -183,7 +181,6 @@ class DemoWorkspaceSeeder extends Seeder
         string $email,
         WorkspaceRole $role,
         ?OrgUnit $unit = null,
-        ?OrgUnit $scopeUnit = null,
     ): array {
         $user = User::firstOrCreate(
             ['email' => $email],
@@ -195,8 +192,6 @@ class DemoWorkspaceSeeder extends Seeder
             'user_id' => $user->id,
             'role' => $role,
             'org_unit_id' => $unit?->id,
-            'scope_type' => $scopeUnit === null ? ScopeType::ProjectOnly : ScopeType::UnitSubtree,
-            'scope_org_unit_id' => $scopeUnit?->id,
             'joined_at' => now(),
         ]);
 
@@ -214,37 +209,37 @@ class DemoWorkspaceSeeder extends Seeder
     {
         $definitions = [
             'sik' => [
-                'Sistem Informasi Kebun',
+                'HRIS',
                 'Pencatatan blok, luas tanam, dan realisasi panen per afdeling menggantikan buku mandor.',
                 'completed',
                 ['amar', 'heru', 'vino'],
             ],
             'mandor' => [
-                'Aplikasi Mobile Mandor',
+                'GrowMate',
                 'Aplikasi Android untuk mandor mencatat kehadiran pemanen dan hasil panen harian langsung dari kebun.',
                 'completed',
                 ['amar', 'yogi', 'adhi'],
             ],
             'timbang' => [
-                'Sistem Timbang TBS Digital',
+                'Hukum',
                 'Integrasi jembatan timbang pabrik kelapa sawit dengan pencatatan tiket TBS elektronik.',
                 'completed',
                 ['amar', 'vino', 'adit'],
             ],
             'dashboard' => [
-                'Dashboard Produksi & Rendemen',
+                'Boardroom',
                 'Dashboard manajemen untuk memantau produksi TBS, rendemen CPO, dan produktivitas per afdeling.',
                 'active',
                 ['amar', 'heru', 'adit', 'adhi'],
             ],
             'procurement' => [
-                'e-Procurement Sarana Produksi',
+                'RUP',
                 'Pengadaan pupuk, bibit, dan pestisida secara elektronik dengan alur persetujuan berjenjang.',
                 'active',
                 ['amar', 'vino', 'yogi'],
             ],
             'hris' => [
-                'Portal HRIS Karyawan',
+                'PTI',
                 'Portal mandiri karyawan untuk slip gaji, cuti, dan data kepegawaian.',
                 'active',
                 ['heru', 'adit'],
@@ -257,6 +252,7 @@ class DemoWorkspaceSeeder extends Seeder
             $project = Project::create([
                 'org_unit_id' => $unit->id,
                 'name' => $name,
+                'key' => Project::generateKey($name),
                 'description' => $description,
                 'status' => $status,
             ]);

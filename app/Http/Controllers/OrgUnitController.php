@@ -6,24 +6,35 @@ use App\Http\Requests\OrgUnit\OrgUnitStoreRequest;
 use App\Http\Requests\OrgUnit\OrgUnitUpdateRequest;
 use App\Models\OrgUnit;
 use App\Services\OrgUnitTree;
+use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class OrgUnitController extends Controller
 {
-    public function __construct(protected OrgUnitTree $tree) {}
+    public function __construct(
+        protected OrgUnitTree $tree,
+        protected Tenancy $tenancy,
+    ) {}
 
     /**
-     * Structure page: the org unit tree.
+     * Structure page: the slice of the org unit tree the viewer runs.
      */
     public function index(): Response
     {
         $this->authorize('viewAny', OrgUnit::class);
 
+        $viewer = $this->tenancy->member();
+
+        // `viewAny` already guarantees the viewer leads someone, so a viewer
+        // without full scope always has a unit to start from.
+        $scopePath = $viewer?->hasFullScope() ? null : $viewer?->scopePath();
+
         return Inertia::render('organization/index', [
             'units' => OrgUnit::query()
                 ->withCount(['children', 'projects', 'assignedMembers'])
+                ->when($scopePath !== null, fn ($query) => $query->where('path', 'like', $scopePath.'%'))
                 ->orderBy('path')
                 ->get()
                 ->map(fn (OrgUnit $unit): array => [
@@ -47,12 +58,11 @@ class OrgUnitController extends Controller
 
     public function store(OrgUnitStoreRequest $request): RedirectResponse
     {
-        $this->authorize('create', OrgUnit::class);
+        $parent = $request->parent();
 
-        $this->tree->create(
-            $request->safe()->only(['name', 'type']),
-            $request->parent(),
-        );
+        $this->authorize('createUnder', [OrgUnit::class, $parent]);
+
+        $this->tree->create($request->safe()->only(['name', 'type']), $parent);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Unit ditambahkan.']);
 
@@ -69,7 +79,13 @@ class OrgUnitController extends Controller
         $orgUnit->update($request->safe()->only(['name', 'type']));
 
         if ($request->has('parent_id')) {
-            $this->tree->move($orgUnit, $request->parent());
+            $parent = $request->parent();
+
+            // Moving a unit is also placing it: the destination has to sit
+            // inside the mover's own scope.
+            $this->authorize('createUnder', [OrgUnit::class, $parent]);
+
+            $this->tree->move($orgUnit, $parent);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Unit diperbarui.']);

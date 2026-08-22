@@ -35,15 +35,17 @@ test('my own task page lets me edit the tasks of projects i belong to', function
         );
 });
 
-test('a project i only monitor stays read only on that page', function () {
+test('an asisten may edit the tasks of a project inside their own subtree', function () {
+    // Scope is authority now: a leader owns delivery everywhere below their
+    // own unit, without having to join every project.
     $workspace = Workspace::factory()->create();
     $root = OrgUnit::factory()->for($workspace)->create();
     $child = OrgUnit::factory()->childOf($root)->create();
 
     $viewer = WorkspaceMember::factory()
         ->for($workspace)
-        ->monitoring($root)
-        ->create(['role' => WorkspaceRole::Bod4]);
+        ->leading($root, WorkspaceRole::Bod3)
+        ->create();
 
     $worker = WorkspaceMember::factory()
         ->for($workspace)
@@ -57,8 +59,8 @@ test('a project i only monitor stays read only on that page', function () {
         ->get(route('monitoring.person', $worker))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('tasks.0.can_edit', false)
-            ->where('tasks.0.tasks.0.can_edit', false)
+            ->where('tasks.0.can_edit', true)
+            ->where('tasks.0.tasks.0.can_edit', true)
         );
 });
 
@@ -91,14 +93,14 @@ test('the people roster is closed to someone who can only see themselves', funct
         ->assertForbidden();
 });
 
-test('a subtree scope opens the roster and the division page', function () {
+test('a leader placed in a unit opens the roster and the division page', function () {
     $workspace = Workspace::factory()->create();
     $root = OrgUnit::factory()->for($workspace)->create();
 
     $viewer = WorkspaceMember::factory()
         ->for($workspace)
-        ->monitoring($root)
-        ->create(['role' => WorkspaceRole::Bod4]);
+        ->leading($root, WorkspaceRole::Bod3)
+        ->create();
 
     $session = ['workspace_id' => $workspace->id];
 
@@ -109,7 +111,7 @@ test('a subtree scope opens the roster and the division page', function () {
         ->get(route('monitoring.divisions'))->assertOk();
 });
 
-test('division monitoring is closed without a subtree scope', function () {
+test('division monitoring is closed to an ODS', function () {
     $workspace = Workspace::factory()->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
@@ -128,4 +130,26 @@ test('a super admin looking into a workspace lands on the roster, not a personal
         ->withSession(['workspace_id' => $workspace->id])
         ->get(route('monitoring.me'))
         ->assertRedirect(route('monitoring.people'));
+});
+
+test('my own task page keeps edit rights on a project i started myself', function () {
+    // The person page loads projects with a narrow column list; if it drops
+    // `created_by` the owner silently loses their own project.
+    $workspace = Workspace::factory()->create();
+    $unit = OrgUnit::factory()->for($workspace)->create();
+
+    $owner = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+
+    $project = Project::factory()->in($unit)->create(['created_by' => $owner->user_id]);
+    Task::factory()->for($project)->create(['assignee_id' => $owner->user_id]);
+
+    $this->actingAs($owner->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('monitoring.me'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('tasks.0.can_edit', true)
+        );
 });

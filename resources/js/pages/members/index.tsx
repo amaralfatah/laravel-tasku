@@ -46,7 +46,10 @@ import {
     resend as resendInvitation,
     store as storeInvitation,
 } from '@/routes/invitations';
-import { destroy as destroyMember, index as membersIndex } from '@/routes/members';
+import {
+    destroy as destroyMember,
+    index as membersIndex,
+} from '@/routes/members';
 import type { User } from '@/types';
 import type {
     InvitationRow,
@@ -60,15 +63,13 @@ export default function Members({
     invitations,
     orgUnits,
     roles,
-    scopeTypes,
     can,
 }: {
     members: MemberRow[];
     invitations: InvitationRow[];
     orgUnits: OrgUnitOption[];
     roles: Option[];
-    scopeTypes: Option[];
-    can: { manage: boolean; change_role: boolean };
+    can: { manage: boolean };
 }) {
     const [editing, setEditing] = useState<MemberRow | null>(null);
     const [inviteOpen, setInviteOpen] = useState(false);
@@ -112,16 +113,13 @@ export default function Members({
                                     className="space-y-4"
                                     onSubmit={(event) => {
                                         event.preventDefault();
-                                        inviteForm.post(
-                                            storeInvitation().url,
-                                            {
-                                                preserveScroll: true,
-                                                onSuccess: () => {
-                                                    inviteForm.reset();
-                                                    setInviteOpen(false);
-                                                },
+                                        inviteForm.post(storeInvitation().url, {
+                                            preserveScroll: true,
+                                            onSuccess: () => {
+                                                inviteForm.reset();
+                                                setInviteOpen(false);
                                             },
-                                        );
+                                        });
                                     }}
                                 >
                                     <div className="grid gap-2">
@@ -298,7 +296,6 @@ export default function Members({
                                 <TableHead>Nama</TableHead>
                                 <TableHead>Role</TableHead>
                                 <TableHead>Unit</TableHead>
-                                <TableHead>Cakupan</TableHead>
                                 {can.manage && (
                                     <TableHead className="text-right">
                                         Aksi
@@ -311,7 +308,7 @@ export default function Members({
                             {members.length === 0 && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={can.manage ? 5 : 4}
+                                        colSpan={can.manage ? 4 : 3}
                                         className="py-12 text-center"
                                     >
                                         <Users
@@ -360,23 +357,6 @@ export default function Members({
                                         )}
                                     </TableCell>
 
-                                    <TableCell className="text-sm">
-                                        {member.scope_type ===
-                                        'unit_subtree' ? (
-                                            <span>
-                                                {member.scope_org_unit?.name ??
-                                                    '—'}{' '}
-                                                <span className="text-muted-foreground">
-                                                    & turunannya
-                                                </span>
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground">
-                                                Project yang diikuti
-                                            </span>
-                                        )}
-                                    </TableCell>
-
                                     {can.manage && (
                                         <TableCell>
                                             <div className="flex justify-end">
@@ -396,19 +376,22 @@ export default function Members({
 
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem
+                                                            disabled={
+                                                                !member.can_edit
+                                                            }
                                                             onSelect={() =>
                                                                 setEditing(
                                                                     member,
                                                                 )
                                                             }
                                                         >
-                                                            Ubah role & cakupan
+                                                            Ubah role & unit
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
                                                             variant="destructive"
                                                             disabled={
-                                                                member.is_last_top_role ||
+                                                                !member.can_remove ||
                                                                 member.is_self
                                                             }
                                                             onSelect={() => {
@@ -422,8 +405,7 @@ export default function Members({
                                                                             member.id,
                                                                         ).url,
                                                                         {
-                                                                            preserveScroll:
-                                                                                true,
+                                                                            preserveScroll: true,
                                                                         },
                                                                     );
                                                                 }
@@ -447,8 +429,6 @@ export default function Members({
                 member={editing}
                 orgUnits={orgUnits}
                 roles={roles}
-                scopeTypes={scopeTypes}
-                canChangeRole={can.change_role}
                 onClose={() => setEditing(null)}
             />
         </>

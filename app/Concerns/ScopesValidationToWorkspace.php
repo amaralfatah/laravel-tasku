@@ -5,6 +5,7 @@ namespace App\Concerns;
 use App\Support\Tenancy;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\Unique;
 
 /**
  * Existence rules that stop at the tenant boundary.
@@ -22,6 +23,16 @@ trait ScopesValidationToWorkspace
     protected function existsInWorkspace(string $table, string $column = 'id'): Exists
     {
         return Rule::exists($table, $column)
+            ->where('workspace_id', app(Tenancy::class)->id());
+    }
+
+    /**
+     * A value free inside the active workspace, matching a per tenant unique
+     * index. Soft deleted rows still count, because the index counts them.
+     */
+    protected function uniqueInWorkspace(string $table, string $column): Unique
+    {
+        return Rule::unique($table, $column)
             ->where('workspace_id', app(Tenancy::class)->id());
     }
 

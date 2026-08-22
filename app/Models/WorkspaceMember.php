@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToWorkspace;
-use App\Enums\ScopeType;
 use App\Enums\WorkspaceRole;
 use Database\Factories\WorkspaceMemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,16 +17,19 @@ use Illuminate\Support\Carbon;
  * @property int $user_id
  * @property WorkspaceRole $role
  * @property int|null $org_unit_id
- * @property ScopeType $scope_type
- * @property int|null $scope_org_unit_id
  * @property int|null $manager_id
  * @property Carbon|null $joined_at
  */
-#[Fillable(['user_id', 'role', 'org_unit_id', 'scope_type', 'scope_org_unit_id', 'manager_id', 'joined_at'])]
+#[Fillable(['user_id', 'role', 'org_unit_id', 'manager_id', 'joined_at'])]
 class WorkspaceMember extends Model
 {
     /** @use HasFactory<WorkspaceMemberFactory> */
     use BelongsToWorkspace, HasFactory;
+
+    /**
+     * Materialized path of the member's own unit, resolved once per instance.
+     */
+    protected ?string $resolvedScopePath = null;
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
@@ -41,35 +43,82 @@ class WorkspaceMember extends Model
         return $this->belongsTo(OrgUnit::class);
     }
 
-    /** @return BelongsTo<OrgUnit, $this> */
-    public function scopeOrgUnit(): BelongsTo
+    /**
+     * Whether this member leads a team at all — the gate on the organisation,
+     * membership and monitoring pages.
+     */
+    public function managesTeam(): bool
     {
-        return $this->belongsTo(OrgUnit::class, 'scope_org_unit_id');
+        return $this->role->managesTeam();
     }
 
     /**
-     * Whether this member monitors an org unit subtree beyond their own projects.
+     * BOD-1 runs the entity, so its scope is the workspace itself rather than
+     * one branch of the tree.
      */
-    public function monitorsSubtree(): bool
+    public function hasFullScope(): bool
     {
-        return $this->scope_type === ScopeType::UnitSubtree && $this->scope_org_unit_id !== null;
+        return $this->role->isTop();
     }
 
     /**
-     * Whether an org unit sits inside this member's monitoring subtree.
+     * Whether this member reaches past their own row: everything below hangs
+     * off the unit they are placed in, so a leader without a unit leads nobody.
      */
-    public function scopeCoversUnit(?int $orgUnitId): bool
+    public function leadsAnyone(): bool
     {
-        if (! $this->monitorsSubtree() || $orgUnitId === null) {
+        return $this->hasFullScope()
+            || ($this->managesTeam() && $this->scopePath() !== null);
+    }
+
+    /**
+     * Root of the subtree this member covers, as a materialized path.
+     */
+    public function scopePath(): ?string
+    {
+        if ($this->resolvedScopePath === null && $this->org_unit_id !== null) {
+            $this->resolvedScopePath = $this->relationLoaded('orgUnit')
+                ? $this->orgUnit?->path
+                : OrgUnit::query()->whereKey($this->org_unit_id)->value('path');
+        }
+
+        return $this->resolvedScopePath;
+    }
+
+    /**
+     * Whether an org unit falls inside this member's scope.
+     *
+     * A null unit is workspace level: only BOD-1 covers it, which is what
+     * keeps a fresh workspace — where nobody has a unit yet — manageable.
+     */
+    public function covers(?int $orgUnitId): bool
+    {
+        if ($this->hasFullScope()) {
+            return true;
+        }
+
+        if (! $this->managesTeam() || $orgUnitId === null) {
             return false;
         }
 
-        $scopePath = OrgUnit::query()->whereKey($this->scope_org_unit_id)->value('path');
+        $scopePath = $this->scopePath();
+
+        if ($scopePath === null) {
+            return false;
+        }
+
         $unitPath = OrgUnit::query()->whereKey($orgUnitId)->value('path');
 
-        return $scopePath !== null
-            && $unitPath !== null
-            && str_starts_with($unitPath, $scopePath);
+        return $unitPath !== null && str_starts_with($unitPath, $scopePath);
+    }
+
+    /**
+     * Whether this member may act on another one: their own row is always
+     * theirs, everyone else has to sit inside the scope.
+     */
+    public function coversMember(self $target): bool
+    {
+        return $this->user_id === $target->user_id || $this->covers($target->org_unit_id);
     }
 
     /**
@@ -79,7 +128,6 @@ class WorkspaceMember extends Model
     {
         return [
             'role' => WorkspaceRole::class,
-            'scope_type' => ScopeType::class,
             'joined_at' => 'datetime',
         ];
     }

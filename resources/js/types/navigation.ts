@@ -12,3 +12,12 @@ export type NavItem = {
     icon?: LucideIcon | null;
     isActive?: boolean;
 };
+
+/** A menu entry that only groups children; the row itself just expands. */
+export type NavGroupItem = {
+    title: string;
+    icon?: LucideIcon | null;
+    items: NavItem[];
+};
+
+export type NavEntry = NavItem | NavGroupItem;

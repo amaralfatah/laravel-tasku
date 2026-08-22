@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\ProjectStatus;
+use App\Models\Project;
 use App\Models\Workspace;
 use App\Support\Tenancy;
 use Illuminate\Http\Request;
@@ -17,6 +19,11 @@ class HandleInertiaRequests extends Middleware
      * @var string
      */
     protected $rootView = 'app';
+
+    /**
+     * How many projects the sidebar lists before pointing at the full index.
+     */
+    protected const SIDEBAR_PROJECT_LIMIT = 6;
 
     /**
      * Determines the current asset version.
@@ -51,7 +58,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Active workspace, membership and the list used by the workspace switcher.
      *
-     * @return array{workspace: array<string, mixed>|null, membership: array<string, mixed>|null, workspaces: array<int, array<string, mixed>>}
+     * @return array{workspace: array<string, mixed>|null, membership: array<string, mixed>|null, workspaces: array<int, array<string, mixed>>, projects: array<int, array<string, mixed>>}
      */
     protected function tenancyProps(Request $request): array
     {
@@ -71,16 +78,42 @@ class HandleInertiaRequests extends Middleware
                     ? 'Super Admin'
                     : $member->role->label(),
                 'role_code' => $tenancy->actingAsSuperAdmin() ? 'SA' : $member->role->code(),
-                'scope_type' => $member->scope_type->value,
-                'can_manage' => $member->role->isManager(),
-                // Someone who can only ever see themselves has no use for the
-                // people roster; "Task saya" already is that page for them.
-                'can_monitor_people' => $member->role->isManager() || $member->monitorsSubtree(),
-                'can_monitor_division' => $member->role->isManager() || $member->monitorsSubtree(),
+                'can_manage' => $member->managesTeam(),
+                // Someone who leads nobody has no use for the roster or the
+                // monitoring pages; "Task saya" already is that page for them.
+                'can_monitor' => $member->leadsAnyone(),
                 'is_super_admin' => $tenancy->actingAsSuperAdmin(),
             ],
             'workspaces' => $this->switchableWorkspaces($request),
+            'projects' => $workspace === null ? [] : $this->sidebarProjects($request),
         ];
+    }
+
+    /**
+     * The projects the sidebar lists, most recently touched first.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function sidebarProjects(Request $request): array
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return [];
+        }
+
+        return Project::query()
+            ->visibleTo($user)
+            ->where('status', '!=', ProjectStatus::Archived->value)
+            ->orderByDesc('updated_at')
+            ->limit(self::SIDEBAR_PROJECT_LIMIT)
+            ->get(['id', 'name', 'status'])
+            ->map(fn (Project $project): array => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'status' => $project->status->value,
+            ])
+            ->all();
     }
 
     /**

@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import {
     Building2,
-    FolderKanban,
+    Gauge,
     ListChecks,
     Network,
     ShieldCheck,
@@ -9,6 +9,7 @@ import {
     UserSearch,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
+import { NavProjects } from '@/components/nav-projects';
 import { NavUser } from '@/components/nav-user';
 import {
     Sidebar,
@@ -20,9 +21,8 @@ import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { index as membersIndex } from '@/routes/members';
 import { divisions, me, people } from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
-import { index as projectsIndex } from '@/routes/projects';
 import { index as workspacesIndex } from '@/routes/workspaces';
-import type { NavItem } from '@/types';
+import type { NavEntry, NavItem } from '@/types';
 
 export function AppSidebar() {
     const { auth, tenancy } = usePage().props;
@@ -33,7 +33,7 @@ export function AppSidebar() {
     const membership = tenancy?.membership ?? null;
     const inWorkspace = Boolean(tenancy?.workspace);
 
-    const mainNavItems: NavItem[] = [];
+    const mainNavItems: NavEntry[] = [];
 
     if (inWorkspace) {
         // A super admin is a guest in every workspace and carries no tasks of
@@ -46,33 +46,26 @@ export function AppSidebar() {
             });
         }
 
-        mainNavItems.push(
-            { title: 'Project', href: projectsIndex(), icon: FolderKanban },
-            { title: 'Anggota', href: membersIndex(), icon: Users },
-        );
+        // BOD-1 through BOD-3 lead a slice of the org tree and get exactly the
+        // same menu; only how far that slice reaches differs. An ODS leads
+        // nobody, so none of this is theirs.
+        if (membership?.can_monitor) {
+            // Both views watch the same workload from a different angle, so
+            // they sit under one heading instead of repeating "Monitoring".
+            const monitoringItems: NavItem[] = [
+                { title: 'Per anggota', href: people(), icon: UserSearch },
+                { title: 'Per divisi', href: divisions(), icon: Network },
+            ];
 
-        if (membership?.can_monitor_people) {
-            mainNavItems.push({
-                title: 'Monitoring orang',
-                href: people(),
-                icon: UserSearch,
-            });
-        }
-
-        if (membership?.can_monitor_division) {
-            mainNavItems.push({
-                title: 'Monitoring divisi',
-                href: divisions(),
-                icon: Network,
-            });
-        }
-
-        if (membership?.can_manage) {
-            mainNavItems.push({
-                title: 'Organisasi',
-                href: organizationIndex(),
-                icon: Building2,
-            });
+            mainNavItems.push(
+                { title: 'Anggota', href: membersIndex(), icon: Users },
+                { title: 'Monitoring', icon: Gauge, items: monitoringItems },
+                {
+                    title: 'Organisasi',
+                    href: organizationIndex(),
+                    icon: Building2,
+                },
+            );
         }
     }
 
@@ -92,6 +85,10 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+
+                {inWorkspace && (
+                    <NavProjects projects={tenancy?.projects ?? []} />
+                )}
             </SidebarContent>
 
             <SidebarFooter>

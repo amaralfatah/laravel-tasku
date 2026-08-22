@@ -53,17 +53,17 @@ class DivisionController extends Controller
     }
 
     /**
-     * Where the tree starts for this viewer: the workspace roots for a
-     * manager, the granted unit for a scoped member.
+     * Where the tree starts for this viewer: the workspace roots for BOD-1,
+     * their own unit for every leader below that.
      */
     protected function defaultRoot(): ?OrgUnit
     {
         $member = $this->tenancy->member();
 
-        if ($member === null || $member->role->isManager()) {
+        if ($member === null || $member->hasFullScope()) {
             return null;
         }
 
-        return OrgUnit::query()->find($member->scope_org_unit_id);
+        return OrgUnit::query()->find($member->org_unit_id);
     }
 }

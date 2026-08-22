@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Enums\ScopeType;
 use App\Enums\WorkspaceRole;
 use App\Models\OrgUnit;
 use App\Models\User;
@@ -24,7 +23,6 @@ class WorkspaceMemberFactory extends Factory
             'workspace_id' => Workspace::factory(),
             'user_id' => User::factory(),
             'role' => WorkspaceRole::Bod4,
-            'scope_type' => ScopeType::ProjectOnly,
             'joined_at' => now(),
         ];
     }
@@ -43,14 +41,31 @@ class WorkspaceMemberFactory extends Factory
         ]);
     }
 
-    /**
-     * Grant read-only visibility over an org unit and everything below it.
-     */
-    public function monitoring(OrgUnit $unit): static
+    public function asisten(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'scope_type' => ScopeType::UnitSubtree,
-            'scope_org_unit_id' => $unit->id,
+            'role' => WorkspaceRole::Bod3,
+        ]);
+    }
+
+    /**
+     * Place the member in a unit. Scope follows placement, so this is what
+     * decides how much of the tree a leader reaches.
+     */
+    public function in(OrgUnit $unit): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'org_unit_id' => $unit->id,
+        ]);
+    }
+
+    /**
+     * A leader over the given unit and everything below it.
+     */
+    public function leading(OrgUnit $unit, WorkspaceRole $role = WorkspaceRole::Bod3): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'role' => $role,
             'org_unit_id' => $unit->id,
         ]);
     }

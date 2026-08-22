@@ -18,9 +18,14 @@ class InvitationStoreRequest extends FormRequest
      */
     public function rules(): array
     {
+        $viewer = app(Tenancy::class)->member();
+
         return [
             'email' => ['required', 'string', 'email', 'max:255'],
-            'role' => ['required', Rule::enum(WorkspaceRole::class)],
+            'role' => ['required', Rule::in(array_map(
+                fn (WorkspaceRole $role): string => $role->value,
+                $viewer?->role->assignableRoles() ?? [],
+            ))],
         ];
     }
 
@@ -60,6 +65,16 @@ class InvitationStoreRequest extends FormRequest
         return [
             'email' => 'alamat email',
             'role' => 'role',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'role.in' => 'Anda tidak bisa mengundang seseorang dengan role di atas role Anda sendiri.',
         ];
     }
 }

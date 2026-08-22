@@ -3,12 +3,11 @@
 namespace App\Http\Requests\Member;
 
 use App\Concerns\ScopesValidationToWorkspace;
-use App\Enums\ScopeType;
 use App\Enums\WorkspaceRole;
+use App\Support\Tenancy;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Validator;
 
 class MemberUpdateRequest extends FormRequest
 {
@@ -20,33 +19,26 @@ class MemberUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role' => ['sometimes', Rule::enum(WorkspaceRole::class)],
+            'role' => ['sometimes', Rule::in($this->assignableRoleValues())],
             'org_unit_id' => ['sometimes', 'nullable', 'integer', $this->existsInWorkspace('org_units')],
-            'scope_type' => ['sometimes', Rule::enum(ScopeType::class)],
-            'scope_org_unit_id' => ['sometimes', 'nullable', 'integer', $this->existsInWorkspace('org_units')],
             'manager_id' => ['sometimes', 'nullable', 'integer', $this->existsAsWorkspaceMember()],
         ];
     }
 
     /**
-     * A subtree scope is meaningless without the unit it is rooted at (ORG-12).
+     * Roles the person editing may hand out — never one at a higher rank than
+     * their own (ORG-8).
      *
-     * @return array<int, \Closure>
+     * @return array<int, string>
      */
-    public function after(): array
+    protected function assignableRoleValues(): array
     {
-        return [
-            function (Validator $validator): void {
-                $isSubtree = $this->input('scope_type') === ScopeType::UnitSubtree->value;
+        $viewer = app(Tenancy::class)->member();
 
-                if ($isSubtree && $this->input('scope_org_unit_id') === null) {
-                    $validator->errors()->add(
-                        'scope_org_unit_id',
-                        'Pilih unit yang menjadi akar cakupan pemantauan.',
-                    );
-                }
-            },
-        ];
+        return array_map(
+            fn (WorkspaceRole $role): string => $role->value,
+            $viewer?->role->assignableRoles() ?? [],
+        );
     }
 
     /**
@@ -57,9 +49,17 @@ class MemberUpdateRequest extends FormRequest
         return [
             'role' => 'role',
             'org_unit_id' => 'unit',
-            'scope_type' => 'cakupan pemantauan',
-            'scope_org_unit_id' => 'unit cakupan',
             'manager_id' => 'atasan langsung',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'role.in' => 'Anda tidak bisa memberikan role di atas role Anda sendiri.',
         ];
     }
 }

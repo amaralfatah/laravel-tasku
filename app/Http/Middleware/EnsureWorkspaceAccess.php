@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\ScopeType;
 use App\Enums\WorkspaceRole;
 use App\Models\User;
 use App\Models\Workspace;
@@ -93,7 +92,6 @@ class EnsureWorkspaceAccess
         $member->workspace_id = $workspace->id;
         $member->user_id = $user->id;
         $member->role = WorkspaceRole::Bod1;
-        $member->scope_type = ScopeType::ProjectOnly;
 
         return $member;
     }

@@ -3,6 +3,7 @@ import type { ProjectStatus } from '@/types/projects';
 export type ProjectSummary = {
     id: number;
     name: string;
+    key: string;
     description: string | null;
     status: ProjectStatus;
     status_label: string;

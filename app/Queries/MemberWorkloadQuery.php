@@ -3,7 +3,6 @@
 namespace App\Queries;
 
 use App\Enums\TaskStatus;
-use App\Models\OrgUnit;
 use App\Models\Task;
 use App\Models\WorkspaceMember;
 use App\Support\Tenancy;
@@ -61,12 +60,11 @@ class MemberWorkloadQuery
     {
         return Task::query()
             ->where('assignee_id', $userId)
+            // `workspace_id`, `org_unit_id` and `created_by` are part of the
+            // select because the project policy reads all three;
             // `project.members` feeds the assignee picker on the person page,
             // where every project block has its own member list.
-            // `workspace_id` is part of the select because the project policy
-            // checks it; `project.members` feeds the assignee picker on the
-            // person page, where every project block has its own member list.
-            ->with(['project:id,name,workspace_id', 'project.members', 'assignee:id,name,avatar_path'])
+            ->with(['project:id,name,workspace_id,org_unit_id,created_by', 'project.members', 'assignee:id,name,avatar_path'])
             ->when($from, fn (Builder $query, string $date) => $query->where(function (Builder $q) use ($date): void {
                 $q->whereNull('due_date')->orWhereDate('due_date', '>=', $date);
             }))
@@ -79,8 +77,9 @@ class MemberWorkloadQuery
     }
 
     /**
-     * Roster the viewer may monitor: everyone for a manager, the subtree for a
-     * scoped member, otherwise just themselves (MON-1, MON-6).
+     * Roster the viewer may monitor: the whole workspace for BOD-1, the
+     * viewer's own subtree for a leader below that, otherwise just themselves
+     * (MON-1, MON-6).
      *
      * @return Collection<int, WorkspaceMember>
      */
@@ -89,20 +88,17 @@ class MemberWorkloadQuery
         $query = WorkspaceMember::query()
             ->with(['user:id,name,email,avatar_path', 'orgUnit:id,name']);
 
-        if ($viewer->role->isManager()) {
+        $scopePath = $viewer->managesTeam() ? $viewer->scopePath() : null;
+
+        if ($viewer->hasFullScope()) {
             // No extra restriction.
-        } elseif ($viewer->monitorsSubtree()) {
-            $scopePath = OrgUnit::query()->whereKey($viewer->scope_org_unit_id)->value('path');
-
+        } elseif ($scopePath !== null) {
             $query->where(function (Builder $inner) use ($viewer, $scopePath): void {
-                $inner->where('user_id', $viewer->user_id);
-
-                if ($scopePath !== null) {
-                    $inner->orWhereHas(
+                $inner->where('user_id', $viewer->user_id)
+                    ->orWhereHas(
                         'orgUnit',
                         fn (Builder $unit) => $unit->where('path', 'like', $scopePath.'%'),
                     );
-                }
             });
         } else {
             $query->where('user_id', $viewer->user_id);
