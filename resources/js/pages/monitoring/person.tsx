@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { CalendarOff, ClipboardList } from 'lucide-react';
+import { CalendarOff, ClipboardList, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProgressBar } from '@/components/task/progress-bar';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
@@ -18,6 +18,7 @@ import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { formatDay } from '@/lib/week';
 import { people, person as personRoute } from '@/routes/monitoring';
+import { exportMethod as exportPerson } from '@/routes/monitoring/person';
 import { show as showProject } from '@/routes/projects';
 import type { Option } from '@/types/members';
 import type { TaskAssignee, TaskNode } from '@/types/tasks';
@@ -95,6 +96,14 @@ export default function MonitoringPerson({
             : { task, assignees: group.assignees };
     }, [tasks, openTaskId]);
 
+    // The download mirrors what is on screen, so the range filter rides along.
+    const exportUrl = exportPerson(member.id, {
+        query: {
+            from: filters.from ?? undefined,
+            to: filters.to ?? undefined,
+        },
+    }).url;
+
     const applyRange = (patch: { from?: string | null; to?: string | null }) =>
         router.get(
             personRoute(member.id).url,
@@ -134,6 +143,13 @@ export default function MonitoringPerson({
                             {member.org_unit ?? member.email}
                         </p>
                     </div>
+
+                    <Button variant="outline" size="sm" asChild>
+                        <a href={exportUrl}>
+                            <Download aria-hidden="true" />
+                            Ekspor Excel
+                        </a>
+                    </Button>
 
                     <Button variant="outline" size="sm" asChild>
                         <Link href={people()}>Semua anggota</Link>

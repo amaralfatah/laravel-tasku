@@ -4,6 +4,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\Monitoring\DivisionController;
+use App\Http\Controllers\Monitoring\ExportController;
 use App\Http\Controllers\Monitoring\PersonController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgUnitController;
@@ -52,7 +53,10 @@ Route::middleware(['auth', 'workspace'])->group(function () {
 
     Route::get('monitoring/people', [PersonController::class, 'index'])->name('monitoring.people');
     Route::get('monitoring/me', [PersonController::class, 'me'])->name('monitoring.me');
+    // Registered before the `{member}` route so the literal segment wins.
+    Route::get('monitoring/people/export', [ExportController::class, 'people'])->name('monitoring.people.export');
     Route::get('monitoring/people/{member}', [PersonController::class, 'show'])->name('monitoring.person');
+    Route::get('monitoring/people/{member}/export', [ExportController::class, 'person'])->name('monitoring.person.export');
     Route::get('monitoring/divisions', [DivisionController::class, 'index'])->name('monitoring.divisions');
 
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');

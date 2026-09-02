@@ -1,9 +1,16 @@
 import { Head, Link } from '@inertiajs/react';
-import { AlertTriangle, CalendarOff, CheckCircle2, Users } from 'lucide-react';
+import {
+    AlertTriangle,
+    CalendarOff,
+    CheckCircle2,
+    Download,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
     Table,
@@ -16,6 +23,7 @@ import {
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { people, person } from '@/routes/monitoring';
+import { exportMethod as exportPeople } from '@/routes/monitoring/people';
 
 type MemberSummary = {
     id: number;
@@ -52,6 +60,14 @@ export default function MonitoringPeople({
                 <PageHeader
                     title="Monitoring per anggota"
                     description="Beban kerja setiap anggota dalam cakupan Anda, lintas project."
+                    actions={
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={exportPeople().url}>
+                                <Download aria-hidden="true" />
+                                Ekspor Excel
+                            </a>
+                        </Button>
+                    }
                 />
 
                 <Input

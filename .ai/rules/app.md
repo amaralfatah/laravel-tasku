@@ -48,3 +48,16 @@ Consequences to keep in mind:
 - Validation of a unit id from the browser goes through `ScopesValidationToWorkspace::existsAsOrgUnit()`, never a bare `exists:org_units,id` (the operator's own requests are the exception).
 - Shaping the structure — `/organization` plus every `org-units` write — is super-admin only and lives in `routes/organization.php`, outside the `workspace` middleware. The one action a leader keeps is `org-units.search`, scoped to their branch, which feeds the member and project unit pickers.
 - `tasku:import-org-structure` and `orgunit:rebuild-path` take no `--workspace`; they write the one tree.
+
+## The Excel export grid is four weeks per month, the UI timeline is not
+`App\Support\MonthWeek` draws a fixed grid: four columns per month, so days 29-31 fall in W4. That is deliberate — it reproduces the old per-programmer workbook, whose START/END columns read `W3 08-26`. The frontend helper `resources/js/lib/week.ts` lays out real weeks and therefore allows a fifth one; the two are not interchangeable, do not "fix" one to match the other.
+
+`WorkloadExport` reproduces `ContohLaporan.xlsx` cell for cell: green banner `FF00B050`, header band `FFF2F2F2`, project line `FFE8E8E8`, pale bar `FFDAF2D0` with a solid `FF4EA72E` cap on the closing week of finished work, and `FFD0D0D0` for weeks outside the window. Those colours and positions are asserted in `MonitoringExportTest`; people diff the file against older copies, so match the reference rather than taste.
+
+Task lines are numbered `<project position>.<wbs>` — the workbook treats the application as the first WBS level, while the database numbers each project from 1. `1.4.1` on the sheet is `GRO-4.1` in the app.
+
+`build()` takes the range once across every person handed in — first scheduled month through the December of the last one — so the sheets of two people line up column for column. The tail past a person's own last month is greyed per sheet. Adding a per-sheet range would break the comparison.
+
+Task order is fixed in PHP, not SQL: `path` and `wbs_number` are text columns, so the database sorts `/10/` before `/2/` and `1.10` before `1.9`. `MemberWorkloadQuery::inTreeOrder()` re-sorts with `strnatcmp` after the fetch — both the person page and the export read that order, and dropping it scatters sub tasks through the list.
+
+Dates are `CarbonImmutable` app-wide (`Date::use()` in AppServiceProvider), so type these helpers on `CarbonInterface` and never assume mutation works.

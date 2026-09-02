@@ -27,5 +27,6 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(DemoWorkspaceSeeder::class);
+        $this->call(AmarWorkloadSeeder::class);
     }
 }

@@ -58,13 +58,81 @@ class MemberWorkloadQuery
      */
     public function tasksFor(int $userId, ?string $from = null, ?string $to = null): Collection
     {
+        return $this->inTreeOrder(
+            $this->scheduledTasks([$userId], $from, $to)
+                // `project.members` feeds the assignee picker on the person
+                // page, where every project block has its own member list. The
+                // export draws no picker, so it leaves that relation alone.
+                ->with('project.members')
+                ->get(),
+        );
+    }
+
+    /**
+     * The same tasks for several people at once, keyed by assignee id.
+     *
+     * A workspace wide export covers the whole roster, so the rows are read in
+     * one pass instead of one query per person.
+     *
+     * @param  array<int, int>  $userIds
+     * @return array<int, Collection<int, Task>>
+     */
+    public function tasksForMany(array $userIds, ?string $from = null, ?string $to = null): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $grouped = [];
+
+        foreach ($this->inTreeOrder($this->scheduledTasks($userIds, $from, $to)->get()) as $task) {
+            // The query filters on the column, so this only guards the type.
+            if ($task->assignee_id === null) {
+                continue;
+            }
+
+            $grouped[$task->assignee_id][] = $task;
+        }
+
+        return array_map(fn (array $tasks): Collection => collect($tasks), $grouped);
+    }
+
+    /**
+     * Put a set of tasks in reading order: by project, then down the tree.
+     *
+     * Neither `path` nor `wbs_number` sorts correctly in the database — both
+     * are text, so `/10/` lands before `/2/` and `1.10` before `1.9`. The
+     * numbers are compared naturally here instead, which is what makes a
+     * parent's sub tasks follow it rather than scatter through the list.
+     *
+     * @param  Collection<int, Task>  $tasks
+     * @return Collection<int, Task>
+     */
+    protected function inTreeOrder(Collection $tasks): Collection
+    {
+        return $tasks
+            ->sort(fn (Task $left, Task $right): int => $left->project_id <=> $right->project_id
+                ?: strnatcmp($left->wbs_number, $right->wbs_number))
+            ->values();
+    }
+
+    /**
+     * Tasks of the given people that overlap the range, ordered the way both
+     * the person page and the export read them: project, then tree position.
+     *
+     * An open ended task counts as overlapping — unscheduled work is reported
+     * separately, never hidden.
+     *
+     * @param  array<int, int>  $userIds
+     * @return Builder<Task>
+     */
+    protected function scheduledTasks(array $userIds, ?string $from, ?string $to): Builder
+    {
         return Task::query()
-            ->where('assignee_id', $userId)
+            ->whereIn('assignee_id', $userIds)
             // `workspace_id`, `org_unit_id` and `created_by` are part of the
-            // select because the project policy reads all three;
-            // `project.members` feeds the assignee picker on the person page,
-            // where every project block has its own member list.
-            ->with(['project:id,name,key,workspace_id,org_unit_id,created_by', 'project.members', 'assignee:id,name,avatar_path'])
+            // select because the project policy reads all three.
+            ->with(['project:id,name,key,workspace_id,org_unit_id,created_by', 'assignee:id,name,avatar_path'])
             ->when($from, fn (Builder $query, string $date) => $query->where(function (Builder $q) use ($date): void {
                 $q->whereNull('due_date')->orWhereDate('due_date', '>=', $date);
             }))
@@ -72,8 +140,7 @@ class MemberWorkloadQuery
                 $q->whereNull('start_date')->orWhereDate('start_date', '<=', $date);
             }))
             ->orderBy('project_id')
-            ->orderBy('path')
-            ->get();
+            ->orderBy('path');
     }
 
     /**
@@ -83,7 +150,7 @@ class MemberWorkloadQuery
      *
      * @return Collection<int, WorkspaceMember>
      */
-    protected function visibleMembers(WorkspaceMember $viewer): Collection
+    public function visibleMembers(WorkspaceMember $viewer): Collection
     {
         $query = WorkspaceMember::query()
             ->with(['user:id,name,email,avatar_path', 'orgUnit:id,name']);

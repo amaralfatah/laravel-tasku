@@ -1,6 +1,9 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use Tests\TestCase;
 
 /*
@@ -47,4 +50,19 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Load a streamed download back as a workbook, so the assertions read the
+ * sheets a user would actually open.
+ */
+function workbook(TestResponse $response): Spreadsheet
+{
+    $path = tempnam(sys_get_temp_dir(), 'export').'.xlsx';
+    file_put_contents($path, $response->streamedContent());
+
+    $spreadsheet = IOFactory::load($path);
+    unlink($path);
+
+    return $spreadsheet;
 }
