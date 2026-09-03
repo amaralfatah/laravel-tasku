@@ -384,10 +384,11 @@ export default function ProjectBoard({
 
             <TaskCreateDialog
                 open={creating !== null}
-                projectId={project.id}
+                project={project}
                 parent={creating?.parent ?? null}
                 status={creating?.status ?? 'todo'}
                 assignees={assignees}
+                statuses={statuses}
                 priorities={priorities}
                 onClose={() => setCreating(null)}
             />

@@ -236,9 +236,10 @@ export default function ProjectList({
 
             <TaskCreateDialog
                 open={createOpen}
-                projectId={project.id}
+                project={project}
                 parent={createParent}
                 assignees={assignees}
+                statuses={statuses}
                 priorities={priorities}
                 onClose={() => setCreateOpen(false)}
             />
