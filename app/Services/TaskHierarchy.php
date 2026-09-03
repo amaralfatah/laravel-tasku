@@ -158,6 +158,12 @@ class TaskHierarchy
             return;
         }
 
+        // The observer calls this from `saved`, which Eloquent fires before it
+        // syncs the originals. Without this the rollup would be compared
+        // against the values the task held *before* the request and dropped as
+        // "not dirty" — a parent marked done by hand then kept its 100%.
+        $parent->syncOriginal();
+
         $parent->forceFill([
             'progress' => $average,
             'status' => $status,
