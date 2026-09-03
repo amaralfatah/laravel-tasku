@@ -71,18 +71,25 @@ export function TaskCreateDialog({
         due_date: null as string | null,
     });
 
+    // `useForm` keeps its defaults in state, so `setDefaults` followed by
+    // `reset` in the same effect resets the form to the *previous* defaults —
+    // the ones from the first render, where there is no parent. That dropped
+    // `parent_task_id` (and the column's status) on every open, so a sub task
+    // was created as a root task. Seed the data directly instead.
     useEffect(() => {
         if (open) {
-            form.setDefaults({
+            const fresh = {
                 title: '',
                 parent_task_id: parent?.id ?? null,
                 status,
-                assignee_id: null,
-                priority: 'medium',
-                start_date: null,
-                due_date: null,
-            });
-            form.reset();
+                assignee_id: null as number | null,
+                priority: 'medium' as TaskPriority,
+                start_date: null as string | null,
+                due_date: null as string | null,
+            };
+
+            form.setDefaults(fresh);
+            form.setData(fresh);
             form.clearErrors();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
