@@ -206,9 +206,12 @@ test('the leader above still runs a project an ODS started', function () {
     expect($project->refresh()->name)->toBe('Diarahkan ulang');
 });
 
-test('whoever started a project may delete a task they did not write', function () {
+test('a project member may delete a task they did not write', function () {
     [$owner, $unit] = projectWorkspace(WorkspaceRole::Bod4);
     $helper = WorkspaceMember::factory()
+        ->for($owner->workspace)
+        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+    $outsider = WorkspaceMember::factory()
         ->for($owner->workspace)
         ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
 
@@ -227,12 +230,17 @@ test('whoever started a project may delete a task they did not write', function 
 
     $session = ['workspace_id' => $owner->workspace_id];
 
-    // The helper is only a member, so someone else's task is not theirs to remove.
-    $this->actingAs($helper->user)->withSession($session)
+    // Not on the project, so nothing in it is theirs to remove.
+    $this->actingAs($outsider->user)->withSession($session)
         ->delete(route('tasks.destroy', $ownersTask))
         ->assertForbidden();
 
-    // The owner administers the project, so every task in it is theirs to remove.
+    // An ODS on the project may clear a colleague's task, and the person who
+    // started the project may clear anyone's.
+    $this->actingAs($helper->user)->withSession($session)
+        ->delete(route('tasks.destroy', $ownersTask))
+        ->assertRedirect();
+
     $this->actingAs($owner->user)->withSession($session)
         ->delete(route('tasks.destroy', $helpersTask))
         ->assertRedirect();

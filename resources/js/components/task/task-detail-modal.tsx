@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Plus, Trash2, X } from 'lucide-react';
 
 import InputError from '@/components/input-error';
 import { CommentBox } from '@/components/task/comment-box';
@@ -15,6 +15,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -131,9 +137,13 @@ function TaskDetail({
                 // whole title and invites an accidental overwrite. The modal is
                 // for reading first, so nothing is focused until it is clicked.
                 onOpenAutoFocus={(event) => event.preventDefault()}
+                // The header carries its own close button, matched to the
+                // other actions beside it; the built-in floating one would
+                // sit on top of them.
+                showCloseButton={false}
             >
-                <DialogHeader className="shrink-0 border-b px-8 py-4 pr-14">
-                    <DialogTitle className="flex items-center gap-2 text-base font-normal">
+                <DialogHeader className="shrink-0 flex-row items-center gap-2 border-b px-6 py-3">
+                    <DialogTitle className="flex min-w-0 flex-1 items-center gap-2 text-base font-normal">
                         <Badge variant="outline" className="tabular-nums">
                             {task.reference}
                         </Badge>
@@ -144,6 +154,69 @@ function TaskDetail({
                     <DialogDescription className="sr-only">
                         Detail dan pengeditan task {task.reference}.
                     </DialogDescription>
+
+                    {/* Jira's header actions: a row of equal outlined squares,
+                        the destructive ones tucked into the "..." menu rather
+                        than sitting under the cursor. */}
+                    <div className="flex shrink-0 items-center gap-2">
+                        {task.can_delete && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        aria-label="Tindakan lain"
+                                    >
+                                        <MoreHorizontal
+                                            className="size-4"
+                                            aria-hidden="true"
+                                        />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                        variant="destructive"
+                                        onSelect={() => {
+                                            if (
+                                                !confirm(
+                                                    task.children_count > 0
+                                                        ? `Hapus task "${task.title}" beserta ${task.children_count} sub task-nya?`
+                                                        : `Hapus task "${task.title}"?`,
+                                                )
+                                            ) {
+                                                return;
+                                            }
+
+                                            router.delete(
+                                                destroy(task.id).url,
+                                                {
+                                                    preserveScroll: true,
+                                                    onSuccess: onClose,
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        <Trash2
+                                            className="size-4"
+                                            aria-hidden="true"
+                                        />
+                                        Hapus
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label="Tutup"
+                            onClick={onClose}
+                        >
+                            <X className="size-4" aria-hidden="true" />
+                        </Button>
+                    </div>
                 </DialogHeader>
 
                 <form
@@ -340,6 +413,69 @@ function TaskDetail({
                                                                 ]
                                                             }
                                                         </Badge>
+                                                    )}
+
+                                                    {/* Same "..." menu Jira
+                                                        gives a sub task row.
+                                                        Deleting never closes
+                                                        the parent: the row goes
+                                                        on its own request, and
+                                                        the modal keeps its
+                                                        state while the page
+                                                        props refresh. */}
+                                                    {child.can_delete && (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger
+                                                                asChild
+                                                            >
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="size-8 shrink-0 text-muted-foreground"
+                                                                    aria-label={`Tindakan ${child.title}`}
+                                                                >
+                                                                    <MoreHorizontal
+                                                                        className="size-4"
+                                                                        aria-hidden="true"
+                                                                    />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem
+                                                                    variant="destructive"
+                                                                    onSelect={() => {
+                                                                        if (
+                                                                            !confirm(
+                                                                                child.children_count >
+                                                                                    0
+                                                                                    ? `Hapus sub task "${child.title}" beserta ${child.children_count} sub task-nya?`
+                                                                                    : `Hapus sub task "${child.title}"?`,
+                                                                            )
+                                                                        ) {
+                                                                            return;
+                                                                        }
+
+                                                                        router.delete(
+                                                                            destroy(
+                                                                                child.id,
+                                                                            )
+                                                                                .url,
+                                                                            {
+                                                                                preserveScroll: true,
+                                                                                preserveState: true,
+                                                                            },
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    <Trash2
+                                                                        className="size-4"
+                                                                        aria-hidden="true"
+                                                                    />
+                                                                    Hapus
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     )}
                                                 </li>
                                             ))}
@@ -607,51 +743,19 @@ function TaskDetail({
                         </aside>
                     </div>
 
-                    <DialogFooter className="shrink-0 flex-row justify-between border-t px-6 py-3 sm:justify-between">
-                        {task.can_delete ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => {
-                                    if (
-                                        confirm(
-                                            task.children_count > 0
-                                                ? `Hapus task "${task.title}" beserta ${task.children_count} sub task-nya?`
-                                                : `Hapus task "${task.title}"?`,
-                                        )
-                                    ) {
-                                        router.delete(destroy(task.id).url, {
-                                            preserveScroll: true,
-                                            onSuccess: onClose,
-                                        });
-                                    }
-                                }}
-                            >
-                                <Trash2 className="size-4" aria-hidden="true" />
-                                Hapus
+                    <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t px-6 py-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClose}
+                        >
+                            Tutup
+                        </Button>
+                        {!readOnly && (
+                            <Button type="submit" disabled={form.processing}>
+                                {form.processing ? 'Menyimpan…' : 'Simpan'}
                             </Button>
-                        ) : (
-                            <span />
                         )}
-
-                        <div className="flex gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={onClose}
-                            >
-                                Tutup
-                            </Button>
-                            {!readOnly && (
-                                <Button
-                                    type="submit"
-                                    disabled={form.processing}
-                                >
-                                    {form.processing ? 'Menyimpan…' : 'Simpan'}
-                                </Button>
-                            )}
-                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>

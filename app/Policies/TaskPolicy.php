@@ -9,9 +9,10 @@ use App\Support\Tenancy;
 /**
  * Task access (7.1).
  *
- * Reading follows the project; creating and editing require project
- * membership. Deleting is for whoever runs the project; everyone else may
- * only remove the tasks they created themselves.
+ * Reading follows the project; creating, editing and deleting require project
+ * membership. Deleting is deliberately as wide as editing: a team-managed
+ * project is run by the people on it, so an ODS may clear out a task a
+ * colleague opened without waiting for a leader.
  */
 class TaskPolicy
 {
@@ -29,17 +30,14 @@ class TaskPolicy
             && $user->can('contribute', $task->project);
     }
 
+    /**
+     * Whoever may change a task may also remove it. Deleting is soft and takes
+     * the whole subtree with it (TSK-3), so the project's own membership is the
+     * boundary — not authorship, which seeded and imported tasks do not carry.
+     */
     public function delete(User $user, Task $task): bool
     {
-        if (! $this->update($user, $task)) {
-            return false;
-        }
-
-        if ($task->project->isAdministeredBy($user)) {
-            return true;
-        }
-
-        return $task->created_by === $user->id;
+        return $this->update($user, $task);
     }
 
     protected function inActiveWorkspace(Task $task): bool

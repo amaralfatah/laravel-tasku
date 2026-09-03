@@ -18,7 +18,8 @@ When selecting a narrow column list on a `Project` relation, always include `org
 Anyone with an `org_unit_id` may start a project, ODS included — the Jira team-managed model. Two guards keep it contained:
 
 - Placement is not user input for a non-leader. `ProjectController::placementUnitId()` forces `org_unit_id` to the member's own unit and ignores the request field; `ProjectPolicy::createIn()` enforces the same server-side. A leader picks any unit their scope covers.
-- Authority over an existing project is `Project::isAdministeredBy()` — a leader whose scope covers the unit, OR `created_by === $user->id`. Use it, not a role check, for project update/delete, task delete and comment delete.
+- Authority over an existing project is `Project::isAdministeredBy()` — a leader whose scope covers the unit, OR `created_by === $user->id`. Use it, not a role check, for project update/delete and comment delete.
+- Tasks are the exception: `TaskPolicy::delete()` is the same test as `update()`, so anyone the project is editable by — an ODS on the member list included — may remove a task and its subtree. Authorship is not part of it; seeded and imported tasks carry a null `created_by`, which used to leave nobody but a leader able to delete them.
 
 Starting a project does not carve it out of the org tree: the leader above still administers it, because `covers()` is checked first.
 

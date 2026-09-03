@@ -1,6 +1,7 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
 import InputError from '@/components/input-error';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -19,8 +20,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useInitials } from '@/hooks/use-initials';
 import { store } from '@/routes/tasks';
 import type { Option } from '@/types/members';
+import { TASK_PRIORITY_CLASSES } from '@/types/tasks';
 import type {
     TaskAssignee,
     TaskNode,
@@ -33,6 +36,10 @@ const UNASSIGNED = 'none';
 /**
  * Creates a task, optionally as a child of another (TSK-1, TSK-9).
  * Only the title is required.
+ *
+ * Shaped like Jira's create dialog: plain stacked fields, each full width with
+ * its label above it, and no Details panel — that framing belongs to a task
+ * that already exists, not to a form being filled in.
  */
 export function TaskCreateDialog({
     open,
@@ -52,6 +59,8 @@ export function TaskCreateDialog({
     priorities: Option[];
     onClose: () => void;
 }) {
+    const getInitials = useInitials();
+    const { auth } = usePage().props;
     const form = useForm({
         title: '',
         parent_task_id: parent?.id ?? null,
@@ -79,9 +88,16 @@ export function TaskCreateDialog({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, parent?.id, status]);
 
+    const assignee =
+        assignees.find((member) => member.id === form.data.assignee_id) ?? null;
+    /** Jira's "Assign to me", offered only when the user may take the work. */
+    const canAssignToSelf =
+        form.data.assignee_id !== auth.user?.id &&
+        assignees.some((member) => member.id === auth.user?.id);
+
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>
                         {parent ? 'Tambah sub task' : 'Tambah task'}
@@ -118,70 +134,105 @@ export function TaskCreateDialog({
                         <InputError message={form.errors.title} />
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="new-task-assignee">
-                                Penanggung jawab
-                            </Label>
-                            <Select
-                                value={String(
-                                    form.data.assignee_id ?? UNASSIGNED,
-                                )}
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'assignee_id',
-                                        value === UNASSIGNED
-                                            ? null
-                                            : Number(value),
-                                    )
-                                }
+                    <div className="grid gap-2">
+                        <Label htmlFor="new-task-assignee">
+                            Penanggung jawab
+                        </Label>
+                        <Select
+                            value={String(form.data.assignee_id ?? UNASSIGNED)}
+                            onValueChange={(value) =>
+                                form.setData(
+                                    'assignee_id',
+                                    value === UNASSIGNED ? null : Number(value),
+                                )
+                            }
+                        >
+                            <SelectTrigger
+                                id="new-task-assignee"
+                                className="w-full"
+                                title="Hanya anggota project yang bisa ditugaskan."
                             >
-                                <SelectTrigger id="new-task-assignee">
-                                    <SelectValue placeholder="Belum ditugaskan" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={UNASSIGNED}>
-                                        Belum ditugaskan
-                                    </SelectItem>
-                                    {assignees.map((assignee) => (
-                                        <SelectItem
-                                            key={assignee.id}
-                                            value={String(assignee.id)}
-                                        >
+                                {assignee ? (
+                                    <span className="flex min-w-0 items-center gap-2">
+                                        <Avatar className="size-5">
+                                            <AvatarImage
+                                                src={
+                                                    assignee.avatar ?? undefined
+                                                }
+                                                alt=""
+                                            />
+                                            <AvatarFallback className="text-[10px]">
+                                                {getInitials(assignee.name)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span className="truncate">
                                             {assignee.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={form.errors.assignee_id} />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="new-task-priority">Prioritas</Label>
-                            <Select
-                                value={form.data.priority}
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'priority',
-                                        value as TaskPriority,
-                                    )
+                                        </span>
+                                    </span>
+                                ) : (
+                                    <SelectValue placeholder="Belum ditugaskan" />
+                                )}
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={UNASSIGNED}>
+                                    Belum ditugaskan
+                                </SelectItem>
+                                {assignees.map((member) => (
+                                    <SelectItem
+                                        key={member.id}
+                                        value={String(member.id)}
+                                    >
+                                        {member.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {/* Jira's "Assign to me": the common case in one click,
+                            without opening the list. */}
+                        {canAssignToSelf && (
+                            <button
+                                type="button"
+                                className="justify-self-start text-sm text-primary hover:underline"
+                                onClick={() =>
+                                    form.setData('assignee_id', auth.user.id)
                                 }
                             >
-                                <SelectTrigger id="new-task-priority">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {priorities.map((priority) => (
-                                        <SelectItem
-                                            key={priority.value}
-                                            value={priority.value}
+                                Tugaskan ke saya
+                            </button>
+                        )}
+                        <InputError message={form.errors.assignee_id} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="new-task-priority">Prioritas</Label>
+                        <Select
+                            value={form.data.priority}
+                            onValueChange={(value) =>
+                                form.setData('priority', value as TaskPriority)
+                            }
+                        >
+                            <SelectTrigger
+                                id="new-task-priority"
+                                className="w-full"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {priorities.map((priority) => (
+                                    <SelectItem
+                                        key={priority.value}
+                                        value={priority.value}
+                                    >
+                                        <span
+                                            className={`rounded border px-1.5 py-0.5 text-xs ${TASK_PRIORITY_CLASSES[priority.value as TaskPriority]}`}
                                         >
                                             {priority.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                        </span>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={form.errors.priority} />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
