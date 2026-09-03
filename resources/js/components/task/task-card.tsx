@@ -141,8 +141,7 @@ export function TaskCard({
                     <p
                         className={cn(
                             'text-sm tabular-nums',
-                            task.is_overdue &&
-                                'font-medium text-red-600 dark:text-red-400',
+                            task.is_overdue && 'font-medium text-destructive',
                         )}
                         title={
                             task.is_overdue
@@ -162,7 +161,7 @@ export function TaskCard({
                 left, the assignee avatar pinned to the right edge. */}
             <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                 <SquareCheckBig
-                    className="size-4 shrink-0 text-emerald-600 dark:text-emerald-500"
+                    className="size-4 shrink-0 text-success"
                     aria-hidden="true"
                 />
                 <span className="font-medium tabular-nums">

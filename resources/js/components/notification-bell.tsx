@@ -88,7 +88,7 @@ export function NotificationBell() {
                 >
                     <Bell className="size-4" />
                     {unread > 0 && (
-                        <span className="absolute top-1 right-1 flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] leading-4 font-medium text-white tabular-nums">
+                        <span className="absolute top-1 right-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-white tabular-nums">
                             {unread > 99 ? '99+' : unread}
                         </span>
                     )}
@@ -144,7 +144,7 @@ export function NotificationBell() {
                                 <span className="flex w-full items-center gap-2">
                                     {!item.is_read && (
                                         <span
-                                            className="size-1.5 shrink-0 rounded-full bg-sky-600"
+                                            className="size-1.5 shrink-0 rounded-full bg-primary"
                                             aria-hidden="true"
                                         />
                                     )}

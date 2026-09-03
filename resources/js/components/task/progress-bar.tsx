@@ -33,14 +33,14 @@ export function ProgressBar({
                 <div
                     className={cn(
                         'h-full rounded-full transition-[width] duration-200',
-                        clamped === 100 ? 'bg-emerald-600' : 'bg-foreground/70',
+                        clamped === 100 ? 'bg-success' : 'bg-foreground/70',
                     )}
                     style={{ width: `${clamped}%` }}
                 />
 
                 {rollup !== null && (
                     <span
-                        className="absolute top-0 h-full w-0.5 bg-sky-600"
+                        className="absolute top-0 h-full w-0.5 bg-primary"
                         style={{ left: `calc(${rollup}% - 1px)` }}
                         title={`Rata-rata sub task: ${rollup}%`}
                         aria-hidden="true"
@@ -53,7 +53,7 @@ export function ProgressBar({
                     className={cn(
                         'w-10 shrink-0 text-right text-xs tabular-nums',
                         Math.abs(gap) >= 20
-                            ? 'font-medium text-amber-700 dark:text-amber-400'
+                            ? 'font-medium text-warning'
                             : 'text-muted-foreground',
                     )}
                     title={

@@ -77,8 +77,14 @@ export function AppSidebar() {
         );
     }
 
+    /*
+     * The "sidebar" variant, not "inset": inset floats the content as a rounded
+     * card inset by 8px on every side, which only reads when the canvas behind
+     * it is a different colour. Everything is one surface now, so the divide
+     * has to be the variant's own `border-r`.
+     */
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar collapsible="icon" variant="sidebar">
             <SidebarHeader>
                 <WorkspaceSwitcher />
             </SidebarHeader>

@@ -12,8 +12,11 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
+                // The type ladder is 300 / 400 / 600 / 700 — weight 500 does
+                // not exist in this system. Inter stands in for SF Pro
+                // wherever it is not already a system font.
+                bunny('Inter', {
+                    weights: [300, 400, 600, 700],
                 }),
             ],
         }),

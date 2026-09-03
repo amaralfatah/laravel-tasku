@@ -202,7 +202,7 @@ export default function MonitoringDivisions({
                                         className={cn(
                                             'text-right tabular-nums',
                                             unit.overdue > 0 &&
-                                                'font-medium text-red-600 dark:text-red-400',
+                                                'font-medium text-destructive',
                                         )}
                                     >
                                         {unit.overdue}

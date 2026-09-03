@@ -214,10 +214,10 @@ export function TimelineBar({
             className={cn(
                 'absolute top-1/2 h-4 -translate-y-1/2 overflow-hidden rounded-sm border text-left',
                 muted
-                    ? 'border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-900'
+                    ? 'border-border bg-muted'
                     : overdue
-                      ? 'border-red-300 bg-red-100 dark:border-red-900 dark:bg-red-950'
-                      : 'border-sky-300 bg-sky-100 dark:border-sky-900 dark:bg-sky-950',
+                      ? 'border-destructive/30 bg-destructive/10'
+                      : 'border-primary/30 bg-primary/10',
                 onClick && 'cursor-pointer hover:brightness-95',
             )}
             style={{ left: `${offset}px`, width: `${span}px` }}
@@ -226,10 +226,10 @@ export function TimelineBar({
                 className={cn(
                     'block h-full',
                     muted
-                        ? 'bg-slate-400/60 dark:bg-slate-600/60'
+                        ? 'bg-muted-foreground'
                         : overdue
-                          ? 'bg-red-400/70 dark:bg-red-800/70'
-                          : 'bg-sky-400/70 dark:bg-sky-700/70',
+                          ? 'bg-destructive'
+                          : 'bg-primary',
                 )}
                 style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
             />
@@ -249,7 +249,7 @@ export function TimelineToday({ scale }: { scale: TimelineScale }) {
 
     return (
         <div
-            className="pointer-events-none absolute inset-y-0 w-px bg-red-500/70"
+            className="pointer-events-none absolute inset-y-0 w-px bg-destructive/70"
             style={{ left: `${offset}px` }}
             aria-hidden="true"
         />

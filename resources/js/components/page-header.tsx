@@ -25,7 +25,7 @@ export function PageHeader({
             )}
         >
             <div className="min-w-0 space-y-1">
-                <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">
+                <h1 className="truncate font-display text-2xl font-semibold tracking-tight text-foreground">
                     {title}
                 </h1>
                 {description && (
@@ -67,7 +67,7 @@ export function SectionHeader({
             )}
         >
             <div className="min-w-0 space-y-0.5">
-                <h2 className="text-sm font-semibold text-foreground">
+                <h2 className="font-display text-base font-semibold tracking-tight text-foreground">
                     {title}
                 </h2>
                 {description && (

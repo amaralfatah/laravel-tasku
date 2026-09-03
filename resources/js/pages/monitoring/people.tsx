@@ -169,7 +169,7 @@ export default function MonitoringPeople({
                                             className={cn(
                                                 'inline-flex items-center gap-1 tabular-nums',
                                                 member.overdue > 0 &&
-                                                    'font-medium text-red-600 dark:text-red-400',
+                                                    'font-medium text-destructive',
                                             )}
                                         >
                                             {member.overdue > 0 && (
@@ -198,7 +198,7 @@ export default function MonitoringPeople({
                                         <span className="inline-flex items-center gap-1 tabular-nums">
                                             {member.done_recently > 0 && (
                                                 <CheckCircle2
-                                                    className="size-3.5 text-emerald-600"
+                                                    className="size-3.5 text-success"
                                                     aria-hidden="true"
                                                 />
                                             )}

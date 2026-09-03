@@ -206,7 +206,7 @@ export function TaskTreeRow({
                     className={cn(
                         'text-xs tabular-nums',
                         task.is_overdue
-                            ? 'font-medium text-red-600 dark:text-red-400'
+                            ? 'font-medium text-destructive'
                             : 'text-muted-foreground',
                     )}
                     title={

@@ -363,7 +363,7 @@ export default function Workspaces({
                                             </>
                                         ) : workspace.pending_owner_invite ? (
                                             <>
-                                                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                                                <span className="flex items-center gap-1.5 text-warning">
                                                     <MailWarning
                                                         className="size-3.5"
                                                         aria-hidden="true"

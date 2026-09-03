@@ -45,7 +45,7 @@ function renderBody(body: string, mentions: Record<string, string>) {
         return (
             <span
                 key={index}
-                className="rounded bg-sky-100 px-1 font-medium text-sky-900 dark:bg-sky-950 dark:text-sky-200"
+                className="rounded-xs bg-primary/10 px-1 font-medium text-link"
             >
                 @{name ?? 'pengguna'}
             </span>
