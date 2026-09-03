@@ -1,6 +1,31 @@
+import {
+    DndContext,
+    KeyboardSensor,
+    PointerSensor,
+    closestCenter,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+    SortableContext,
+    arrayMove,
+    sortableKeyboardCoordinates,
+    useSortable,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { router, useForm } from '@inertiajs/react';
-import { MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import {
+    GripVertical,
+    MoreHorizontal,
+    Pencil,
+    Plus,
+    Trash2,
+    X,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import InputError from '@/components/input-error';
 import { CommentBox } from '@/components/task/comment-box';
@@ -32,7 +57,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useInitials } from '@/hooks/use-initials';
-import { destroy, update } from '@/routes/tasks';
+import { cn } from '@/lib/utils';
+import { destroy, move, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import {
     TASK_PRIORITY_CLASSES,
@@ -134,6 +160,75 @@ function TaskDetail({
         null,
     );
     const [subtaskDraft, setSubtaskDraft] = useState('');
+    /**
+     * Optimistic sibling order while a drop is in flight. Only the ids are kept
+     * here — the rows themselves still come from the page props, so a title or
+     * status that changes underneath is not held back by the drag.
+     */
+    const [draggedOrder, setDraggedOrder] = useState<number[] | null>(null);
+
+    const orderedSubtasks = useMemo(() => {
+        const byPosition = [...subtasks].sort(
+            (a, b) => a.position - b.position,
+        );
+
+        if (draggedOrder === null) {
+            return byPosition;
+        }
+
+        const rows = new Map(byPosition.map((child) => [child.id, child]));
+        const picked = draggedOrder
+            .map((id) => rows.get(id))
+            .filter((child) => child !== undefined);
+
+        // A sub task added or removed while the drop was in flight makes the
+        // remembered order stale; the server order is the truth again.
+        return picked.length === byPosition.length ? picked : byPosition;
+    }, [subtasks, draggedOrder]);
+
+    const sensors = useSensors(
+        // A small distance threshold keeps a tap from becoming a drag.
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        }),
+    );
+
+    /**
+     * Sub tasks are siblings under this task, so a drop is a `position` change
+     * inside the same parent (BRD-3 applied to the tree). The parent id is sent
+     * along because the endpoint reads a missing one as "move to the root".
+     */
+    const handleSubtaskDragEnd = ({ active, over }: DragEndEvent) => {
+        if (!over || active.id === over.id) {
+            return;
+        }
+
+        const from = orderedSubtasks.findIndex(
+            (child) => child.id === active.id,
+        );
+        const to = orderedSubtasks.findIndex((child) => child.id === over.id);
+
+        if (from === -1 || to === -1) {
+            return;
+        }
+
+        setDraggedOrder(
+            arrayMove(orderedSubtasks, from, to).map((child) => child.id),
+        );
+
+        router.post(
+            move(Number(active.id)).url,
+            { parent_task_id: task.id, position: to },
+            {
+                preserveScroll: true,
+                // Without this the page remounts and the modal closes.
+                preserveState: true,
+                // Answered or rejected, the props now carry the real order.
+                onFinish: () => setDraggedOrder(null),
+            },
+        );
+    };
 
     const startSubtaskRename = (child: TaskNode) => {
         setEditingSubtaskId(child.id);
@@ -346,194 +441,220 @@ function TaskDetail({
                                         )}
                                     </div>
 
-                                    {subtasks.length > 0 && (
-                                        <ul className="divide-y rounded-md border">
-                                            {subtasks.map((child) => (
-                                                <li
-                                                    key={child.id}
-                                                    className="group flex items-center gap-3 px-3 py-2 text-sm"
-                                                >
-                                                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                                                        {child.reference}
-                                                    </span>
-
-                                                    {editingSubtaskId ===
-                                                    child.id ? (
-                                                        <Input
-                                                            autoFocus
-                                                            value={subtaskDraft}
-                                                            aria-label={`Judul ${child.reference}`}
-                                                            className="h-8 min-w-0 flex-1"
-                                                            onChange={(event) =>
-                                                                setSubtaskDraft(
-                                                                    event.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            onBlur={() =>
-                                                                saveSubtaskTitle(
-                                                                    child,
-                                                                )
-                                                            }
-                                                            onKeyDown={(
-                                                                event,
-                                                            ) => {
-                                                                if (
-                                                                    event.key ===
-                                                                    'Enter'
-                                                                ) {
-                                                                    event.preventDefault();
-                                                                    saveSubtaskTitle(
-                                                                        child,
-                                                                    );
-                                                                }
-
-                                                                if (
-                                                                    event.key ===
-                                                                    'Escape'
-                                                                ) {
-                                                                    event.preventDefault();
-                                                                    // Put the stored title back
-                                                                    // first: the blur that follows
-                                                                    // then has nothing to save.
-                                                                    setSubtaskDraft(
-                                                                        child.title,
-                                                                    );
-                                                                    setEditingSubtaskId(
-                                                                        null,
-                                                                    );
-                                                                }
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <>
-                                                            {onOpenTask ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        onOpenTask(
-                                                                            child.id,
-                                                                        )
-                                                                    }
-                                                                    className="line-clamp-2 min-w-0 flex-1 text-left break-words hover:underline"
-                                                                >
+                                    {orderedSubtasks.length > 0 && (
+                                        <DndContext
+                                            sensors={sensors}
+                                            collisionDetection={closestCenter}
+                                            onDragEnd={handleSubtaskDragEnd}
+                                        >
+                                            <SortableContext
+                                                items={orderedSubtasks.map(
+                                                    (child) => child.id,
+                                                )}
+                                                strategy={
+                                                    verticalListSortingStrategy
+                                                }
+                                            >
+                                                <ul className="divide-y rounded-md border">
+                                                    {orderedSubtasks.map(
+                                                        (child) => (
+                                                            <SortableSubtaskRow
+                                                                key={child.id}
+                                                                child={child}
+                                                            >
+                                                                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                                                                     {
-                                                                        child.title
-                                                                    }
-                                                                </button>
-                                                            ) : (
-                                                                <span className="line-clamp-2 min-w-0 flex-1 break-words">
-                                                                    {
-                                                                        child.title
+                                                                        child.reference
                                                                     }
                                                                 </span>
-                                                            )}
 
-                                                            {/* Jira's pencil:
+                                                                {editingSubtaskId ===
+                                                                child.id ? (
+                                                                    <Input
+                                                                        autoFocus
+                                                                        value={
+                                                                            subtaskDraft
+                                                                        }
+                                                                        aria-label={`Judul ${child.reference}`}
+                                                                        className="h-8 min-w-0 flex-1"
+                                                                        onChange={(
+                                                                            event,
+                                                                        ) =>
+                                                                            setSubtaskDraft(
+                                                                                event
+                                                                                    .target
+                                                                                    .value,
+                                                                            )
+                                                                        }
+                                                                        onBlur={() =>
+                                                                            saveSubtaskTitle(
+                                                                                child,
+                                                                            )
+                                                                        }
+                                                                        onKeyDown={(
+                                                                            event,
+                                                                        ) => {
+                                                                            if (
+                                                                                event.key ===
+                                                                                'Enter'
+                                                                            ) {
+                                                                                event.preventDefault();
+                                                                                saveSubtaskTitle(
+                                                                                    child,
+                                                                                );
+                                                                            }
+
+                                                                            if (
+                                                                                event.key ===
+                                                                                'Escape'
+                                                                            ) {
+                                                                                event.preventDefault();
+                                                                                // Put the stored title back
+                                                                                // first: the blur that follows
+                                                                                // then has nothing to save.
+                                                                                setSubtaskDraft(
+                                                                                    child.title,
+                                                                                );
+                                                                                setEditingSubtaskId(
+                                                                                    null,
+                                                                                );
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <>
+                                                                        {onOpenTask ? (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    onOpenTask(
+                                                                                        child.id,
+                                                                                    )
+                                                                                }
+                                                                                className="line-clamp-2 min-w-0 flex-1 text-left break-words hover:underline"
+                                                                            >
+                                                                                {
+                                                                                    child.title
+                                                                                }
+                                                                            </button>
+                                                                        ) : (
+                                                                            <span className="line-clamp-2 min-w-0 flex-1 break-words">
+                                                                                {
+                                                                                    child.title
+                                                                                }
+                                                                            </span>
+                                                                        )}
+
+                                                                        {/* Jira's pencil:
                                                                 out of the way
                                                                 until the row is
                                                                 hovered or the
                                                                 button takes
                                                                 focus. */}
-                                                            {child.can_edit && (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                                                                    aria-label={`Ubah judul ${child.reference}`}
-                                                                    title="Ubah judul"
-                                                                    onClick={() =>
-                                                                        startSubtaskRename(
-                                                                            child,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Pencil
-                                                                        className="size-4"
-                                                                        aria-hidden="true"
-                                                                    />
-                                                                </Button>
-                                                            )}
-                                                        </>
-                                                    )}
+                                                                        {child.can_edit && (
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                                                                aria-label={`Ubah judul ${child.reference}`}
+                                                                                title="Ubah judul"
+                                                                                onClick={() =>
+                                                                                    startSubtaskRename(
+                                                                                        child,
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <Pencil
+                                                                                    className="size-4"
+                                                                                    aria-hidden="true"
+                                                                                />
+                                                                            </Button>
+                                                                        )}
+                                                                    </>
+                                                                )}
 
-                                                    {/* Jira lets a sub task's
+                                                                {/* Jira lets a sub task's
                                                         status be changed from
                                                         the parent, without
                                                         opening it. The parent's
                                                         own unsaved edits are
                                                         untouched: this PATCHes
                                                         the child on its own. */}
-                                                    {child.can_edit ? (
-                                                        <Select
-                                                            value={child.status}
-                                                            onValueChange={(
-                                                                value,
-                                                            ) =>
-                                                                router.patch(
-                                                                    update(
-                                                                        child.id,
-                                                                    ).url,
-                                                                    {
-                                                                        status: value,
-                                                                    },
-                                                                    {
-                                                                        preserveScroll: true,
-                                                                        // Without this the page
-                                                                        // remounts and the modal
-                                                                        // closes on every change.
-                                                                        preserveState: true,
-                                                                    },
-                                                                )
-                                                            }
-                                                        >
-                                                            <SelectTrigger
-                                                                size="sm"
-                                                                className="w-32 shrink-0 border-transparent shadow-none hover:border-input"
-                                                                aria-label={`Status ${child.title}`}
-                                                            >
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {statuses.map(
-                                                                    (
-                                                                        status,
-                                                                    ) => (
-                                                                        <SelectItem
-                                                                            key={
-                                                                                status.value
-                                                                            }
-                                                                            value={
-                                                                                status.value
-                                                                            }
+                                                                {child.can_edit ? (
+                                                                    <Select
+                                                                        value={
+                                                                            child.status
+                                                                        }
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) =>
+                                                                            router.patch(
+                                                                                update(
+                                                                                    child.id,
+                                                                                )
+                                                                                    .url,
+                                                                                {
+                                                                                    status: value,
+                                                                                },
+                                                                                {
+                                                                                    preserveScroll: true,
+                                                                                    // Without this the page
+                                                                                    // remounts and the modal
+                                                                                    // closes on every change.
+                                                                                    preserveState: true,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <SelectTrigger
+                                                                            size="sm"
+                                                                            className="w-32 shrink-0 border-transparent shadow-none hover:border-input"
+                                                                            aria-label={`Status ${child.title}`}
                                                                         >
-                                                                            {
-                                                                                status.label
-                                                                            }
-                                                                        </SelectItem>
-                                                                    ),
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {statuses.map(
+                                                                                (
+                                                                                    status,
+                                                                                ) => (
+                                                                                    <SelectItem
+                                                                                        key={
+                                                                                            status.value
+                                                                                        }
+                                                                                        value={
+                                                                                            status.value
+                                                                                        }
+                                                                                    >
+                                                                                        {
+                                                                                            status.label
+                                                                                        }
+                                                                                    </SelectItem>
+                                                                                ),
+                                                                            )}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                ) : (
+                                                                    <Badge
+                                                                        variant={
+                                                                            TASK_STATUS_VARIANT[
+                                                                                child
+                                                                                    .status
+                                                                            ]
+                                                                        }
+                                                                        className="shrink-0 font-normal"
+                                                                    >
+                                                                        {
+                                                                            TASK_STATUS_LABELS[
+                                                                                child
+                                                                                    .status
+                                                                            ]
+                                                                        }
+                                                                    </Badge>
                                                                 )}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    ) : (
-                                                        <Badge
-                                                            variant={
-                                                                TASK_STATUS_VARIANT[
-                                                                    child.status
-                                                                ]
-                                                            }
-                                                            className="shrink-0 font-normal"
-                                                        >
-                                                            {
-                                                                TASK_STATUS_LABELS[
-                                                                    child.status
-                                                                ]
-                                                            }
-                                                        </Badge>
-                                                    )}
 
-                                                    {/* Same "..." menu Jira
+                                                                {/* Same "..." menu Jira
                                                         gives a sub task row.
                                                         Deleting never closes
                                                         the parent: the row goes
@@ -541,63 +662,66 @@ function TaskDetail({
                                                         the modal keeps its
                                                         state while the page
                                                         props refresh. */}
-                                                    {child.can_delete && (
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger
-                                                                asChild
-                                                            >
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="size-8 shrink-0 text-muted-foreground"
-                                                                    aria-label={`Tindakan ${child.title}`}
-                                                                >
-                                                                    <MoreHorizontal
-                                                                        className="size-4"
-                                                                        aria-hidden="true"
-                                                                    />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem
-                                                                    variant="destructive"
-                                                                    onSelect={() => {
-                                                                        if (
-                                                                            !confirm(
-                                                                                child.children_count >
-                                                                                    0
-                                                                                    ? `Hapus sub task "${child.title}" beserta ${child.children_count} sub task-nya?`
-                                                                                    : `Hapus sub task "${child.title}"?`,
-                                                                            )
-                                                                        ) {
-                                                                            return;
-                                                                        }
+                                                                {child.can_delete && (
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger
+                                                                            asChild
+                                                                        >
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="size-8 shrink-0 text-muted-foreground"
+                                                                                aria-label={`Tindakan ${child.title}`}
+                                                                            >
+                                                                                <MoreHorizontal
+                                                                                    className="size-4"
+                                                                                    aria-hidden="true"
+                                                                                />
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent align="end">
+                                                                            <DropdownMenuItem
+                                                                                variant="destructive"
+                                                                                onSelect={() => {
+                                                                                    if (
+                                                                                        !confirm(
+                                                                                            child.children_count >
+                                                                                                0
+                                                                                                ? `Hapus sub task "${child.title}" beserta ${child.children_count} sub task-nya?`
+                                                                                                : `Hapus sub task "${child.title}"?`,
+                                                                                        )
+                                                                                    ) {
+                                                                                        return;
+                                                                                    }
 
-                                                                        router.delete(
-                                                                            destroy(
-                                                                                child.id,
-                                                                            )
-                                                                                .url,
-                                                                            {
-                                                                                preserveScroll: true,
-                                                                                preserveState: true,
-                                                                            },
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    <Trash2
-                                                                        className="size-4"
-                                                                        aria-hidden="true"
-                                                                    />
-                                                                    Hapus
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                                                    router.delete(
+                                                                                        destroy(
+                                                                                            child.id,
+                                                                                        )
+                                                                                            .url,
+                                                                                        {
+                                                                                            preserveScroll: true,
+                                                                                            preserveState: true,
+                                                                                        },
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <Trash2
+                                                                                    className="size-4"
+                                                                                    aria-hidden="true"
+                                                                                />
+                                                                                Hapus
+                                                                            </DropdownMenuItem>
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
+                                                                )}
+                                                            </SortableSubtaskRow>
+                                                        ),
                                                     )}
-                                                </li>
-                                            ))}
-                                        </ul>
+                                                </ul>
+                                            </SortableContext>
+                                        </DndContext>
                                     )}
                                 </section>
                             )}
@@ -878,5 +1002,66 @@ function TaskDetail({
                 </form>
             </DialogContent>
         </Dialog>
+    );
+}
+
+/**
+ * One sub task row, dragged by its grip the way Jira sorts a sub task table.
+ *
+ * The row already carries a rename input, a status select and a menu, so unlike
+ * a board card it cannot be the drag handle itself: only the grip takes the
+ * listeners, and it stays out of sight until the row is hovered or the grip
+ * takes focus.
+ */
+function SortableSubtaskRow({
+    child,
+    children,
+}: {
+    child: TaskNode;
+    children: ReactNode;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        setActivatorNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: child.id, disabled: !child.can_edit });
+
+    return (
+        <li
+            ref={setNodeRef}
+            style={{
+                transform: CSS.Translate.toString(transform),
+                transition,
+            }}
+            className={cn(
+                'group flex items-center gap-3 px-3 py-2 text-sm',
+                // Lifted over its neighbours so the moving row stays readable
+                // while the rest of the list slides under it.
+                isDragging && 'relative z-10 bg-accent shadow-sm',
+            )}
+        >
+            {child.can_edit ? (
+                <button
+                    type="button"
+                    ref={setActivatorNodeRef}
+                    {...attributes}
+                    {...listeners}
+                    aria-label={`Urutkan ${child.reference}`}
+                    title="Geser untuk mengurutkan"
+                    className="-ml-1 shrink-0 cursor-grab touch-none text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
+                >
+                    <GripVertical className="size-4" aria-hidden="true" />
+                </button>
+            ) : (
+                // Keeps a read-only row's reference lined up with the rest.
+                <span className="size-4 shrink-0" aria-hidden="true" />
+            )}
+
+            {children}
+        </li>
     );
 }

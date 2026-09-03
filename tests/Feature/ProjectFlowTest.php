@@ -381,3 +381,34 @@ test('a malformed or blank key is refused on update', function () {
 
     expect($project->refresh()->key)->toBe('LAMA');
 });
+
+test('dropping a sub task on another reorders it under the same parent', function () {
+    // The modal sends the parent along, so a reorder never reads as a move to
+    // the root, and the WBS numbers follow the new sibling order.
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    $project = Project::factory()->in($unit)->create(['key' => 'SUB']);
+    $project->members()->attach($member->user_id);
+
+    $hierarchy = app(TaskHierarchy::class);
+    $parent = $hierarchy->create($project, ['title' => 'Induk']);
+    $hierarchy->create($project, ['title' => 'Satu'], $parent);
+    $hierarchy->create($project, ['title' => 'Dua'], $parent);
+    $third = $hierarchy->create($project, ['title' => 'Tiga'], $parent);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->post(route('tasks.move', $third), [
+            'parent_task_id' => $parent->id,
+            'position' => 0,
+        ])
+        ->assertRedirect();
+
+    $children = Task::withoutGlobalScopes()
+        ->where('parent_task_id', $parent->id)
+        ->orderBy('position')
+        ->get();
+
+    expect($children->pluck('title')->all())->toBe(['Tiga', 'Satu', 'Dua']);
+    expect($children->pluck('wbs_number')->all())->toBe(['1.1', '1.2', '1.3']);
+    expect($third->refresh()->parent_task_id)->toBe($parent->id);
+});
