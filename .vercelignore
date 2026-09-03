@@ -19,3 +19,5 @@ ContohLaporan.xlsx
 public/build
 public/hot
 public/storage
+# Served as static PHP source otherwise; api/index.php boots Laravel instead.
+public/index.php
