@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
-import { MoreHorizontal, Plus, Trash2, X } from 'lucide-react';
+import { MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { CommentBox } from '@/components/task/comment-box';
@@ -124,6 +125,37 @@ function TaskDetail({
     const canAddSubtask = Boolean(
         onAddSubtask && !readOnly && task.can_have_children,
     );
+    /**
+     * Inline rename of a sub task, the way Jira lets a row be edited from the
+     * parent. The row is PATCHed on its own, so the parent's unsaved edits stay
+     * untouched and the draft lives here rather than in `form`.
+     */
+    const [editingSubtaskId, setEditingSubtaskId] = useState<number | null>(
+        null,
+    );
+    const [subtaskDraft, setSubtaskDraft] = useState('');
+
+    const startSubtaskRename = (child: TaskNode) => {
+        setEditingSubtaskId(child.id);
+        setSubtaskDraft(child.title);
+    };
+
+    const saveSubtaskTitle = (child: TaskNode) => {
+        const title = subtaskDraft.trim();
+
+        setEditingSubtaskId(null);
+
+        if (title === '' || title === child.title) {
+            return;
+        }
+
+        router.patch(
+            update(child.id).url,
+            { title },
+            { preserveScroll: true, preserveState: true },
+        );
+    };
+
     const donePercent =
         task.children_count > 0
             ? Math.round((task.done_children_count / task.children_count) * 100)
@@ -132,7 +164,7 @@ function TaskDetail({
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
             <DialogContent
-                className="flex max-h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl"
+                className="flex h-[92vh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[84rem]"
                 // Radix focuses the first field on open, which selects the
                 // whole title and invites an accidental overwrite. The modal is
                 // for reading first, so nothing is focused until it is clicked.
@@ -229,8 +261,11 @@ function TaskDetail({
                         });
                     }}
                 >
-                    <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_23rem]">
-                        <div className="min-h-0 space-y-7 overflow-y-auto px-8 py-6">
+                    <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_26rem]">
+                        {/* `min-w-0` plus `overflow-x-hidden`: the work column
+                            never scrolls sideways, so a long sub task title
+                            wraps and is clamped instead of widening the row. */}
+                        <div className="min-h-0 min-w-0 space-y-7 overflow-x-hidden overflow-y-auto px-8 py-6">
                             <div className="grid gap-2">
                                 <Label htmlFor="task-title" className="sr-only">
                                     Judul
@@ -316,28 +351,111 @@ function TaskDetail({
                                             {subtasks.map((child) => (
                                                 <li
                                                     key={child.id}
-                                                    className="flex items-center gap-3 px-3 py-2 text-sm"
+                                                    className="group flex items-center gap-3 px-3 py-2 text-sm"
                                                 >
                                                     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                                                         {child.reference}
                                                     </span>
 
-                                                    {onOpenTask ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                onOpenTask(
-                                                                    child.id,
+                                                    {editingSubtaskId ===
+                                                    child.id ? (
+                                                        <Input
+                                                            autoFocus
+                                                            value={subtaskDraft}
+                                                            aria-label={`Judul ${child.reference}`}
+                                                            className="h-8 min-w-0 flex-1"
+                                                            onChange={(event) =>
+                                                                setSubtaskDraft(
+                                                                    event.target
+                                                                        .value,
                                                                 )
                                                             }
-                                                            className="min-w-0 flex-1 truncate text-left hover:underline"
-                                                        >
-                                                            {child.title}
-                                                        </button>
+                                                            onBlur={() =>
+                                                                saveSubtaskTitle(
+                                                                    child,
+                                                                )
+                                                            }
+                                                            onKeyDown={(
+                                                                event,
+                                                            ) => {
+                                                                if (
+                                                                    event.key ===
+                                                                    'Enter'
+                                                                ) {
+                                                                    event.preventDefault();
+                                                                    saveSubtaskTitle(
+                                                                        child,
+                                                                    );
+                                                                }
+
+                                                                if (
+                                                                    event.key ===
+                                                                    'Escape'
+                                                                ) {
+                                                                    event.preventDefault();
+                                                                    // Put the stored title back
+                                                                    // first: the blur that follows
+                                                                    // then has nothing to save.
+                                                                    setSubtaskDraft(
+                                                                        child.title,
+                                                                    );
+                                                                    setEditingSubtaskId(
+                                                                        null,
+                                                                    );
+                                                                }
+                                                            }}
+                                                        />
                                                     ) : (
-                                                        <span className="min-w-0 flex-1 truncate">
-                                                            {child.title}
-                                                        </span>
+                                                        <>
+                                                            {onOpenTask ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        onOpenTask(
+                                                                            child.id,
+                                                                        )
+                                                                    }
+                                                                    className="line-clamp-2 min-w-0 flex-1 text-left break-words hover:underline"
+                                                                >
+                                                                    {
+                                                                        child.title
+                                                                    }
+                                                                </button>
+                                                            ) : (
+                                                                <span className="line-clamp-2 min-w-0 flex-1 break-words">
+                                                                    {
+                                                                        child.title
+                                                                    }
+                                                                </span>
+                                                            )}
+
+                                                            {/* Jira's pencil:
+                                                                out of the way
+                                                                until the row is
+                                                                hovered or the
+                                                                button takes
+                                                                focus. */}
+                                                            {child.can_edit && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                                                    aria-label={`Ubah judul ${child.reference}`}
+                                                                    title="Ubah judul"
+                                                                    onClick={() =>
+                                                                        startSubtaskRename(
+                                                                            child,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Pencil
+                                                                        className="size-4"
+                                                                        aria-hidden="true"
+                                                                    />
+                                                                </Button>
+                                                            )}
+                                                        </>
                                                     )}
 
                                                     {/* Jira lets a sub task's

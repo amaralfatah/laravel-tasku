@@ -171,3 +171,32 @@ test('deleting the only unfinished sub task lifts the parent to done', function 
 
     expect($parent->refresh()->progress)->toBe(100);
 });
+
+test('renaming a sub task from the parent modal touches only its title', function () {
+    [$member, $project] = progressProject();
+
+    $parent = Task::factory()
+        ->for($project)
+        ->create(['workspace_id' => $project->workspace_id, 'title' => 'Induk']);
+
+    $first = subtaskOf($parent, 'Anak satu');
+    subtaskOf($parent, 'Anak dua');
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('tasks.update', $first), ['status' => 'done'])
+        ->assertRedirect();
+
+    // What the inline rename sends: the title on its own.
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('tasks.update', $first), ['title' => 'Anak satu diubah'])
+        ->assertRedirect();
+
+    $first->refresh();
+
+    expect($first->title)->toBe('Anak satu diubah');
+    expect($first->status->value)->toBe('done');
+    expect($first->progress)->toBe(100);
+    expect($parent->refresh()->progress)->toBe(50);
+});
