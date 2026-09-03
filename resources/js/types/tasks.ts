@@ -51,6 +51,8 @@ export type TaskNode = {
     start_date: string | null;
     due_date: string | null;
     position: number;
+    /** ISO 8601, stamped when the status turned done. */
+    completed_at: string | null;
     children_count: number;
     done_children_count: number;
     is_overdue: boolean;

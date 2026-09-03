@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $assignee_id
  * @property TaskStatus $status
  * @property int $progress
+ * @property Carbon|null $completed_at stamped when the status turns done
  * @property TaskPriority $priority
  * @property Carbon|null $start_date
  * @property Carbon|null $due_date
@@ -166,6 +167,7 @@ class Task extends Model
             'priority' => TaskPriority::class,
             'start_date' => 'date',
             'due_date' => 'date',
+            'completed_at' => 'datetime',
         ];
     }
 }

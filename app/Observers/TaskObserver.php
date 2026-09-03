@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Actions\Notify;
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Services\TaskHierarchy;
 
@@ -12,6 +13,20 @@ class TaskObserver
         protected Notify $notify,
         protected TaskHierarchy $hierarchy,
     ) {}
+
+    /**
+     * Stamp when a task was finished, so the board can order the done column
+     * newest first. Kept here rather than in the controller: a rollup from a
+     * sub task closes a parent without any request touching it.
+     */
+    public function saving(Task $task): void
+    {
+        if (! $task->isDirty('status')) {
+            return;
+        }
+
+        $task->completed_at = $task->status === TaskStatus::Done ? now() : null;
+    }
 
     public function created(Task $task): void
     {

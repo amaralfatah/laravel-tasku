@@ -66,6 +66,10 @@ function rootOrder(tasks: TaskNode[]): TaskNode[] {
         .sort((a, b) => a.position - b.position);
 }
 
+function finishedAt(task: TaskNode): number {
+    return task.completed_at ? Date.parse(task.completed_at) : 0;
+}
+
 function isStatus(value: unknown): value is TaskStatus {
     return TASK_STATUS_ORDER.includes(value as TaskStatus);
 }
@@ -170,6 +174,11 @@ export default function ProjectBoard({
         for (const task of items) {
             grouped[task.status].push(task);
         }
+
+        // Selesai reads as a log rather than a queue: the task finished most
+        // recently sits on top. Anything without a stamp falls to the bottom
+        // and keeps its board order there.
+        grouped.done.sort((a, b) => finishedAt(b) - finishedAt(a));
 
         return grouped;
     }, [items]);

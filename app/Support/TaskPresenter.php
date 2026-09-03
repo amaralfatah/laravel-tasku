@@ -75,6 +75,7 @@ class TaskPresenter
             'start_date' => $task->start_date?->toDateString(),
             'due_date' => $task->due_date?->toDateString(),
             'position' => $task->position,
+            'completed_at' => $task->completed_at?->toIso8601String(),
             'children_count' => $childCount,
             'done_children_count' => $children === null
                 ? 0
