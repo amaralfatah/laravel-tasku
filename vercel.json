@@ -4,6 +4,7 @@
     "installCommand": "bash scripts/vercel-install.sh",
     "buildCommand": "npm run build",
     "outputDirectory": "public",
+    "regions": ["sin1"],
     "functions": {
         "api/index.php": {
             "runtime": "vercel-php@0.9.0",
