@@ -97,6 +97,17 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            /**
+             * Neon's `-pooler` host is PgBouncer in transaction pooling mode,
+             * which cannot carry PDO's server side prepared statements from one
+             * statement to the next. Without emulation the second statement of
+             * a transaction aborts it, and everything after that fails with
+             * `SQLSTATE[25P02] current transaction is aborted` — which is what
+             * creating a sub task hits, since it selects before it inserts.
+             */
+            'options' => array_filter([
+                PDO::ATTR_EMULATE_PREPARES => env('DB_EMULATE_PREPARES', false),
+            ]),
         ],
 
         'sqlsrv' => [
