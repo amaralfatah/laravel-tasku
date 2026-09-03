@@ -8,6 +8,14 @@ dnf install -y -q \
 curl -sS https://getcomposer.org/installer \
   | php -- --quiet --install-dir=/usr/local/bin --filename=composer
 
+# `composer install` runs `artisan package:discover`, which boots the framework.
+# Blank build-time environment variables would otherwise resolve to an empty
+# string instead of falling through to the defaults in config/, so pin the few
+# values the boot actually reads. Runtime keeps whatever Vercel injects.
+export CACHE_STORE="${CACHE_STORE:-array}"
+export SESSION_DRIVER="${SESSION_DRIVER:-array}"
+export QUEUE_CONNECTION="${QUEUE_CONNECTION:-sync}"
+
 composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
 
 npm ci
