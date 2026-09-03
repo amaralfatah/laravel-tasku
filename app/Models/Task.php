@@ -34,6 +34,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property TaskStatus $status
  * @property int $progress
  * @property CarbonImmutable|null $completed_at stamped when the status turns done
+ * @property CarbonImmutable|null $submitted_at when the worker handed it up for review
+ * @property CarbonImmutable|null $reviewed_at when the decision was made
+ * @property int|null $reviewed_by who accepted or returned the work
  * @property TaskPriority $priority
  * @property CarbonImmutable|null $start_date
  * @property CarbonImmutable|null $due_date
@@ -100,6 +103,12 @@ class Task extends Model
         return $this->hasMany(Task::class, 'parent_task_id')->orderBy('position');
     }
 
+    /** @return HasMany<Comment, $this> */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class)->oldest();
+    }
+
     /** @return BelongsTo<User, $this> */
     public function assignee(): BelongsTo
     {
@@ -110,6 +119,24 @@ class Task extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Whoever accepted or returned the work.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * Waiting on somebody's decision.
+     */
+    public function awaitsReview(): bool
+    {
+        return $this->status === TaskStatus::Review;
     }
 
     /**
@@ -170,6 +197,8 @@ class Task extends Model
             'start_date' => 'immutable_date',
             'due_date' => 'immutable_date',
             'completed_at' => 'immutable_datetime',
+            'submitted_at' => 'immutable_datetime',
+            'reviewed_at' => 'immutable_datetime',
         ];
     }
 }

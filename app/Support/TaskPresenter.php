@@ -81,8 +81,12 @@ class TaskPresenter
                 ? 0
                 : $children->where('status', TaskStatus::Done)->count(),
             'is_overdue' => $task->isOverdue(),
+            'submitted_at' => $task->submitted_at?->toIso8601String(),
+            'reviewed_at' => $task->reviewed_at?->toIso8601String(),
             'can_edit' => $canEdit,
             'can_delete' => $canEdit && $user->can('delete', $task),
+            // Whether this person is the one who accepts or returns the work.
+            'can_review' => $canEdit && $user->can('review', $task),
             'can_have_children' => $task->canHaveChildren(),
         ];
     }

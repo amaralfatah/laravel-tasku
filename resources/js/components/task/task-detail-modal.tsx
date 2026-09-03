@@ -56,9 +56,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { destroy, move, update } from '@/routes/tasks';
+import { destroy, move, review, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import {
     TASK_PRIORITY_CLASSES,
@@ -166,6 +167,28 @@ function TaskDetail({
      * status that changes underneath is not held back by the drag.
      */
     const [draggedOrder, setDraggedOrder] = useState<number[] | null>(null);
+
+    /**
+     * The accept/return decision on a task waiting in review. Kept outside
+     * `form` since it posts to its own endpoint rather than the task update.
+     */
+    const [reviewNote, setReviewNote] = useState('');
+    const [reviewing, setReviewing] = useState(false);
+
+    const decideReview = (decision: 'approve' | 'return') => {
+        setReviewing(true);
+
+        router.post(
+            review(task.id).url,
+            { decision, note: reviewNote.trim() || undefined },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => setReviewNote(''),
+                onFinish: () => setReviewing(false),
+            },
+        );
+    };
 
     const orderedSubtasks = useMemo(() => {
         const byPosition = [...subtasks].sort(
@@ -782,6 +805,71 @@ function TaskDetail({
                                 </Select>
                                 <InputError message={form.errors.status} />
                             </div>
+
+                            {/*
+                             * Work handed up sits here until somebody decides
+                             * on it. Only the person who may decide sees the
+                             * two buttons; everyone else is told who is next,
+                             * so a task in review never looks stuck for no
+                             * reason.
+                             */}
+                            {task.status === 'review' && (
+                                <div className="space-y-2 rounded-md border bg-background p-3">
+                                    <h3 className="text-sm font-semibold">
+                                        Menunggu review
+                                    </h3>
+
+                                    {task.can_review ? (
+                                        <>
+                                            <Textarea
+                                                value={reviewNote}
+                                                rows={2}
+                                                placeholder="Catatan untuk pelaksana (opsional)"
+                                                onChange={(event) =>
+                                                    setReviewNote(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    disabled={reviewing}
+                                                    onClick={() =>
+                                                        decideReview('approve')
+                                                    }
+                                                >
+                                                    Setujui
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled={reviewing}
+                                                    onClick={() =>
+                                                        decideReview('return')
+                                                    }
+                                                >
+                                                    Kembalikan
+                                                </Button>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Menyetujui menandai task selesai.
+                                                Mengembalikan mengubahnya kembali
+                                                jadi dikerjakan, dan catatan Anda
+                                                dikirim sebagai komentar.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">
+                                            Pekerjaan sudah diserahkan dan
+                                            menunggu persetujuan pemilik task di
+                                            atasnya.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="rounded-md border bg-background">
                                 <h3 className="border-b px-3 py-2 text-sm font-semibold">

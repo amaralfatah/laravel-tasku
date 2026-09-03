@@ -23,6 +23,8 @@ use Illuminate\Support\Str;
  * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read OrgUnit|null $rootOrgUnit null until an operator or a self
+ *   serve owner places the workspace in the tree
  */
 #[Fillable(['parent_id', 'name', 'slug', 'root_org_unit_id', 'is_active'])]
 class Workspace extends Model
@@ -144,6 +146,7 @@ class Workspace extends Model
      */
     public function descendants(): Collection
     {
+        /** @var Collection<int, Workspace> $found */
         $found = new Collection;
         $frontier = [$this->id];
 

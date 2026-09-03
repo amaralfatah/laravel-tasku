@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Notify;
 use App\Enums\TaskStatus;
 use App\Http\Requests\Task\TaskStoreRequest;
 use App\Http\Requests\Task\TaskUpdateRequest;
+use App\Models\Comment;
 use App\Models\Project;
 use App\Models\Task;
 use App\Services\TaskHierarchy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class TaskController extends Controller
@@ -41,9 +44,65 @@ class TaskController extends Controller
     {
         $this->authorize('update', $task);
 
-        $task->update($this->hierarchy->syncProgress($request->validated(), $task));
+        $attributes = $this->hierarchy->syncProgress($request->validated(), $task);
+
+        $this->guardApproval($request, $task, $attributes);
+
+        $task->fill($attributes);
+        // The review trail is stamped by the system, so it is not fillable.
+        $task->forceFill($this->reviewTrail($attributes, $task));
+        $task->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Task diperbarui.']);
+
+        return back();
+    }
+
+    /**
+     * Accept the work on a task, or send it back for more (TSK-18).
+     *
+     * Approving finishes the task; returning it puts it back in progress with
+     * the reason recorded as a comment, so the worker reads why rather than
+     * finding the card moved and guessing.
+     */
+    public function review(Request $request, Task $task, Notify $notify): RedirectResponse
+    {
+        $this->authorize('review', $task);
+
+        abort_unless($task->awaitsReview(), 422, 'Task ini tidak sedang menunggu review.');
+
+        $validated = $request->validate([
+            'decision' => ['required', 'string', 'in:approve,return'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $approved = $validated['decision'] === 'approve';
+
+        $task->forceFill([
+            'status' => $approved ? TaskStatus::Done : TaskStatus::InProgress,
+            // Returned work is not finished work, so its percentage steps back
+            // off 100 rather than sitting there contradicting the status.
+            'progress' => $approved ? 100 : 90,
+            'reviewed_at' => now(),
+            'reviewed_by' => $request->user()->id,
+        ])->save();
+
+        if (($validated['note'] ?? '') !== '') {
+            $comment = new Comment(['body' => $validated['note']]);
+            $comment->task_id = $task->id;
+            $comment->user_id = $request->user()->id;
+            $comment->workspace_id = $task->workspace_id;
+            $comment->save();
+
+            $notify->commentAdded($comment);
+        }
+
+        $notify->reviewDecided($task->refresh(), $approved);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $approved ? 'Task disetujui dan ditandai selesai.' : 'Task dikembalikan untuk diperbaiki.',
+        ]);
 
         return back();
     }
@@ -65,10 +124,18 @@ class TaskController extends Controller
         ]);
 
         if (isset($validated['status'])) {
-            $task->update($this->hierarchy->syncProgress(
+            $attributes = $this->hierarchy->syncProgress(
                 ['status' => $validated['status']],
                 $task,
-            ));
+            );
+
+            // Dropping a card in the Done column is the same statement as
+            // setting the status, so it meets the same approval rule.
+            $this->guardApproval($request, $task, $attributes);
+
+            $task->fill($attributes);
+            $task->forceFill($this->reviewTrail($attributes, $task));
+            $task->save();
             $task->refresh();
         }
 
@@ -95,6 +162,57 @@ class TaskController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Task dihapus beserta sub task-nya.']);
 
         return back();
+    }
+
+    /**
+     * Refuse someone closing their own work when acceptance is not theirs.
+     *
+     * A task's assignee hands it up with the `review` status; whoever may
+     * review it decides. Without this, the same person could skip straight to
+     * Done and the approval step would be advisory. Someone who administers
+     * the project — its leader, or whoever started it — is unaffected, which
+     * is what keeps a one-person workspace working normally.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function guardApproval(Request $request, Task $task, array $attributes): void
+    {
+        $status = isset($attributes['status']) ? TaskStatus::from((string) $attributes['status']) : null;
+
+        if ($status !== TaskStatus::Done || $task->status === TaskStatus::Done) {
+            return;
+        }
+
+        if ($request->user()->can('review', $task)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'status' => 'Kirim task ini untuk direview; yang menyetujui selesainya adalah pemilik task di atasnya.',
+        ]);
+    }
+
+    /**
+     * The review trail a status change implies, empty when it implies none.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    protected function reviewTrail(array $attributes, Task $task): array
+    {
+        $status = isset($attributes['status']) ? TaskStatus::from((string) $attributes['status']) : null;
+
+        if ($status !== TaskStatus::Review || $task->getOriginal('status') === TaskStatus::Review->value) {
+            return [];
+        }
+
+        return [
+            'submitted_at' => now(),
+            // A fresh submission is undecided again, so last time's verdict
+            // must not linger next to it.
+            'reviewed_at' => null,
+            'reviewed_by' => null,
+        ];
     }
 
     /**

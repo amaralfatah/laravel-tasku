@@ -36,15 +36,18 @@ class TaskObserver
     }
 
     /**
-     * Only a change of assignee fires; editing other fields does not.
+     * A change of assignee tells the new one; work handed up for review tells
+     * whoever has to decide on it. Editing other fields notifies nobody.
      */
     public function updated(Task $task): void
     {
-        if (! $task->wasChanged('assignee_id') || $task->assignee_id === null) {
-            return;
+        if ($task->wasChanged('assignee_id') && $task->assignee_id !== null) {
+            $this->notify->taskAssigned($task, $task->assignee_id);
         }
 
-        $this->notify->taskAssigned($task, $task->assignee_id);
+        if ($task->wasChanged('status') && $task->status === TaskStatus::Review) {
+            $this->notify->reviewRequested($task);
+        }
     }
 
     /**

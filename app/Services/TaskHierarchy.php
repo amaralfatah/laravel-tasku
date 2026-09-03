@@ -149,7 +149,11 @@ class TaskHierarchy
 
         // Progress and status must not contradict each other (TSK-16).
         $status = match (true) {
-            $average >= 100 => TaskStatus::Done,
+            // A task waiting on somebody's decision is not finished by its sub
+            // tasks reaching 100: accepting the work is a person's act, and
+            // rolling it up would skip the approval entirely.
+            $parent->status === TaskStatus::Review => TaskStatus::Review,
+            $average >= 100 && $this->allChildrenDone($parent) => TaskStatus::Done,
             $average > 0 => TaskStatus::InProgress,
             default => TaskStatus::Todo,
         };
@@ -168,6 +172,19 @@ class TaskHierarchy
             'progress' => $average,
             'status' => $status,
         ])->save();
+    }
+
+    /**
+     * Whether every sub task has actually been accepted, not merely finished.
+     *
+     * A child sitting at 100% in review is finished work that nobody has
+     * signed off yet, so the task above it stays in progress.
+     */
+    protected function allChildrenDone(Task $parent): bool
+    {
+        return $parent->children()
+            ->where('status', '!=', TaskStatus::Done->value)
+            ->doesntExist();
     }
 
     /**
@@ -209,7 +226,10 @@ class TaskHierarchy
             $attributes['status'] = TaskStatus::InProgress->value;
         }
 
-        if ($progress === 100 && $status !== TaskStatus::Done) {
+        // Typing 100% is the same statement as finishing — except while the
+        // task is in review, where 100% is already its normal state and
+        // forcing Done would hand out the approval nobody gave.
+        if ($progress === 100 && ! $status->isFinishedWork()) {
             $attributes['status'] = TaskStatus::Done->value;
         }
 

@@ -172,6 +172,7 @@ export default function ProjectBoard({
         const grouped: Record<TaskStatus, TaskNode[]> = {
             todo: [],
             in_progress: [],
+            review: [],
             done: [],
         };
 
@@ -323,7 +324,7 @@ export default function ProjectBoard({
                     }}
                     onDragEnd={handleDragEnd}
                 >
-                    <div className="grid items-start gap-3 overflow-x-auto md:grid-cols-3">
+                    <div className="grid items-start gap-3 overflow-x-auto md:grid-cols-4">
                         {TASK_STATUS_ORDER.map((status) => (
                             <BoardColumn
                                 key={status}

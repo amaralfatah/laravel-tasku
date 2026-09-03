@@ -18,7 +18,7 @@ export type TaskFilterState = {
     sort: 'wbs' | 'due_date' | 'priority' | 'created_at';
 };
 
-export type TaskStatus = 'todo' | 'in_progress' | 'done';
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -56,18 +56,30 @@ export type TaskNode = {
     children_count: number;
     done_children_count: number;
     is_overdue: boolean;
+    /** ISO 8601, stamped when the work was handed up for review. */
+    submitted_at: string | null;
+    /** ISO 8601, stamped when someone accepted or returned it. */
+    reviewed_at: string | null;
     can_edit: boolean;
     can_delete: boolean;
+    /** True for the person who accepts or returns this task's work. */
+    can_review: boolean;
     can_have_children: boolean;
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
     todo: 'To Do',
     in_progress: 'Dikerjakan',
+    review: 'Menunggu review',
     done: 'Selesai',
 };
 
-export const TASK_STATUS_ORDER: TaskStatus[] = ['todo', 'in_progress', 'done'];
+export const TASK_STATUS_ORDER: TaskStatus[] = [
+    'todo',
+    'in_progress',
+    'review',
+    'done',
+];
 
 export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
     low: 'Rendah',
@@ -106,6 +118,7 @@ export const TASK_STATUS_VARIANT: Record<
 > = {
     todo: 'secondary',
     in_progress: 'default',
+    review: 'outline',
     done: 'outline',
 };
 

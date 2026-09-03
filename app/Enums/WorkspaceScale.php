@@ -46,7 +46,8 @@ enum WorkspaceScale: string
 
         // Depth of the slice the workspace runs: a root on its own is flat,
         // anything below it is an org chart someone drew on purpose.
-        $hasTree = $workspace->orgUnits()->where('depth', '>', $workspace->rootOrgUnit?->depth ?? 0)->exists();
+        $rootDepth = $workspace->root_org_unit_id === null ? 0 : $workspace->rootOrgUnit->depth;
+        $hasTree = $workspace->orgUnits()->where('depth', '>', $rootDepth)->exists();
 
         return match (true) {
             $hasTree, $members > self::COMPANY_HEADCOUNT => self::Company,

@@ -40,6 +40,29 @@ class TaskPolicy
         return $this->update($user, $task);
     }
 
+    /**
+     * Accept or return work somebody handed up.
+     *
+     * Two people qualify, which is exactly the two-tier flow a graded
+     * organisation runs: whoever owns the task above this one — the assistant
+     * over a staff member's subtask, the sub division head over the
+     * assistant's — and whoever administers the project, so a leader is never
+     * blocked by an absent reviewer. Nobody signs off their own work.
+     */
+    public function review(User $user, Task $task): bool
+    {
+        if (! $this->inActiveWorkspace($task) || ! $user->can('contribute', $task->project)) {
+            return false;
+        }
+
+        if ($task->assignee_id === $user->id && ! $task->project->isAdministeredBy($user)) {
+            return false;
+        }
+
+        return $task->parent?->assignee_id === $user->id
+            || $task->project->isAdministeredBy($user);
+    }
+
     protected function inActiveWorkspace(Task $task): bool
     {
         return $task->workspace_id === $this->tenancy->id();

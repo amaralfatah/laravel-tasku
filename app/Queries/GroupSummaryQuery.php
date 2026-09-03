@@ -156,10 +156,12 @@ class GroupSummaryQuery
             )
             ->get()
             ->keyBy('workspace_id')
-            ->map(fn ($row): array => [
-                'tasks' => (int) $row->tasks,
-                'done' => (int) $row->done,
-                'overdue' => (int) $row->overdue,
+            // Raw aggregate columns, not real Task attributes — getAttribute()
+            // reads them without PHPStan mistaking this for the Task shape.
+            ->map(fn (Task $row): array => [
+                'tasks' => (int) $row->getAttribute('tasks'),
+                'done' => (int) $row->getAttribute('done'),
+                'overdue' => (int) $row->getAttribute('overdue'),
             ])
             ->all();
     }

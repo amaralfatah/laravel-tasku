@@ -8,6 +8,8 @@ enum NotificationType: string
     case Mentioned = 'mentioned';
     case CommentAdded = 'comment_added';
     case DueSoon = 'due_soon';
+    case ReviewRequested = 'review_requested';
+    case ReviewDecided = 'review_decided';
 
     public function label(): string
     {
@@ -16,6 +18,8 @@ enum NotificationType: string
             self::Mentioned => 'Disebut',
             self::CommentAdded => 'Komentar baru',
             self::DueSoon => 'Jatuh tempo',
+            self::ReviewRequested => 'Menunggu review',
+            self::ReviewDecided => 'Hasil review',
         };
     }
 }

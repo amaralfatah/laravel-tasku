@@ -71,6 +71,8 @@ Route::middleware(['auth', 'workspace'])->group(function () {
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('tasks/{task}/move', [TaskController::class, 'move'])->name('tasks.move');
+    // Accepting or returning work somebody handed up (TSK-18).
+    Route::post('tasks/{task}/review', [TaskController::class, 'review'])->name('tasks.review');
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
 
     Route::get('tasks/{task}/comments', [CommentController::class, 'index'])->name('comments.index');

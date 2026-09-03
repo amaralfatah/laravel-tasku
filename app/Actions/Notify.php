@@ -86,6 +86,54 @@ class Notify
     }
 
     /**
+     * Work has been handed up: whoever owns the task above it is told, and the
+     * project's own leader when there is no task above.
+     */
+    public function reviewRequested(Task $task): void
+    {
+        $actorId = Auth::id() === null ? null : (int) Auth::id();
+        $reviewerId = $task->parent?->assignee_id;
+
+        if ($reviewerId === null || $reviewerId === $actorId) {
+            return;
+        }
+
+        $this->write(
+            userId: $reviewerId,
+            workspaceId: $task->workspace_id,
+            type: NotificationType::ReviewRequested,
+            entityType: 'task',
+            entityId: $task->id,
+            actorId: $actorId,
+            message: Str::limit($task->title, 60).' menunggu review Anda',
+        );
+    }
+
+    /**
+     * A decision was made: the person who did the work is told either way.
+     */
+    public function reviewDecided(Task $task, bool $approved): void
+    {
+        $actorId = Auth::id() === null ? null : (int) Auth::id();
+
+        if ($task->assignee_id === null || $task->assignee_id === $actorId) {
+            return;
+        }
+
+        $this->write(
+            userId: $task->assignee_id,
+            workspaceId: $task->workspace_id,
+            type: NotificationType::ReviewDecided,
+            entityType: 'task',
+            entityId: $task->id,
+            actorId: $actorId,
+            message: $approved
+                ? Str::limit($task->title, 60).' disetujui'
+                : Str::limit($task->title, 60).' dikembalikan untuk diperbaiki',
+        );
+    }
+
+    /**
      * Daily due reminder, at most once per task per day.
      */
     public function dueSoon(Task $task): bool
