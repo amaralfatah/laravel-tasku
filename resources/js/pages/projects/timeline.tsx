@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { CalendarOff, ChevronRight } from 'lucide-react';
+import { CalendarOff, ChevronRight, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProjectHeader } from '@/components/project/project-header';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
@@ -9,6 +9,7 @@ import {
     TimelineHeader,
     TimelineToday,
     ZOOM_LABELS,
+    useFillWidth,
     useTimelineScale,
 } from '@/components/task/timeline-scale';
 import type { Zoom } from '@/components/task/timeline-scale';
@@ -17,6 +18,7 @@ import { useTaskFilters } from '@/hooks/use-task-filters';
 import { cn } from '@/lib/utils';
 import { formatDay } from '@/lib/week';
 import { index as projectsIndex, timeline } from '@/routes/projects';
+import { exportMethod as exportTimeline } from '@/routes/projects/timeline';
 import type { Option } from '@/types/members';
 import type {
     ProjectSummary,
@@ -93,6 +95,17 @@ export default function ProjectTimeline({
 
     const applyFilters = useTaskFilters(filters, timeline(project.id).url);
 
+    // The download mirrors what is on screen: the same filters, the same zoom.
+    const exportUrl = exportTimeline(project.id, {
+        query: {
+            assignee_id: filters.assignee_id ?? undefined,
+            status: filters.status ?? undefined,
+            priority: filters.priority ?? undefined,
+            search: filters.search ?? undefined,
+            zoom,
+        },
+    }).url;
+
     const spans = useMemo(() => resolveSpans(tasks), [tasks]);
 
     const scheduled = useMemo(
@@ -122,7 +135,9 @@ export default function ProjectTimeline({
         [scheduled, spans],
     );
 
-    const scale = useTimelineScale(ranges, zoom);
+    const [panelRef, fillWidth] = useFillWidth<HTMLDivElement>(LEFT_WIDTH);
+
+    const scale = useTimelineScale(ranges, zoom, fillWidth);
 
     const childCounts = useMemo(() => {
         const counts = new Map<number, number>();
@@ -188,6 +203,13 @@ export default function ProjectTimeline({
                         onChange={applyFilters}
                     />
 
+                    <Button variant="outline" size="sm" asChild>
+                        <a href={exportUrl}>
+                            <Download aria-hidden="true" />
+                            Ekspor Excel
+                        </a>
+                    </Button>
+
                     <div
                         className="flex rounded-md border p-0.5"
                         role="group"
@@ -220,7 +242,10 @@ export default function ProjectTimeline({
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto rounded-lg border">
+                    <div
+                        ref={panelRef}
+                        className="overflow-x-auto rounded-lg border"
+                    >
                         <div
                             className="min-w-max"
                             style={{ width: `${LEFT_WIDTH + scale.width}px` }}
@@ -288,7 +313,7 @@ export default function ProjectTimeline({
                                                 />
                                             )}
 
-                                            <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                            <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                                                 {task.reference}
                                             </span>
 
@@ -348,7 +373,7 @@ export default function ProjectTimeline({
                                         onClick={() => setOpenTaskId(task.id)}
                                         className="flex min-h-11 w-full items-center gap-3 px-3 text-left hover:bg-muted/40"
                                     >
-                                        <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                        <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                                             {task.reference}
                                         </span>
                                         <span className="min-w-0 flex-1 truncate">

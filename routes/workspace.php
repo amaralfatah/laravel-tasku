@@ -9,6 +9,7 @@ use App\Http\Controllers\Monitoring\PersonController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrgUnitController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectMemberController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,7 @@ Route::middleware(['auth', 'workspace'])->group(function () {
     Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
     Route::get('projects/{project}/list', [ProjectController::class, 'list'])->name('projects.list');
     Route::get('projects/{project}/timeline', [ProjectController::class, 'timeline'])->name('projects.timeline');
+    Route::get('projects/{project}/timeline/export', ProjectExportController::class)->name('projects.timeline.export');
     Route::get('projects/{project}/settings', [ProjectController::class, 'settings'])->name('projects.settings');
     Route::patch('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
     Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');

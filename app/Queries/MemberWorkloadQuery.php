@@ -5,6 +5,7 @@ namespace App\Queries;
 use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\WorkspaceMember;
+use App\Support\TaskOrder;
 use App\Support\Tenancy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -100,20 +101,12 @@ class MemberWorkloadQuery
     /**
      * Put a set of tasks in reading order: by project, then down the tree.
      *
-     * Neither `path` nor `wbs_number` sorts correctly in the database — both
-     * are text, so `/10/` lands before `/2/` and `1.10` before `1.9`. The
-     * numbers are compared naturally here instead, which is what makes a
-     * parent's sub tasks follow it rather than scatter through the list.
-     *
      * @param  Collection<int, Task>  $tasks
      * @return Collection<int, Task>
      */
     protected function inTreeOrder(Collection $tasks): Collection
     {
-        return $tasks
-            ->sort(fn (Task $left, Task $right): int => $left->project_id <=> $right->project_id
-                ?: strnatcmp($left->wbs_number, $right->wbs_number))
-            ->values();
+        return TaskOrder::tree($tasks);
     }
 
     /**
