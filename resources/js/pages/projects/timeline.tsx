@@ -6,6 +6,7 @@ import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
 import {
     TimelineBar,
+    TimelineGridLines,
     TimelineHeader,
     TimelineToday,
     ZOOM_LABELS,
@@ -14,6 +15,7 @@ import {
 } from '@/components/task/timeline-scale';
 import type { Zoom } from '@/components/task/timeline-scale';
 import { Button } from '@/components/ui/button';
+import { useFocusedTask } from '@/hooks/use-focused-task';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { cn } from '@/lib/utils';
 import { formatDay } from '@/lib/week';
@@ -38,6 +40,8 @@ type PageProps = {
     priorities: Option[];
     assignees: TaskAssignee[];
     maxDepth: number;
+    /** Task to open on arrival, e.g. when following a notification (NTF-3). */
+    focusTaskId: number | null;
     can: { contribute: boolean; edit_project: boolean };
 };
 
@@ -88,10 +92,11 @@ export default function ProjectTimeline({
     statuses,
     priorities,
     assignees,
+    focusTaskId,
 }: PageProps) {
     const [zoom, setZoom] = useState<Zoom>('week');
     const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-    const [openTaskId, setOpenTaskId] = useState<number | null>(null);
+    const [openTaskId, setOpenTaskId] = useFocusedTask(focusTaskId);
 
     const applyFilters = useTaskFilters(filters, timeline(project.id).url);
 
@@ -250,9 +255,12 @@ export default function ProjectTimeline({
                             className="min-w-max"
                             style={{ width: `${LEFT_WIDTH + scale.width}px` }}
                         >
-                            <div className="flex border-b bg-muted/40">
+                            <div className="flex border-b bg-muted">
                                 <div
-                                    className="sticky left-0 z-10 shrink-0 border-r bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground"
+                                    // Opaque, not a tint: the month columns
+                                    // scroll underneath this cell, and a
+                                    // translucent one shows them through.
+                                    className="sticky left-0 z-10 shrink-0 border-r bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
                                     style={{ width: `${LEFT_WIDTH}px` }}
                                 >
                                     <div className="pt-1">Task</div>
@@ -272,10 +280,14 @@ export default function ProjectTimeline({
                                 return (
                                     <div
                                         key={task.id}
-                                        className="flex border-b last:border-b-0 hover:bg-muted/30"
+                                        className="group flex border-b last:border-b-0 hover:bg-accent"
                                     >
                                         <div
-                                            className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r bg-background px-2 py-1.5"
+                                            // The sticky cell paints over the
+                                            // row, so it has to carry the hover
+                                            // itself — and both have to be
+                                            // opaque to cover the grid behind.
+                                            className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r bg-background px-2 py-1.5 group-hover:bg-accent"
                                             style={{
                                                 width: `${LEFT_WIDTH}px`,
                                                 paddingLeft: `${8 + task.depth * 14}px`,
@@ -334,6 +346,7 @@ export default function ProjectTimeline({
                                                 width: `${scale.width}px`,
                                             }}
                                         >
+                                            <TimelineGridLines scale={scale} />
                                             <TimelineToday scale={scale} />
                                             <TimelineBar
                                                 scale={scale}

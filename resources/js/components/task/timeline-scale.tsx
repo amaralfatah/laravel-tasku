@@ -61,7 +61,11 @@ export function fittingZoom(
     }
 
     const times = dates.map((date) => date.getTime());
-    const months = daysBetween(new Date(Math.min(...times)), new Date(Math.max(...times))) / 30;
+    const months =
+        daysBetween(
+            new Date(Math.min(...times)),
+            new Date(Math.max(...times)),
+        ) / 30;
 
     if (months <= 4) {
         return 'week';
@@ -131,7 +135,11 @@ export function useTimelineScale(
             : anchor;
 
         const dayWidth = DAY_WIDTH[zoom];
-        const origin = startOfWeek(addWeeks(min, -1));
+        // Start at the week the earliest date falls in, with nothing before it.
+        // A blank week of padding read as work starting a month earlier: a
+        // project opening on Sunday 1 June sits in the week of 26 May, and the
+        // padding put a second, empty May column in front of that one.
+        const origin = startOfWeek(min);
         const end = addWeeks(startOfWeek(max), 2);
 
         const columns: TimelineColumn[] =
@@ -227,7 +235,10 @@ export function TimelineHeader({ scale }: { scale: TimelineScale }) {
 
         for (const column of scale.columns) {
             if (column.topLabel !== null || groups.length === 0) {
-                groups.push({ label: column.topLabel ?? '', days: column.days });
+                groups.push({
+                    label: column.topLabel ?? '',
+                    days: column.days,
+                });
 
                 continue;
             }
@@ -239,14 +250,23 @@ export function TimelineHeader({ scale }: { scale: TimelineScale }) {
     }, [scale.columns]);
 
     return (
-        <div className="text-xs" style={{ width: `${scale.width}px` }}>
+        // Stretched by the band, with the week row taking the slack, so a
+        // column's border reaches the bottom of the band and meets the grid
+        // line under it. Sizing itself instead leaves it a pixel or two short
+        // of the taller label column beside it, and the line breaks there —
+        // which is also why there is no `h-full` here: an explicit height
+        // cancels the stretch and hands back the same gap.
+        <div
+            className="flex flex-col text-xs"
+            style={{ width: `${scale.width}px` }}
+        >
             <div className="flex">
                 {periods.map((period, index) => (
                     <div
                         key={index}
                         className={cn(
                             'shrink-0 truncate px-1 pt-1 font-medium text-foreground/70',
-                            index > 0 ? 'border-l border-border' : '',
+                            index > 0 ? 'border-l-2 border-border' : '',
                         )}
                         style={{ width: `${period.days * scale.dayWidth}px` }}
                     >
@@ -255,13 +275,20 @@ export function TimelineHeader({ scale }: { scale: TimelineScale }) {
                 ))}
             </div>
 
-            <div className="flex">
+            <div className="flex flex-1">
                 {scale.columns.map((column, index) => (
                     <div
                         key={index}
                         className={cn(
                             'shrink-0 truncate px-0.5 pb-1 text-center text-muted-foreground tabular-nums',
-                            column.topLabel ? 'border-l border-border' : '',
+                            // Weight, not colour: the band sits on `muted` and
+                            // the rows on the page, so a paler line reads as a
+                            // different colour rather than a softer one.
+                            index === 0
+                                ? ''
+                                : column.topLabel
+                                  ? 'border-l-2 border-border'
+                                  : 'border-l border-border',
                         )}
                         style={{ width: `${column.days * scale.dayWidth}px` }}
                     >
@@ -346,6 +373,47 @@ export function TimelineBar({
 /**
  * Vertical marker for today (TML-8).
  */
+/**
+ * The column boundaries of the current zoom, drawn behind the bars.
+ *
+ * Without them a bar's ends have to be read against a header three rows up,
+ * which is guesswork on a wide grid.
+ *
+ * Drawn as the same row of bordered columns the header uses, not as absolutely
+ * positioned rules. A column is rarely a whole number of pixels wide, and a
+ * 1px div placed at a fractional offset is antialiased across two device
+ * pixels — thinner and paler than the header's border at the same boundary.
+ * Laying the columns out the same way makes the browser round them the same
+ * way, so the line runs unbroken from the label down.
+ *
+ * Every line is the full `border` colour. A lighter weight for the weeks read
+ * as a different colour rather than a softer one, since the header band sits
+ * on `muted` and the rows on the page.
+ */
+export function TimelineGridLines({ scale }: { scale: TimelineScale }) {
+    return (
+        <div
+            className="pointer-events-none absolute inset-0 flex"
+            aria-hidden="true"
+        >
+            {scale.columns.map((column, index) => (
+                <div
+                    key={index}
+                    className={cn(
+                        'shrink-0',
+                        index === 0
+                            ? ''
+                            : column.topLabel
+                              ? 'border-l-2 border-border'
+                              : 'border-l border-border',
+                    )}
+                    style={{ width: `${column.days * scale.dayWidth}px` }}
+                />
+            ))}
+        </div>
+    );
+}
+
 export function TimelineToday({ scale }: { scale: TimelineScale }) {
     const offset = daysBetween(scale.origin, today()) * scale.dayWidth;
 

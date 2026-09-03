@@ -5,6 +5,7 @@ import { ProgressBar } from '@/components/task/progress-bar';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import {
     TimelineBar,
+    TimelineGridLines,
     TimelineHeader,
     TimelineToday,
     ZOOM_LABELS,
@@ -256,8 +257,11 @@ export default function MonitoringPerson({
                                 width: `${LABEL_WIDTH + scale.width}px`,
                             }}
                         >
-                            <div className="flex border-b bg-muted/40">
-                                <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+                            <div className="flex border-b bg-muted">
+                                {/* Opaque like the project rows below it: the
+                                    week columns scroll underneath this cell,
+                                    and a tint shows them through. */}
+                                <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
                                     Task · Judul · Progress
                                 </div>
                                 <TimelineHeader scale={scale} />
@@ -294,10 +298,10 @@ export default function MonitoringPerson({
                                     {group.tasks.map((task) => (
                                         <div
                                             key={task.id}
-                                            className="flex border-b last:border-b-0 hover:bg-muted/30"
+                                            className="group flex border-b last:border-b-0 hover:bg-accent"
                                         >
                                             <div
-                                                className="sticky left-0 z-10 flex w-88 shrink-0 items-center gap-2 border-r bg-background px-3 py-1.5"
+                                                className="sticky left-0 z-10 flex w-88 shrink-0 items-center gap-2 border-r bg-background px-3 py-1.5 group-hover:bg-accent"
                                                 style={{
                                                     paddingLeft: `${12 + task.depth * 14}px`,
                                                 }}
@@ -332,6 +336,9 @@ export default function MonitoringPerson({
                                                     width: `${scale.width}px`,
                                                 }}
                                             >
+                                                <TimelineGridLines
+                                                    scale={scale}
+                                                />
                                                 <TimelineToday scale={scale} />
                                                 <TimelineBar
                                                     scale={scale}
