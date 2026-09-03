@@ -1,5 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Building2, Check, ChevronsUpDown } from 'lucide-react';
+import {
+    Building2,
+    Check,
+    ChevronsUpDown,
+    CornerDownRight,
+} from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -119,7 +124,16 @@ export function WorkspaceSwitcher() {
                                     )
                                 }
                             >
-                                <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                                {/*
+                                 * An operating company is indented under the
+                                 * holding it belongs to, so a group reads as a
+                                 * group rather than a flat list of names.
+                                 */}
+                                {workspace.parent_id === null ? (
+                                    <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                                ) : (
+                                    <CornerDownRight className="ml-3 size-4 shrink-0 text-muted-foreground" />
+                                )}
                                 <span className="truncate">
                                     {workspace.name}
                                 </span>

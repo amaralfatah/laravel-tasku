@@ -32,6 +32,47 @@ class WorkspaceMember extends Model
      */
     protected ?string $resolvedScopePath = null;
 
+    /**
+     * True when this membership was projected down from a holding rather than
+     * stored: the person is a member of the parent workspace, and this is the
+     * shape that membership takes inside one of its operating companies.
+     *
+     * It is never saved, never appears on a roster, and carries no unit — the
+     * whole subsidiary is its scope, read-only for a Viewer.
+     */
+    public bool $projected = false;
+
+    /**
+     * This membership as it applies inside one of the group's companies.
+     *
+     * Placement does not travel: a holding Owner is not a member of the
+     * subsidiary's org tree, they simply run all of it, so the projection
+     * drops `org_unit_id` and lets `hasFullScope()` do the work.
+     */
+    public function projectInto(Workspace $company): self
+    {
+        $projection = new self;
+
+        $projection->exists = false;
+        $projection->projected = true;
+        $projection->forceFill([
+            'workspace_id' => $company->id,
+            'user_id' => $this->user_id,
+            'role' => $this->role,
+            'title' => $this->title,
+            'org_unit_id' => null,
+            'manager_id' => null,
+            'joined_at' => $this->joined_at,
+        ]);
+        $projection->setRelation('workspace', $company);
+
+        if ($this->relationLoaded('user')) {
+            $projection->setRelation('user', $this->user);
+        }
+
+        return $projection;
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Middleware\EnsureWorkspaceAccess;
 use App\Models\Workspace;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,12 +15,13 @@ class WorkspaceContextController extends Controller
     /**
      * Switch the active workspace, provided the user is still a member.
      */
-    public function change(Request $request, Workspace $workspace): RedirectResponse
+    public function change(Request $request, Workspace $workspace, WorkspaceAccess $access): RedirectResponse
     {
         // Membership is the only way in, super admin included: they operate the
-        // platform and never a workspace (SA-4).
+        // platform and never a workspace (SA-4). A group director's membership
+        // in the holding counts here, projected into the company they pick.
         abort_unless(
-            $workspace->is_active && $request->user()->membershipIn($workspace) !== null,
+            $workspace->is_active && $access->memberships($request->user())->has($workspace->id),
             403,
         );
 

@@ -3,8 +3,10 @@
 namespace App\Http\Middleware;
 
 use App\Enums\ProjectStatus;
+use App\Enums\WorkspaceScale;
 use App\Models\Project;
 use App\Support\Tenancy;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -70,6 +72,17 @@ class HandleInertiaRequests extends Middleware
                 'id' => $workspace->id,
                 'name' => $workspace->name,
                 'slug' => $workspace->slug,
+                // Group context: whether this workspace runs others, and the
+                // holding above it when it is itself an operating company.
+                'is_holding' => $workspace->isHolding(),
+                'parent' => $workspace->parent === null ? null : [
+                    'id' => $workspace->parent->id,
+                    'name' => $workspace->parent->name,
+                    'slug' => $workspace->parent->slug,
+                ],
+                // How much of the product this workspace actually needs, so
+                // the interface can stay out of a small team's way.
+                'scale' => WorkspaceScale::of($workspace)->value,
             ],
             'membership' => $member === null ? null : [
                 'role' => $member->role->value,
@@ -82,6 +95,14 @@ class HandleInertiaRequests extends Middleware
                 // A Viewer is the exception: reading them is all they do.
                 'can_monitor' => $member->canObserve(),
                 'can_write' => $member->canWrite(),
+                // True when the person reaches this company through the group
+                // rather than by belonging to it.
+                'via_group' => $member->projected,
+                // The consolidated page exists only for a holding, and only
+                // for a role that reads the whole of it.
+                'can_view_group' => $workspace !== null
+                    && $workspace->isHolding()
+                    && $member->readsEverything(),
             ],
             'workspaces' => $this->switchableWorkspaces($request),
             'projects' => $workspace === null ? [] : $this->sidebarProjects($request),
@@ -152,8 +173,9 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Workspaces the switcher may offer: the user's own memberships. A super
-     * admin belongs to none and manages them from the roster instead (SA-4).
+     * Workspaces the switcher may offer: the user's own memberships, plus the
+     * operating companies of any holding they are an Owner or Viewer of. A
+     * super admin belongs to none and manages them from the roster (SA-4).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -161,19 +183,6 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        if ($user === null) {
-            return [];
-        }
-
-        return $user->workspaces()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['workspaces.id', 'workspaces.name', 'workspaces.slug'])
-            ->map(fn ($item): array => [
-                'id' => $item->id,
-                'name' => $item->name,
-                'slug' => $item->slug,
-            ])
-            ->all();
+        return $user === null ? [] : app(WorkspaceAccess::class)->switchable($user);
     }
 }

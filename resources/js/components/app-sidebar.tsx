@@ -18,6 +18,7 @@ import {
     SidebarHeader,
 } from '@/components/ui/sidebar';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
+import { index as groupIndex } from '@/routes/group';
 import { index as membersIndex } from '@/routes/members';
 import { divisions, me, people } from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
@@ -42,10 +43,29 @@ export function AppSidebar() {
             icon: ListChecks,
         });
 
+        /*
+         * Progressive disclosure: a solo workspace has nobody to place and
+         * nobody to monitor, so it is never shown the roster or the reporting
+         * pages even though its Owner would be allowed to open them. The scale
+         * follows the data, so the menu grows as the organisation appears.
+         */
+        const scale = tenancy?.workspace?.scale ?? 'solo';
+        const showsOrganisation = scale !== 'solo';
+
+        // Only the holding itself gets the consolidated view, and only a
+        // group-level role reaches across its entities.
+        if (membership?.can_view_group) {
+            mainNavItems.push({
+                title: 'Konsolidasi grup',
+                href: groupIndex(),
+                icon: Building2,
+            });
+        }
+
         // An owner or manager leads a slice of the org tree and gets exactly the
         // same menu; only how far that slice reaches differs. An ODS leads
         // nobody, so none of this is theirs.
-        if (membership?.can_monitor) {
+        if (showsOrganisation && membership?.can_monitor) {
             // Both views watch the same workload from a different angle, so
             // they sit under one heading instead of repeating "Monitoring".
             const monitoringItems: NavItem[] = [

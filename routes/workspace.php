@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\GroupController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\Monitoring\DivisionController;
@@ -23,6 +24,12 @@ Route::middleware(['auth', 'workspace'])->group(function () {
     // The structure itself is master data an operator maintains (see
     // routes/organization.php); a leader only searches it to place someone.
     Route::get('org-units/search', [OrgUnitController::class, 'search'])->name('org-units.search');
+
+    // Consolidated view for a holding over its operating companies. Refuses
+    // itself when the active workspace runs none, so an ordinary company never
+    // has to know the feature exists.
+    Route::get('group', [GroupController::class, 'index'])->name('group.index');
+    Route::post('group/{company}/enter', [GroupController::class, 'enter'])->name('group.enter');
 
     Route::get('members', [MemberController::class, 'index'])->name('members.index');
     Route::patch('members/{member}', [MemberController::class, 'update'])->name('members.update');

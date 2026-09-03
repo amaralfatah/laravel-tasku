@@ -37,6 +37,13 @@ import { Label } from '@/components/ui/label';
 import { Pagination } from '@/components/ui/pagination';
 import type { Paginated } from '@/components/ui/pagination';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
     Table,
     TableBody,
     TableCell,
@@ -55,6 +62,10 @@ type WorkspaceRow = {
     slug: string;
     /** Node of the platform org tree this workspace runs. */
     root_org_unit: { id: number; name: string } | null;
+    /** The holding this workspace operates under, if any. */
+    parent: { id: number; name: string } | null;
+    /** How many operating companies it runs itself. */
+    children_count: number;
     is_active: boolean;
     members_count: number;
     created_at: string;
@@ -73,14 +84,19 @@ type Filters = { search: string; status: string };
 
 const ALL = 'all';
 
+/** Select needs a non-empty value, so "no holding" carries a sentinel. */
+const NO_HOLDING = 'none';
+
 export default function Workspaces({
     workspaces,
     filters,
     stats,
+    holdingOptions,
 }: {
     workspaces: Paginated<WorkspaceRow>;
     filters: Filters;
     stats: Stats;
+    holdingOptions: { id: number; name: string }[];
 }) {
     const [search, setSearch] = useState(filters.search);
     const [createOpen, setCreateOpen] = useState(false);
@@ -345,9 +361,25 @@ export default function Workspaces({
                                                     Nonaktif
                                                 </Badge>
                                             )}
+                                            {workspace.children_count > 0 && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="font-normal"
+                                                >
+                                                    Holding ·{' '}
+                                                    {workspace.children_count}{' '}
+                                                    entitas
+                                                </Badge>
+                                            )}
                                         </div>
                                         <span className="text-xs text-muted-foreground">
                                             /{workspace.slug}
+                                            {workspace.parent && (
+                                                <>
+                                                    {' · di bawah '}
+                                                    {workspace.parent.name}
+                                                </>
+                                            )}
                                         </span>
                                     </TableCell>
 
@@ -509,6 +541,7 @@ export default function Workspaces({
             <RenameDialog
                 key={renaming?.id ?? 'none'}
                 workspace={renaming}
+                holdingOptions={holdingOptions}
                 onClose={() => setRenaming(null)}
             />
         </>
@@ -546,18 +579,29 @@ function StatTile({
 
 function RenameDialog({
     workspace,
+    holdingOptions,
     onClose,
 }: {
     workspace: WorkspaceRow | null;
+    holdingOptions: { id: number; name: string }[];
     onClose: () => void;
 }) {
     // Remounted per workspace via a key, so the initial value is always right.
     const [name, setName] = useState(workspace?.name ?? '');
     const [unit, setUnit] = useState(workspace?.root_org_unit ?? null);
+    const [parentId, setParentId] = useState(
+        workspace?.parent?.id ? String(workspace.parent.id) : NO_HOLDING,
+    );
 
     if (!workspace) {
         return null;
     }
+
+    // A workspace cannot sit under itself, and its own companies would close
+    // the group into a loop; the request refuses those too.
+    const candidates = holdingOptions.filter(
+        (option) => option.id !== workspace.id,
+    );
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -576,7 +620,14 @@ function RenameDialog({
                         event.preventDefault();
                         router.patch(
                             WorkspaceController.update.url(workspace.slug),
-                            { name, root_org_unit_id: unit?.id ?? null },
+                            {
+                                name,
+                                root_org_unit_id: unit?.id ?? null,
+                                parent_id:
+                                    parentId === NO_HOLDING
+                                        ? null
+                                        : Number(parentId),
+                            },
                             { preserveScroll: true, onSuccess: onClose },
                         );
                     }}
@@ -590,6 +641,33 @@ function RenameDialog({
                             required
                             autoFocus
                         />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="holding">Induk (holding)</Label>
+                        <Select value={parentId} onValueChange={setParentId}>
+                            <SelectTrigger id="holding">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={NO_HOLDING}>
+                                    Tanpa induk (entitas mandiri)
+                                </SelectItem>
+                                {candidates.map((option) => (
+                                    <SelectItem
+                                        key={option.id}
+                                        value={String(option.id)}
+                                    >
+                                        {option.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Menautkan workspace ini sebagai anak perusahaan.
+                            Datanya tetap terpisah; induknya hanya mendapat
+                            dasbor konsolidasi.
+                        </p>
                     </div>
 
                     <div className="grid gap-2">

@@ -104,6 +104,20 @@ enum WorkspaceRole: string
     }
 
     /**
+     * Whether holding this role in a parent workspace reaches the operating
+     * companies under it.
+     *
+     * Only the two group-level roles do: an Owner runs the group, a Viewer
+     * reads the consolidated picture. A Manager and a Member belong to the
+     * holding's own org tree and have no business inside a subsidiary, which
+     * is what keeps one company's data out of another's reach.
+     */
+    public function reachesSubsidiaries(): bool
+    {
+        return $this === self::Owner || $this === self::Viewer;
+    }
+
+    /**
      * Whether this role sits above another on the ladder. Nobody may hand out
      * a role at or above their own.
      */

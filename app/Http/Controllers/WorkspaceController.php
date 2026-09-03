@@ -34,8 +34,8 @@ class WorkspaceController extends Controller
             ->when($search !== '', fn ($query) => $query->where('name', 'ilike', "%{$search}%"))
             ->when($status === 'active', fn ($query) => $query->where('is_active', true))
             ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
-            ->withCount('members')
-            ->with('rootOrgUnit:id,name')
+            ->withCount(['members', 'children'])
+            ->with(['rootOrgUnit:id,name', 'parent:id,name'])
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString()
@@ -46,6 +46,10 @@ class WorkspaceController extends Controller
                 // Which node of the platform org tree the workspace runs;
                 // without one it has no units, members or projects to place.
                 'root_org_unit' => $workspace->rootOrgUnit?->only(['id', 'name']),
+                // Group position: the holding above it, and how many
+                // operating companies it runs itself.
+                'parent' => $workspace->parent?->only(['id', 'name']),
+                'children_count' => $workspace->children_count,
                 'is_active' => $workspace->is_active,
                 'members_count' => $workspace->members_count,
                 'created_at' => $workspace->created_at->toDateString(),
@@ -57,6 +61,16 @@ class WorkspaceController extends Controller
             'workspaces' => $workspaces,
             'filters' => ['search' => $search, 'status' => $status],
             'stats' => $this->stats(),
+            // Every workspace is a candidate holding; the request refuses the
+            // ones that would close a group into a loop.
+            'holdingOptions' => Workspace::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (Workspace $option): array => [
+                    'id' => $option->id,
+                    'name' => $option->name,
+                ])
+                ->all(),
         ]);
     }
 

@@ -11,10 +11,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
  * @property int $id
+ * @property int|null $parent_id the holding this workspace operates under
  * @property string $name
  * @property string $slug
  * @property int|null $root_org_unit_id node of the platform org tree this workspace runs
@@ -22,7 +24,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'slug', 'root_org_unit_id', 'is_active'])]
+#[Fillable(['parent_id', 'name', 'slug', 'root_org_unit_id', 'is_active'])]
 class Workspace extends Model
 {
     /** @use HasFactory<WorkspaceFactory> */
@@ -96,6 +98,71 @@ class Workspace extends Model
         return OrgUnit::withoutGlobalScopes()
             ->when($path === null, fn (Builder $query) => $query->whereRaw('1 = 0'))
             ->when($path !== null, fn (Builder $query) => $query->where('path', 'like', $path.'%'));
+    }
+
+    /**
+     * How deep a group of companies may nest. A holding of holdings is real,
+     * but a cycle in the data must not be able to hang a page.
+     */
+    public const MAX_GROUP_DEPTH = 5;
+
+    /**
+     * The holding this workspace operates under, if any.
+     *
+     * @return BelongsTo<Workspace, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class, 'parent_id');
+    }
+
+    /**
+     * The operating companies directly under this one.
+     *
+     * @return HasMany<Workspace, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Workspace::class, 'parent_id')->orderBy('name');
+    }
+
+    /**
+     * Whether this workspace runs other companies, which is the only thing
+     * that makes it a holding — there is no flag to set.
+     */
+    public function isHolding(): bool
+    {
+        return $this->relationLoaded('children')
+            ? $this->children->isNotEmpty()
+            : $this->children()->exists();
+    }
+
+    /**
+     * Every company under this one, breadth first and depth capped.
+     *
+     * @return Collection<int, Workspace>
+     */
+    public function descendants(): Collection
+    {
+        $found = new Collection;
+        $frontier = [$this->id];
+
+        for ($depth = 0; $depth < self::MAX_GROUP_DEPTH && $frontier !== []; $depth++) {
+            $children = static::query()
+                ->whereIn('parent_id', $frontier)
+                ->whereNotIn('id', $found->pluck('id')->push($this->id)->all())
+                ->orderBy('name')
+                ->get();
+
+            if ($children->isEmpty()) {
+                break;
+            }
+
+            $found = $found->concat($children);
+            $frontier = $children->pluck('id')->all();
+        }
+
+        return $found;
     }
 
     /** @return HasMany<WorkspaceMember, $this> */

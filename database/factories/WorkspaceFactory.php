@@ -31,4 +31,14 @@ class WorkspaceFactory extends Factory
             'is_active' => false,
         ]);
     }
+
+    /**
+     * An operating company under the given holding.
+     */
+    public function under(Workspace $holding): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'parent_id' => $holding->id,
+        ]);
+    }
 }

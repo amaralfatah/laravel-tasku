@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\WorkspaceMember;
 use App\Support\Tenancy;
+use App\Support\WorkspaceAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,7 +30,10 @@ class EnsureWorkspaceAccess
 
     public const OPTIONAL = 'optional';
 
-    public function __construct(protected Tenancy $tenancy) {}
+    public function __construct(
+        protected Tenancy $tenancy,
+        protected WorkspaceAccess $access,
+    ) {}
 
     public function handle(Request $request, Closure $next, ?string $mode = null): Response
     {
@@ -61,19 +65,14 @@ class EnsureWorkspaceAccess
     }
 
     /**
-     * Membership for the session workspace, falling back to the first active one.
+     * Membership for the session workspace, falling back to the first active
+     * one. A membership held in a holding is projected into its operating
+     * companies, so a group director may enter any of them.
      */
     protected function resolveMembership(Request $request): ?WorkspaceMember
     {
-        $memberships = $request->user()
-            ->workspaceMembers()
-            ->with('workspace')
-            ->get()
-            ->filter(fn (WorkspaceMember $member): bool => (bool) $member->workspace?->is_active);
-
         $sessionId = $request->session()->get(self::SESSION_KEY);
 
-        return $memberships->firstWhere('workspace_id', $sessionId)
-            ?? $memberships->first();
+        return $this->access->resolve($request->user(), is_numeric($sessionId) ? (int) $sessionId : null);
     }
 }
