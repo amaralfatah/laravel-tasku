@@ -1,0 +1,21 @@
+# Everything in the repository root is uploaded and ends up inside the
+# function bundle, so keep out what the deployment never reads.
+.git
+.github
+.ai
+.agents
+.claude
+.codex
+.neon
+node_modules
+vendor
+tests
+docs
+docker
+Dockerfile
+.dockerignore
+render.yaml
+ContohLaporan.xlsx
+public/build
+public/hot
+public/storage
