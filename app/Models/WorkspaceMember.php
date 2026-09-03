@@ -33,6 +33,17 @@ class WorkspaceMember extends Model
     protected ?string $resolvedScopePath = null;
 
     /**
+     * Paths of the units this member has been asked about, keyed by unit id.
+     *
+     * The permission checks run once per task on a board or a monitoring page,
+     * and each one asks for the same handful of units. Without this the page
+     * spent one round trip per task on a path it had already read.
+     *
+     * @var array<int, string|null>
+     */
+    protected array $resolvedUnitPaths = [];
+
+    /**
      * True when this membership was projected down from a holding rather than
      * stored: the person is a member of the parent workspace, and this is the
      * shape that membership takes inside one of its operating companies.
@@ -220,7 +231,13 @@ class WorkspaceMember extends Model
      */
     protected function unitPath(int $orgUnitId): ?string
     {
-        return $this->workspace->orgUnits()->whereKey($orgUnitId)->value('path');
+        if (! array_key_exists($orgUnitId, $this->resolvedUnitPaths)) {
+            $this->resolvedUnitPaths[$orgUnitId] = $this->workspace->orgUnits()
+                ->whereKey($orgUnitId)
+                ->value('path');
+        }
+
+        return $this->resolvedUnitPaths[$orgUnitId];
     }
 
     /**

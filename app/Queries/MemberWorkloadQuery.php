@@ -125,7 +125,12 @@ class MemberWorkloadQuery
             ->whereIn('assignee_id', $userIds)
             // `workspace_id`, `org_unit_id` and `created_by` are part of the
             // select because the project policy reads all three.
-            ->with(['project:id,name,key,workspace_id,org_unit_id,created_by', 'assignee:id,name,avatar_path'])
+            ->with([
+                'project:id,name,key,workspace_id,org_unit_id,created_by',
+                'assignee:id,name,avatar_path',
+                // The review check reads the parent's assignee, once per task.
+                'parent:id,assignee_id',
+            ])
             ->when($from, fn (Builder $query, string $date) => $query->where(function (Builder $q) use ($date): void {
                 $q->whereNull('due_date')->orWhereDate('due_date', '>=', $date);
             }))

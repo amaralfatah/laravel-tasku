@@ -218,7 +218,8 @@ class ProjectController extends Controller
 
         $query = Task::query()
             ->where('project_id', $project->id)
-            ->with('assignee:id,name,avatar_path');
+            // The review check reads the parent's assignee, once per task.
+            ->with(['assignee:id,name,avatar_path', 'parent:id,assignee_id']);
 
         $filters->apply($query);
         $filters->applySort($query);
@@ -230,6 +231,13 @@ class ProjectController extends Controller
         $tasks = $filters->sort === 'wbs'
             ? TaskOrder::tree($query->get())
             : $query->get();
+
+        // Every task here belongs to the project already in hand, and the
+        // permission checks read `$task->project` once per task. Hand them the
+        // instance that is loaded, together with the member list those checks
+        // ask for, so a page of tasks costs two queries rather than two each.
+        $project->loadMissing('members');
+        $tasks->each(fn (Task $task) => $task->setRelation('project', $project));
 
         return [
             'project' => $this->projectSummary($project),
