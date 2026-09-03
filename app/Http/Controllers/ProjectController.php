@@ -11,6 +11,7 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\WorkspaceMember;
 use App\Support\TaskFilters;
+use App\Support\TaskOrder;
 use App\Support\TaskPresenter;
 use App\Support\Tenancy;
 use Illuminate\Http\RedirectResponse;
@@ -222,7 +223,13 @@ class ProjectController extends Controller
         $filters->apply($query);
         $filters->applySort($query);
 
-        $tasks = $query->get();
+        // `path` is a text column, so the database puts `/10/` before `/2/` and
+        // scatters a parent's sub tasks through the list. The hierarchy order
+        // is settled in PHP for that reason; the flat sorts are already right
+        // as the database returns them.
+        $tasks = $filters->sort === 'wbs'
+            ? TaskOrder::tree($query->get())
+            : $query->get();
 
         return [
             'project' => $this->projectSummary($project),

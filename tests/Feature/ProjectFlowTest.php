@@ -412,3 +412,73 @@ test('dropping a sub task on another reorders it under the same parent', functio
     expect($children->pluck('wbs_number')->all())->toBe(['1.1', '1.2', '1.3']);
     expect($third->refresh()->parent_task_id)->toBe($parent->id);
 });
+
+test('every task view opens the task a notification links to', function () {
+    // The three views share `taskWorkspaceProps`, so the deep link a
+    // notification carries has to land on whichever one the viewer is on.
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod2);
+
+    $project = Project::factory()->in($unit)->create();
+    $task = Task::factory()->for($project)->create();
+
+    $views = [
+        'projects.show' => 'projects/board',
+        'projects.list' => 'projects/list',
+        'projects.timeline' => 'projects/timeline',
+    ];
+
+    foreach ($views as $route => $component) {
+        $this->actingAs($member->user)
+            ->withSession(['workspace_id' => $member->workspace_id])
+            ->get(route($route, ['project' => $project->id, 'task' => $task->id]))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component($component)
+                ->where('focusTaskId', $task->id)
+            );
+    }
+});
+
+test('a move into a column that is not a status is refused', function () {
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod2);
+
+    $project = Project::factory()->in($unit)->create();
+    $task = Task::factory()->for($project)->create(['status' => 'todo']);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->post(route('tasks.move', $task), ['status' => 'selesai-banget'])
+        ->assertSessionHasErrors('status');
+
+    expect($task->fresh()->status->value)->toBe('todo');
+});
+
+test('the tenth sub task follows the ninth rather than the first', function () {
+    // `path` and `wbs_number` are text columns, so the database sorts `/10/`
+    // before `/2/`. The views have to read the natural order instead.
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod2);
+
+    $project = Project::factory()->in($unit)->create();
+    $hierarchy = app(TaskHierarchy::class);
+    $parent = $hierarchy->create($project, ['title' => 'Induk']);
+
+    foreach (range(1, 11) as $number) {
+        $hierarchy->create($project, ['title' => "Sub {$number}"], $parent);
+    }
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.list', $project))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('projects/list')
+            ->where(
+                'tasks.10.reference',
+                "{$project->key}-1.10",
+            )
+            ->where(
+                'tasks.11.reference',
+                "{$project->key}-1.11",
+            )
+        );
+});

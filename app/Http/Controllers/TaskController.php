@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TaskStatus;
 use App\Http\Requests\Task\TaskStoreRequest;
 use App\Http\Requests\Task\TaskUpdateRequest;
 use App\Models\Project;
@@ -9,6 +10,7 @@ use App\Models\Task;
 use App\Services\TaskHierarchy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class TaskController extends Controller
@@ -56,7 +58,10 @@ class TaskController extends Controller
         $validated = $request->validate([
             'parent_task_id' => ['nullable', 'integer'],
             'position' => ['nullable', 'integer', 'min:0'],
-            'status' => ['nullable', 'string'],
+            // The column a card was dropped in. Checked against the enum here
+            // because `syncProgress()` reads it with `TaskStatus::from()`,
+            // which answers anything else with a 500 rather than a 422.
+            'status' => ['nullable', Rule::enum(TaskStatus::class)],
         ]);
 
         if (isset($validated['status'])) {

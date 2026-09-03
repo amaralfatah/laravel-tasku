@@ -7,6 +7,7 @@ import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
 import { TaskTreeRow } from '@/components/task/task-tree-row';
 import { Button } from '@/components/ui/button';
+import { useFocusedTask } from '@/hooks/use-focused-task';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { index as projectsIndex, list } from '@/routes/projects';
 import type { Option } from '@/types/members';
@@ -41,7 +42,7 @@ export default function ProjectList({
     can,
 }: PageProps) {
     const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-    const [openTaskId, setOpenTaskId] = useState<number | null>(focusTaskId);
+    const [openTaskId, setOpenTaskId] = useFocusedTask(focusTaskId);
     const [createParent, setCreateParent] = useState<TaskNode | null>(null);
     const [createOpen, setCreateOpen] = useState(false);
 

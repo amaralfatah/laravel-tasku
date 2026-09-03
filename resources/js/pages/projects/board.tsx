@@ -28,6 +28,7 @@ import { TaskCard } from '@/components/task/task-card';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
+import { useFocusedTask } from '@/hooks/use-focused-task';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { cn } from '@/lib/utils';
 import { index as projectsIndex, show } from '@/routes/projects';
@@ -50,6 +51,8 @@ type PageProps = {
     priorities: Option[];
     assignees: TaskAssignee[];
     maxDepth: number;
+    /** Task to open on arrival, e.g. when following a notification (NTF-3). */
+    focusTaskId: number | null;
     can: { contribute: boolean; edit_project: boolean };
 };
 
@@ -136,9 +139,10 @@ export default function ProjectBoard({
     statuses,
     priorities,
     assignees,
+    focusTaskId,
     can,
 }: PageProps) {
-    const [openTaskId, setOpenTaskId] = useState<number | null>(null);
+    const [openTaskId, setOpenTaskId] = useFocusedTask(focusTaskId);
     /**
      * What the create dialog is creating: a root task in the column whose
      * "Buat" button was pressed, or a sub task of the open task.
