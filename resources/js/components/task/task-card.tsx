@@ -90,13 +90,14 @@ export function TaskCard({
             onPointerDownCapture={handlePointerDown}
             onClick={handleClick}
             className={cn(
-                // No border: the raised surface is a full step lighter than the
-                // sunken column it sits in, which is what separates the two.
-                'group rounded bg-card p-3 shadow-sm transition-colors',
+                // Raised out of the sunken column and edged with a hairline,
+                // the way a Jira card is: the tone step alone still let a card
+                // bleed into the column at the top of a long scroll.
+                'group rounded border border-border bg-card p-3 transition-colors',
                 draggable
                     ? 'cursor-grab touch-none active:cursor-grabbing'
                     : 'cursor-pointer',
-                'hover:bg-accent/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                 // The card stays in place as a hollow slot while its clone
                 // follows the pointer in the DragOverlay.
                 isDragging && 'opacity-40',

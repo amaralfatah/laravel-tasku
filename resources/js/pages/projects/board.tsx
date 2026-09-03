@@ -414,7 +414,7 @@ function BoardColumn({
             className={cn(
                 // The sunken well: a step darker than the page, so the raised
                 // cards inside it read without needing borders.
-                'flex min-w-64 flex-col rounded bg-muted/50 transition-colors',
+                'flex min-w-64 flex-col rounded bg-muted transition-colors',
                 isOver && 'bg-primary/10',
             )}
             aria-label={TASK_STATUS_LABELS[status]}

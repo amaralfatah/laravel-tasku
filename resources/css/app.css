@@ -265,13 +265,23 @@
 }
 
 .dark {
-    /* Same rule as light: one surface, and hairlines do the dividing. */
+    /*
+     * Dark mode is where the single surface failed: a card painted the page
+     * colour disappears into it, and the hairline alone cannot carry a board
+     * of them. So dark keeps Jira's ladder — sunken panel, page, raised card,
+     * hover, overlay — while light mode still runs on one surface plus
+     * hairlines, because white already separates a card from a grey column.
+     *
+     * The steps are deliberately small (roughly 4% lightness apiece); they
+     * order the page, they are not decoration. Depth still comes from tone
+     * only, never a shadow.
+     */
     --background: #1d1d1f;
     --foreground: #ffffff;
-    --card: #1d1d1f;
+    --card: #2b2b30;
     --card-foreground: #ffffff;
-    /* Overlays are the exception — a menu has to lift off the page under it. */
-    --popover: #272729;
+    /* Overlays sit one step above a card, so a menu opened over one reads. */
+    --popover: #35353a;
     --popover-foreground: #ffffff;
 
     /* Action Blue survives on a near-black tile; links switch to Sky Link Blue. */
@@ -280,11 +290,12 @@
     --link: #2997ff;
     --ring: #2997ff;
 
-    --secondary: #2a2a2c;
+    --secondary: #37373c;
     --secondary-foreground: #ffffff;
-    --muted: #252527;
-    --muted-foreground: #cccccc;
-    --accent: #2a2a2c;
+    /* Below the page: board columns, table headers, progress tracks. */
+    --muted: #161618;
+    --muted-foreground: #a1a1a6;
+    --accent: #37373c;
     --accent-foreground: #ffffff;
 
     --destructive: #ff453a;
@@ -292,8 +303,8 @@
     --success: #30d158;
     --warning: #ffa726;
 
-    --border: #3a3a3c;
-    --input: #3a3a3c;
+    --border: #3f3f43;
+    --input: #3f3f43;
 
     --chart-1: #2997ff;
     --chart-2: #0071e3;
@@ -305,13 +316,13 @@
     --sidebar-foreground: #ffffff;
     --sidebar-primary: #0071e3;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #2a2a2c;
+    --sidebar-accent: #37373c;
     --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: #3a3a3c;
+    --sidebar-border: #3f3f43;
     --sidebar-ring: #2997ff;
 
-    --priority-low: #2a2a2c;
-    --priority-low-foreground: #cccccc;
+    --priority-low: #37373c;
+    --priority-low-foreground: #d1d1d6;
     --priority-medium: #10314f;
     --priority-medium-foreground: #2997ff;
     --priority-high: #40280a;
