@@ -7,8 +7,12 @@ import {
     TimelineBar,
     TimelineHeader,
     TimelineToday,
+    ZOOM_LABELS,
+    fittingZoom,
+    useFillWidth,
     useTimelineScale,
 } from '@/components/task/timeline-scale';
+import type { Zoom } from '@/components/task/timeline-scale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +43,11 @@ type Member = {
     avatar: string | null;
     org_unit: string | null;
 };
+
+const ZOOMS: Zoom[] = ['week', 'month', 'quarter'];
+
+/** Sticky label column, in pixels — `w-88`. */
+const LABEL_WIDTH = 352;
 
 /**
  * One person's work across every project (MON-2..MON-5), laid out as a
@@ -77,7 +86,13 @@ export default function MonitoringPerson({
         [allTasks],
     );
 
-    const scale = useTimelineScale(ranges, 'week');
+    // Someone's tasks run across every project they touch, so the span here is
+    // usually far wider than one project's — it opens at the level that fits.
+    const [zoom, setZoom] = useState<Zoom>(() => fittingZoom(ranges));
+
+    const [panelRef, fillWidth] = useFillWidth<HTMLDivElement>(LABEL_WIDTH);
+
+    const scale = useTimelineScale(ranges, zoom, fillWidth);
 
     const unscheduled = allTasks.filter(
         (task) => !task.start_date || !task.due_date,
@@ -96,11 +111,13 @@ export default function MonitoringPerson({
             : { task, assignees: group.assignees };
     }, [tasks, openTaskId]);
 
-    // The download mirrors what is on screen, so the range filter rides along.
+    // The download mirrors what is on screen, so the range filter and the
+    // zoom both ride along.
     const exportUrl = exportPerson(member.id, {
         query: {
             from: filters.from ?? undefined,
             to: filters.to ?? undefined,
+            zoom,
         },
     }).url;
 
@@ -196,6 +213,24 @@ export default function MonitoringPerson({
                             Reset rentang
                         </Button>
                     )}
+
+                    <div
+                        className="ml-auto flex rounded-md border p-0.5"
+                        role="group"
+                        aria-label="Tingkat zoom"
+                    >
+                        {ZOOMS.map((level) => (
+                            <Button
+                                key={level}
+                                size="sm"
+                                variant={zoom === level ? 'secondary' : 'ghost'}
+                                aria-pressed={zoom === level}
+                                onClick={() => setZoom(level)}
+                            >
+                                {ZOOM_LABELS[level]}
+                            </Button>
+                        ))}
+                    </div>
                 </div>
 
                 {tasks.length === 0 ? (
@@ -210,12 +245,15 @@ export default function MonitoringPerson({
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto rounded-lg border">
+                    <div
+                        ref={panelRef}
+                        className="overflow-x-auto rounded-lg border"
+                    >
                         <div
                             className="min-w-max"
                             style={{
                                 // Left column is sticky while the weeks scroll (TML-2).
-                                width: `calc(22rem + ${scale.width}px)`,
+                                width: `${LABEL_WIDTH + scale.width}px`,
                             }}
                         >
                             <div className="flex border-b bg-muted/40">
@@ -225,15 +263,23 @@ export default function MonitoringPerson({
                                 <TimelineHeader scale={scale} />
                             </div>
 
-                            {tasks.map((group) => (
-                                <div key={group.project.id}>
-                                    <div className="flex border-b bg-muted/20">
-                                        <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted/20 px-3 py-1.5">
+                            {tasks.map((group, index) => (
+                                <div
+                                    key={group.project.id}
+                                    className={cn(
+                                        // The page crosses projects, so where one
+                                        // ends has to read at a glance — a tinted
+                                        // row alone was lost among the task rows.
+                                        index > 0 && 'border-t-4 border-border',
+                                    )}
+                                >
+                                    <div className="flex border-b bg-muted">
+                                        <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted px-3 py-2">
                                             <Link
                                                 href={showProject(
                                                     group.project.id,
                                                 )}
-                                                className="text-sm font-medium hover:underline"
+                                                className="text-sm font-semibold tracking-wide uppercase hover:underline"
                                             >
                                                 {group.project.name}
                                             </Link>
@@ -256,11 +302,12 @@ export default function MonitoringPerson({
                                                     paddingLeft: `${12 + task.depth * 14}px`,
                                                 }}
                                             >
-                                                <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                                <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                                                     {task.reference}
                                                 </span>
                                                 <button
                                                     type="button"
+                                                    title={task.title}
                                                     className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
                                                     onClick={() =>
                                                         setOpenTaskId(task.id)
@@ -319,7 +366,7 @@ export default function MonitoringPerson({
                                     key={task.id}
                                     className="flex items-center gap-3 px-3 py-2"
                                 >
-                                    <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                                         {task.reference}
                                     </span>
                                     <button

@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\ExportZoom;
 use App\Enums\TaskStatus;
 use App\Models\Task;
-use App\Support\MonthWeek;
+use App\Support\TimelineGrid;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -51,12 +52,6 @@ class WorkloadExport
 
     protected const COLUMN_SUMMARY_END = 14;
 
-    /** Month names, indexed the way `Carbon::month` counts them. */
-    protected const MONTHS = [
-        1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-    ];
-
     protected const BANNER = 'FF00B050';
 
     protected const HEADER = 'FFF2F2F2';
@@ -78,9 +73,13 @@ class WorkloadExport
      *
      * @param  array<int, array{name: string, subtitle: string|null, tasks: Collection<int, Task>}>  $people
      * @param  string|null  $portfolio  when set, a cover sheet is written and named after it
+     * @param  ExportZoom  $zoom  column granularity; the week grid is the reference layout
      */
-    public function build(array $people, ?string $portfolio = null): Spreadsheet
-    {
+    public function build(
+        array $people,
+        ?string $portfolio = null,
+        ExportZoom $zoom = ExportZoom::Week,
+    ): Spreadsheet {
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
             ->setTitle($portfolio ?? ($people[0]['name'] ?? 'Project Management'))
@@ -88,7 +87,7 @@ class WorkloadExport
             ->setCreator('Tasku');
 
         [$from, $to] = $this->range($people);
-        $months = MonthWeek::months($from, $to);
+        $grid = new TimelineGrid($zoom, $from, $to);
         $titles = $this->sheetTitles($people);
 
         $first = $spreadsheet->getActiveSheet();
@@ -103,7 +102,7 @@ class WorkloadExport
                 : $spreadsheet->createSheet();
 
             $sheet->setTitle($titles[$index]);
-            $this->writePerson($sheet, $person, $from, $months);
+            $this->writePerson($sheet, $person, $grid);
         }
 
         $spreadsheet->setActiveSheetIndex(0);
@@ -216,9 +215,8 @@ class WorkloadExport
      * WBS table with its Gantt three rows below.
      *
      * @param  array{name: string, subtitle: string|null, tasks: Collection<int, Task>}  $person
-     * @param  array<int, CarbonInterface>  $months
      */
-    protected function writePerson(Worksheet $sheet, array $person, CarbonInterface $from, array $months): void
+    protected function writePerson(Worksheet $sheet, array $person, TimelineGrid $grid): void
     {
         $tasks = $person['tasks'];
         $groups = $tasks->groupBy('project_id');
@@ -231,9 +229,9 @@ class WorkloadExport
 
         $headerRow = $this->writeSummary($sheet, $groups, $tasks, 5) + 4;
 
-        $this->writeColumns($sheet, $headerRow, count($months));
-        $this->writeMonths($sheet, $headerRow, $months);
-        $this->writeRows($sheet, $groups, $headerRow + 3, $from, $months);
+        $this->writeColumns($sheet, $headerRow, $grid->count());
+        $this->writeTimelineHeader($sheet, $headerRow, $grid);
+        $this->writeRows($sheet, $groups, $headerRow + 3, $grid);
     }
 
     /**
@@ -317,7 +315,7 @@ class WorkloadExport
      * Nothing is frozen: the reference workbook freezes no pane either, and a
      * split hides the first timeline weeks behind the frozen half.
      */
-    protected function writeColumns(Worksheet $sheet, int $row, int $monthCount): void
+    protected function writeColumns(Worksheet $sheet, int $row, int $columnCount): void
     {
         $monthRow = $row + 1;
         $weekRow = $row + 2;
@@ -343,7 +341,7 @@ class WorkloadExport
         $sheet->getColumnDimension($this->letter(self::COLUMN_START))->setWidth(10.73);
         $sheet->getColumnDimension($this->letter(self::COLUMN_END))->setWidth(10.73);
 
-        $last = $this->lastColumn($monthCount);
+        $last = $this->lastColumn($columnCount);
 
         $sheet->getStyle($this->area(self::COLUMN_TASK, $row, $last, $weekRow))->applyFromArray([
             'font' => ['bold' => true, 'size' => 12],
@@ -370,49 +368,46 @@ class WorkloadExport
     }
 
     /**
-     * The timeline header: a year band on top, the month names under it, and
-     * the four week numbers of each month below that.
+     * The timeline header: a year band on top, the month or quarter names
+     * under it, and the grid's own units below that.
      *
-     * @param  array<int, CarbonInterface>  $months
+     * All three rows come from the grid, so a coarser zoom changes what the
+     * bands say and how wide the columns are — never the geometry the rest of
+     * the sheet is measured against.
      */
-    protected function writeMonths(Worksheet $sheet, int $row, array $months): void
+    protected function writeTimelineHeader(Worksheet $sheet, int $row, TimelineGrid $grid): void
     {
-        $monthRow = $row + 1;
-        $weekRow = $row + 2;
+        $groupRow = $row + 1;
+        $unitRow = $row + 2;
 
-        $year = null;
-        $yearStart = self::COLUMN_TIMELINE;
+        foreach ([$row => $grid->years(), $groupRow => $grid->groups()] as $band => $entries) {
+            $left = self::COLUMN_TIMELINE;
 
-        foreach ($months as $index => $month) {
-            $left = self::COLUMN_TIMELINE + $index * MonthWeek::PER_MONTH;
+            foreach ($entries as $entry) {
+                $right = $left + $entry['span'] - 1;
 
-            $sheet->mergeCells($this->area($left, $monthRow, $left + MonthWeek::PER_MONTH - 1, $monthRow));
-            $sheet->setCellValue([$left, $monthRow], self::MONTHS[$month->month]);
+                $sheet->mergeCells($this->area($left, $band, $right, $band));
+                $sheet->setCellValue([$left, $band], $this->headerValue($entry['label']));
 
-            for ($week = 1; $week <= MonthWeek::PER_MONTH; $week++) {
-                $sheet->setCellValue([$left + $week - 1, $weekRow], $week);
-                $sheet->getColumnDimension($this->letter($left + $week - 1))->setWidth(3.18);
-            }
-
-            if ($year !== $month->year) {
-                if ($year !== null) {
-                    $this->writeYear($sheet, $row, $yearStart, $left - 1, $year);
-                }
-
-                $year = $month->year;
-                $yearStart = $left;
+                $left = $right + 1;
             }
         }
 
-        if ($year !== null) {
-            $this->writeYear($sheet, $row, $yearStart, $this->lastColumn(count($months)), $year);
+        foreach ($grid->units() as $index => $unit) {
+            $column = self::COLUMN_TIMELINE + $index;
+
+            $sheet->setCellValue([$column, $unitRow], $this->headerValue($unit));
+            $sheet->getColumnDimension($this->letter($column))->setWidth($grid->columnWidth());
         }
     }
 
-    protected function writeYear(Worksheet $sheet, int $row, int $left, int $right, int $year): void
+    /**
+     * Week numbers and years are written as numbers, the way the reference
+     * workbook holds them; month and quarter names stay text.
+     */
+    protected function headerValue(string $label): int|string
     {
-        $sheet->mergeCells($this->area($left, $row, $right, $row));
-        $sheet->setCellValue([$left, $row], $year);
+        return is_numeric($label) ? (int) $label : $label;
     }
 
     /**
@@ -420,20 +415,19 @@ class WorkloadExport
      * bar of the weeks it spans.
      *
      * @param  Collection<int, Collection<int, Task>>  $groups
-     * @param  array<int, CarbonInterface>  $months
      */
-    protected function writeRows(Worksheet $sheet, Collection $groups, int $row, CarbonInterface $from, array $months): void
+    protected function writeRows(Worksheet $sheet, Collection $groups, int $row, TimelineGrid $grid): void
     {
-        $last = $this->lastColumn(count($months));
+        $last = $this->lastColumn($grid->count());
         $first = $row;
         $number = 1;
 
         foreach ($groups as $group) {
-            $this->writeProjectRow($sheet, $group, $number, $row, $from, $last);
+            $this->writeProjectRow($sheet, $group, $number, $row, $grid, $last);
             $row++;
 
             foreach ($group as $task) {
-                $this->writeTask($sheet, $task, $number, $row, $from, $last);
+                $this->writeTask($sheet, $task, $number, $row, $grid, $last);
                 $row++;
             }
 
@@ -452,7 +446,7 @@ class WorkloadExport
         $sheet->getStyle($this->area(self::COLUMN_TASK, $first, self::COLUMN_TASK, $row - 1))
             ->getAlignment()->setWrapText(true);
 
-        $this->greyPastHorizon($sheet, $groups->flatten(1), $first, $row - 1, $from, $last);
+        $this->greyPastHorizon($sheet, $groups->flatten(1), $first, $row - 1, $grid, $last);
     }
 
     /**
@@ -461,7 +455,7 @@ class WorkloadExport
      *
      * @param  Collection<int, Task>  $group
      */
-    protected function writeProjectRow(Worksheet $sheet, Collection $group, int $number, int $row, CarbonInterface $from, int $lastColumn): void
+    protected function writeProjectRow(Worksheet $sheet, Collection $group, int $number, int $row, TimelineGrid $grid, int $lastColumn): void
     {
         $dates = $this->datesOf($group);
         $start = $dates->isEmpty() ? null : Date::parse($dates->min());
@@ -470,8 +464,8 @@ class WorkloadExport
         $sheet->setCellValue([self::COLUMN_TASK, $row], $number.'. '.$group->first()->project->name);
         $sheet->setCellValue([self::COLUMN_PROGRESS, $row], $this->groupProgress($group) / 100);
         $sheet->getStyle([self::COLUMN_PROGRESS, $row])->getNumberFormat()->setFormatCode('0%');
-        $sheet->setCellValue([self::COLUMN_START, $row], MonthWeek::label($start));
-        $sheet->setCellValue([self::COLUMN_END, $row], MonthWeek::label($end));
+        $sheet->setCellValue([self::COLUMN_START, $row], $grid->label($start));
+        $sheet->setCellValue([self::COLUMN_END, $row], $grid->label($end));
 
         $sheet->getStyle($this->area(self::COLUMN_TASK, $row, $lastColumn, $row))->applyFromArray([
             'font' => ['bold' => true],
@@ -484,13 +478,13 @@ class WorkloadExport
 
         // Everything before the project started reads as out of scope, the way
         // the reference sheet greys it.
-        $left = self::COLUMN_TIMELINE + MonthWeek::slot($start, $from);
+        $left = self::COLUMN_TIMELINE + $grid->slot($start);
 
         if ($left > self::COLUMN_TIMELINE) {
             $this->fill($sheet, self::COLUMN_TIMELINE, $row, $left - 1, $row, self::OUTSIDE);
         }
 
-        $this->drawBar($sheet, $row, $left, min($lastColumn, self::COLUMN_TIMELINE + MonthWeek::slot($end, $from)),
+        $this->drawBar($sheet, $row, $left, min($lastColumn, self::COLUMN_TIMELINE + $grid->slot($end)),
             $group->every(fn (Task $task): bool => $task->status === TaskStatus::Done));
     }
 
@@ -502,13 +496,13 @@ class WorkloadExport
      * task under the third application reads `3.2.1` — the numbering the
      * workbook uses, where the application itself is the first level.
      */
-    protected function writeTask(Worksheet $sheet, Task $task, int $number, int $row, CarbonInterface $from, int $lastColumn): void
+    protected function writeTask(Worksheet $sheet, Task $task, int $number, int $row, TimelineGrid $grid, int $lastColumn): void
     {
         $sheet->setCellValue([self::COLUMN_TASK, $row], trim($number.'.'.$task->wbs_number.' '.$task->title));
         $sheet->setCellValue([self::COLUMN_PROGRESS, $row], $task->progress / 100);
         $sheet->getStyle([self::COLUMN_PROGRESS, $row])->getNumberFormat()->setFormatCode('0%');
-        $sheet->setCellValue([self::COLUMN_START, $row], MonthWeek::label($task->start_date));
-        $sheet->setCellValue([self::COLUMN_END, $row], MonthWeek::label($task->due_date));
+        $sheet->setCellValue([self::COLUMN_START, $row], $grid->label($task->start_date));
+        $sheet->setCellValue([self::COLUMN_END, $row], $grid->label($task->due_date));
 
         $start = $task->start_date ?? $task->due_date;
         $end = $task->due_date ?? $task->start_date;
@@ -520,8 +514,8 @@ class WorkloadExport
         $this->drawBar(
             $sheet,
             $row,
-            self::COLUMN_TIMELINE + MonthWeek::slot($start, $from),
-            min($lastColumn, self::COLUMN_TIMELINE + MonthWeek::slot($end, $from)),
+            self::COLUMN_TIMELINE + $grid->slot($start),
+            min($lastColumn, self::COLUMN_TIMELINE + $grid->slot($end)),
             $task->status === TaskStatus::Done,
         );
     }
@@ -554,7 +548,7 @@ class WorkloadExport
      *
      * @param  Collection<int, Task>  $tasks
      */
-    protected function greyPastHorizon(Worksheet $sheet, Collection $tasks, int $first, int $last, CarbonInterface $from, int $lastColumn): void
+    protected function greyPastHorizon(Worksheet $sheet, Collection $tasks, int $first, int $last, TimelineGrid $grid, int $lastColumn): void
     {
         $dates = $this->datesOf($tasks);
 
@@ -563,8 +557,7 @@ class WorkloadExport
         }
 
         $horizon = Date::parse($dates->max());
-        $month = intdiv(MonthWeek::slot($horizon, $from), MonthWeek::PER_MONTH);
-        $left = self::COLUMN_TIMELINE + ($month + 1) * MonthWeek::PER_MONTH;
+        $left = self::COLUMN_TIMELINE + $grid->groupEnd($grid->slot($horizon));
 
         if ($left <= $lastColumn) {
             $this->fill($sheet, $left, $first, $lastColumn, $last, self::OUTSIDE);
@@ -593,10 +586,10 @@ class WorkloadExport
             ->getStartColor()->setARGB($argb);
     }
 
-    /** Rightmost timeline column for a header that spans `$monthCount` months. */
-    protected function lastColumn(int $monthCount): int
+    /** Rightmost timeline column of a grid that carries `$columnCount` columns. */
+    protected function lastColumn(int $columnCount): int
     {
-        return self::COLUMN_TIMELINE + $monthCount * MonthWeek::PER_MONTH - 1;
+        return self::COLUMN_TIMELINE + $columnCount - 1;
     }
 
     /** `B6:C9` for a pair of column/row coordinates. */

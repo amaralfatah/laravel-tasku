@@ -62,3 +62,10 @@ Task lines are numbered `<project position>.<wbs>` — the workbook treats the a
 Task order is fixed in PHP, not SQL: `path` and `wbs_number` are text columns, so the database sorts `/10/` before `/2/` and `1.10` before `1.9`. `MemberWorkloadQuery::inTreeOrder()` re-sorts with `strnatcmp` after the fetch — both the person page and the export read that order, and dropping it scatters sub tasks through the list.
 
 Dates are `CarbonImmutable` app-wide (`Date::use()` in AppServiceProvider), so type these helpers on `CarbonInterface` and never assume mutation works.
+
+## The export grid has three zooms; the week one is still the reference
+`WorkloadExport::build()` takes an `ExportZoom` (week/month/quarter) and hands it to `App\Support\TimelineGrid`, which owns the columns, the slot maths and the START/END labels. The controllers read it from a `zoom` query parameter and fall back to `ExportZoom::Week` on anything unknown.
+
+Week is not just the default, it is the layout people diff against older copies of `ContohLaporan.xlsx`: four columns a month, `W3 08-26` labels, week numbers written as integers. Its output must stay byte identical — `MonitoringExportTest` asserts the colours and positions, so run it after touching the grid.
+
+All three zooms draw the same three header rows (year, group, unit) so the rest of the sheet's geometry never moves; only the band labels and the column width change. `MonthWeek` still owns the four-per-month maths and the week labels, and `TimelineGrid` delegates to it for that zoom.

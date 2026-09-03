@@ -148,3 +148,60 @@ test('weeks are counted inside their month and capped at four', function () {
         ->and(MonthWeek::label(Carbon::parse('2026-08-20')))->toBe('W3 08-26')
         ->and(MonthWeek::slot(Carbon::parse('2026-08-20'), Carbon::parse('2026-06-01')))->toBe(10);
 });
+
+test('the export follows the timeline zoom it was asked for', function (string $zoom, string $start, string $end, string $band) {
+    $workspace = Workspace::factory()->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+
+    $project = Project::factory()->in($unit)->create(['name' => 'GrowMate']);
+    Task::factory()->for($project)->done()->create([
+        'title' => 'Auth dan hak akses',
+        'assignee_id' => $member->user_id,
+        'start_date' => '2026-06-03',
+        'due_date' => '2026-08-20',
+    ]);
+
+    $response = $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('monitoring.person.export', ['member' => $member, 'zoom' => $zoom]));
+
+    $response->assertOk();
+
+    $flat = collect(workbook($response)->getSheet(0)->toArray())->flatten()->filter()->values()->all();
+
+    expect($flat)->toContain($start)
+        ->and($flat)->toContain($end)
+        // The middle header row speaks the zoom's own period.
+        ->and($flat)->toContain($band);
+})->with([
+    'week' => ['week', 'W1 06-26', 'W3 08-26', 'Agustus'],
+    'month' => ['month', 'Jun 26', 'Agu 26', 'Q3'],
+    'quarter' => ['quarter', 'Q2 26', 'Q3 26', 'Q3'],
+]);
+
+test('an unknown zoom falls back to the reference week grid', function () {
+    $workspace = Workspace::factory()->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+
+    $project = Project::factory()->in($unit)->create(['name' => 'GrowMate']);
+    Task::factory()->for($project)->done()->create([
+        'title' => 'Auth dan hak akses',
+        'assignee_id' => $member->user_id,
+        'start_date' => '2026-06-03',
+        'due_date' => '2026-08-20',
+    ]);
+
+    $response = $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('monitoring.person.export', ['member' => $member, 'zoom' => 'decade']));
+
+    $flat = collect(workbook($response)->getSheet(0)->toArray())->flatten()->filter()->values()->all();
+
+    expect($flat)->toContain('W1 06-26');
+});

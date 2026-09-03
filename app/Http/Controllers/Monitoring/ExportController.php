@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Monitoring;
 
+use App\Concerns\StreamsWorkbook;
+use App\Enums\ExportZoom;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\WorkspaceMember;
@@ -10,9 +12,6 @@ use App\Services\WorkloadExport;
 use App\Support\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Date;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -23,6 +22,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ExportController extends Controller
 {
+    use StreamsWorkbook;
+
     public function __construct(
         protected Tenancy $tenancy,
         protected MemberWorkloadQuery $workload,
@@ -41,11 +42,12 @@ class ExportController extends Controller
         [$from, $to] = $this->range($request);
         $tasks = $this->workload->tasksForMany([$member->user_id], $from, $to);
 
-        $spreadsheet = $this->export->build([
-            $this->sheetFor($member, $tasks[$member->user_id] ?? null),
-        ]);
+        $spreadsheet = $this->export->build(
+            [$this->sheetFor($member, $tasks[$member->user_id] ?? null)],
+            zoom: $this->zoom($request),
+        );
 
-        return $this->download($spreadsheet, $member->user->name);
+        return $this->streamWorkbook($spreadsheet, $member->user->name);
     }
 
     /**
@@ -69,9 +71,10 @@ class ExportController extends Controller
                 $tasks[$member->user_id] ?? null,
             ))->all(),
             $workspace,
+            $this->zoom($request),
         );
 
-        return $this->download($spreadsheet, $workspace);
+        return $this->streamWorkbook($spreadsheet, $workspace);
     }
 
     /**
@@ -88,6 +91,15 @@ class ExportController extends Controller
     }
 
     /**
+     * The zoom the timeline was showing. An unknown value falls back to the
+     * week grid, which is the layout the report is normally read in.
+     */
+    protected function zoom(Request $request): ExportZoom
+    {
+        return $request->enum('zoom', ExportZoom::class) ?? ExportZoom::Week;
+    }
+
+    /**
      * The same `from`/`to` filter the person page uses.
      *
      * @return array{0: string|null, 1: string|null}
@@ -98,27 +110,5 @@ class ExportController extends Controller
             $request->date('from')?->toDateString(),
             $request->date('to')?->toDateString(),
         ];
-    }
-
-    /**
-     * Stream the workbook rather than build a temporary file: the sheets are
-     * already in memory, and nothing here is worth keeping on disk.
-     */
-    protected function download(Spreadsheet $spreadsheet, string $subject): StreamedResponse
-    {
-        $name = trim(preg_replace('/[^\p{L}\p{N} \-_]+/u', '', $subject) ?? '');
-        $filename = sprintf(
-            'Project Management - %s - %s.xlsx',
-            $name === '' ? 'Export' : $name,
-            Date::now()->format('Y-m-d'),
-        );
-
-        return response()->streamDownload(function () use ($spreadsheet): void {
-            (new Xlsx($spreadsheet))->save('php://output');
-            $spreadsheet->disconnectWorksheets();
-        }, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'no-store, no-cache',
-        ]);
     }
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
     MONTH_NAMES,
@@ -42,6 +42,66 @@ export const ZOOM_LABELS: Record<Zoom, string> = {
 };
 
 /**
+ * The zoom a set of ranges fits into, used as the level a page opens on.
+ *
+ * A year of work at week zoom is roughly three times the width of the screen,
+ * so most bars start outside it — and a row whose bar is off to the right reads
+ * exactly like one that was never scheduled. Opening wide enough to show the
+ * whole span is what keeps those two apart.
+ */
+export function fittingZoom(
+    ranges: { start: string | null; end: string | null }[],
+): Zoom {
+    const dates = ranges
+        .flatMap((range) => [parseDate(range.start), parseDate(range.end)])
+        .filter((date): date is Date => date !== null);
+
+    if (dates.length === 0) {
+        return 'week';
+    }
+
+    const times = dates.map((date) => date.getTime());
+    const months = daysBetween(new Date(Math.min(...times)), new Date(Math.max(...times))) / 30;
+
+    if (months <= 4) {
+        return 'week';
+    }
+
+    return months <= 24 ? 'month' : 'quarter';
+}
+
+/**
+ * Width the grid may occupy: the scroll panel minus its sticky label column.
+ *
+ * Returned as 0 until the element is measured, which reads as "do not stretch"
+ * and keeps the first paint at the plain zoom width.
+ */
+export function useFillWidth<T extends HTMLElement>(
+    labelWidth: number,
+): [React.RefObject<T | null>, number] {
+    const ref = useRef<T>(null);
+    const [width, setWidth] = useState(0);
+
+    useEffect(() => {
+        const element = ref.current;
+
+        if (!element) {
+            return;
+        }
+
+        const observer = new ResizeObserver(([entry]) => {
+            setWidth(Math.max(0, entry.contentRect.width - labelWidth));
+        });
+
+        observer.observe(element);
+
+        return () => observer.disconnect();
+    }, [labelWidth]);
+
+    return [ref, width];
+}
+
+/**
  * Build the header columns and the day scale covering a set of date ranges.
  *
  * Bars are positioned purely from `dayWidth`, so switching zoom only changes
@@ -50,6 +110,12 @@ export const ZOOM_LABELS: Record<Zoom, string> = {
 export function useTimelineScale(
     ranges: { start: string | null; end: string | null }[],
     zoom: Zoom,
+    /**
+     * Width the grid should fill when the data is narrower than the screen.
+     * A short project at quarter zoom would otherwise draw a few hundred
+     * pixels of bars and leave the rest of the panel blank.
+     */
+    fillWidth = 0,
 ): TimelineScale {
     return useMemo(() => {
         const dates = ranges
@@ -73,13 +139,22 @@ export function useTimelineScale(
                 ? weekColumns(origin, end)
                 : monthColumns(origin, end, zoom);
 
-        const width = columns.reduce(
-            (total, column) => total + column.days * dayWidth,
-            0,
-        );
+        const days = columns.reduce((total, column) => total + column.days, 0);
+        const width = days * dayWidth;
+
+        // Stretch, never shrink: a span wider than the panel keeps its zoom and
+        // scrolls, which is what the zoom buttons are for.
+        if (fillWidth > width && days > 0) {
+            return {
+                columns,
+                dayWidth: fillWidth / days,
+                origin,
+                width: fillWidth,
+            };
+        }
 
         return { columns, dayWidth, origin, width };
-    }, [ranges, zoom]);
+    }, [ranges, zoom, fillWidth]);
 }
 
 function weekColumns(origin: Date, end: Date): TimelineColumn[] {
@@ -144,25 +219,56 @@ function monthLabel(date: Date): string {
  * Two-row header: period on top, week or month underneath (TML-3).
  */
 export function TimelineHeader({ scale }: { scale: TimelineScale }) {
+    // The period label belongs to the whole run of columns it covers, not to
+    // the first of them: a month written into one 45px week column, or a
+    // quarter into one 30px month column, is only ever read as `Agu ...`.
+    const periods = useMemo(() => {
+        const groups: { label: string; days: number }[] = [];
+
+        for (const column of scale.columns) {
+            if (column.topLabel !== null || groups.length === 0) {
+                groups.push({ label: column.topLabel ?? '', days: column.days });
+
+                continue;
+            }
+
+            groups[groups.length - 1].days += column.days;
+        }
+
+        return groups;
+    }, [scale.columns]);
+
     return (
-        <div className="flex text-xs" style={{ width: `${scale.width}px` }}>
-            {scale.columns.map((column, index) => (
-                <div
-                    key={index}
-                    className={cn(
-                        'shrink-0 px-0.5 py-1 text-center',
-                        column.topLabel ? 'border-l border-border' : '',
-                    )}
-                    style={{ width: `${column.days * scale.dayWidth}px` }}
-                >
-                    <div className="truncate font-medium text-foreground/70">
-                        {column.topLabel ?? ' '}
+        <div className="text-xs" style={{ width: `${scale.width}px` }}>
+            <div className="flex">
+                {periods.map((period, index) => (
+                    <div
+                        key={index}
+                        className={cn(
+                            'shrink-0 truncate px-1 pt-1 font-medium text-foreground/70',
+                            index > 0 ? 'border-l border-border' : '',
+                        )}
+                        style={{ width: `${period.days * scale.dayWidth}px` }}
+                    >
+                        {period.label}
                     </div>
-                    <div className="truncate text-muted-foreground tabular-nums">
+                ))}
+            </div>
+
+            <div className="flex">
+                {scale.columns.map((column, index) => (
+                    <div
+                        key={index}
+                        className={cn(
+                            'shrink-0 truncate px-0.5 pb-1 text-center text-muted-foreground tabular-nums',
+                            column.topLabel ? 'border-l border-border' : '',
+                        )}
+                        style={{ width: `${column.days * scale.dayWidth}px` }}
+                    >
                         {column.bottomLabel}
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 }
