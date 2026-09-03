@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Project;
+use App\Models\Scopes\WorkspaceScope;
 use App\Models\Task;
 use App\Services\TaskHierarchy;
 use Illuminate\Console\Command;
@@ -19,7 +20,9 @@ class SyncTaskProgress extends Command
 
     public function handle(TaskHierarchy $hierarchy): int
     {
-        $projects = Project::withoutGlobalScopes()
+        // Tenant scope only: `withoutGlobalScopes()` would also drop
+        // `SoftDeletes` and write progress back onto deleted rows.
+        $projects = Project::withoutGlobalScope(WorkspaceScope::class)
             ->when($this->option('project'), fn ($query, $id) => $query->whereKey($id))
             ->orderBy('id')
             ->get();
@@ -28,7 +31,7 @@ class SyncTaskProgress extends Command
 
         foreach ($projects as $project) {
             // Deepest first, so a parent reads children that are already right.
-            $tasks = Task::withoutGlobalScopes()
+            $tasks = Task::withoutGlobalScope(WorkspaceScope::class)
                 ->where('project_id', $project->id)
                 ->orderByDesc('depth')
                 ->get();

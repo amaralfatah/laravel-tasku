@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Actions\Notify;
 use App\Enums\TaskStatus;
+use App\Models\Scopes\WorkspaceScope;
 use App\Models\Task;
 use Illuminate\Console\Command;
 
@@ -23,7 +24,10 @@ class SendDueSoonNotifications extends Command
     {
         $sent = 0;
 
-        Task::withoutGlobalScopes()
+        // Only the tenant scope comes off, because the console has no active
+        // workspace. Dropping every scope would take `SoftDeletes` with it and
+        // remind people about tasks they have already deleted.
+        Task::withoutGlobalScope(WorkspaceScope::class)
             ->whereNotNull('assignee_id')
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<=', now()->toDateString())
