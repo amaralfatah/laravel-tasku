@@ -60,7 +60,7 @@ class OrgUnitPolicy
      */
     public function monitor(User $user): bool
     {
-        return (bool) $this->tenancy->member()?->leadsAnyone();
+        return (bool) $this->tenancy->member()?->canObserve();
     }
 
     /**
@@ -69,7 +69,7 @@ class OrgUnitPolicy
     public function monitorUnit(User $user, OrgUnit $orgUnit): bool
     {
         return $this->belongsToActiveWorkspace($orgUnit)
-            && (bool) $this->tenancy->member()?->covers($orgUnit->id);
+            && (bool) $this->tenancy->member()?->readsUnit($orgUnit->id);
     }
 
     /**

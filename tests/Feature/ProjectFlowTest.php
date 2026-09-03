@@ -26,7 +26,7 @@ function projectWorkspace(WorkspaceRole $role): array
 test('the creator joins the project and can add a task straight away', function () {
     // An Asisten is not a manager, so without joining they could not
     // contribute to the project they had just created.
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $member->workspace_id])
@@ -49,7 +49,7 @@ test('the creator joins the project and can add a task straight away', function 
 });
 
 test('the board reports the creator as able to contribute', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $project = Project::factory()->in($unit)->create();
     $project->members()->attach($member->user_id);
 
@@ -64,7 +64,7 @@ test('the board reports the creator as able to contribute', function () {
 });
 
 test('an ODS outside the project cannot add tasks to it', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod4);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Member);
     $project = Project::factory()->in($unit)->create();
 
     $this->actingAs($member->user)
@@ -76,7 +76,7 @@ test('an ODS outside the project cannot add tasks to it', function () {
 test('an ODS starts a project in their own unit and runs it', function () {
     // Team-managed: anyone with a place in the tree may open a project, and
     // whoever opened it administers that one project.
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod4);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Member);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $member->workspace_id])
@@ -98,7 +98,7 @@ test('an ODS starts a project in their own unit and runs it', function () {
 });
 
 test('an ODS cannot start a project outside their own unit', function () {
-    [$member] = projectWorkspace(WorkspaceRole::Bod4);
+    [$member] = projectWorkspace(WorkspaceRole::Member);
     $elsewhere = OrgUnit::factory()->rootOf($member->workspace)->create();
 
     $this->actingAs($member->user)
@@ -115,7 +115,7 @@ test('someone with no unit at all cannot create a project', function () {
     $workspace = Workspace::factory()->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => null]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => null]);
 
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
 
@@ -126,7 +126,7 @@ test('someone with no unit at all cannot create a project', function () {
 });
 
 test('an ODS cannot touch a project someone else started', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod4);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Member);
     $project = Project::factory()->in($unit)->create();
     $project->members()->attach($member->user_id);
 
@@ -139,7 +139,7 @@ test('an ODS cannot touch a project someone else started', function () {
 test('dropping a card on the board moves it to the given status and sibling index', function () {
     // The board sends one flat index across every column, because root tasks
     // share a single sibling order (BRD-3).
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $project = Project::factory()->in($unit)->create();
     $project->members()->attach($member->user_id);
 
@@ -163,7 +163,7 @@ test('dropping a card on the board moves it to the given status and sibling inde
 });
 
 test('creating from a board column lands the task in that column', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $project = Project::factory()->in($unit)->create();
     $project->members()->attach($member->user_id);
 
@@ -189,12 +189,12 @@ test('the leader above still runs a project an ODS started', function () {
 
     $asisten = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($unit, WorkspaceRole::Bod3)
+        ->leading($unit, WorkspaceRole::Manager)
         ->create();
 
     $ods = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $child->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $child->id]);
 
     $project = Project::factory()->in($child)->create(['created_by' => $ods->user_id]);
 
@@ -207,13 +207,13 @@ test('the leader above still runs a project an ODS started', function () {
 });
 
 test('a project member may delete a task they did not write', function () {
-    [$owner, $unit] = projectWorkspace(WorkspaceRole::Bod4);
+    [$owner, $unit] = projectWorkspace(WorkspaceRole::Member);
     $helper = WorkspaceMember::factory()
         ->for($owner->workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
     $outsider = WorkspaceMember::factory()
         ->for($owner->workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create(['created_by' => $owner->user_id]);
     $project->members()->attach([$owner->user_id, $helper->user_id]);
@@ -247,7 +247,7 @@ test('a project member may delete a task they did not write', function () {
 });
 
 test('a project left without a key gets one derived from its name', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $member->workspace_id])
@@ -262,7 +262,7 @@ test('a project left without a key gets one derived from its name', function () 
 });
 
 test('a key typed by hand is stored upper case and cannot repeat in the workspace', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $session = ['workspace_id' => $member->workspace_id];
 
     $this->actingAs($member->user)->withSession($session)
@@ -285,8 +285,8 @@ test('a key typed by hand is stored upper case and cannot repeat in the workspac
 });
 
 test('two workspaces may hold the same project key', function () {
-    [, $firstUnit] = projectWorkspace(WorkspaceRole::Bod3);
-    [, $secondUnit] = projectWorkspace(WorkspaceRole::Bod3);
+    [, $firstUnit] = projectWorkspace(WorkspaceRole::Manager);
+    [, $secondUnit] = projectWorkspace(WorkspaceRole::Manager);
 
     Project::factory()->in($firstUnit)->create(['key' => 'PANEN']);
     Project::factory()->in($secondUnit)->create(['key' => 'PANEN']);
@@ -295,7 +295,7 @@ test('two workspaces may hold the same project key', function () {
 });
 
 test('a key already taken makes the generated one fall to a numbered variant', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $session = ['workspace_id' => $member->workspace_id];
 
     Project::factory()->in($unit)->create(['key' => 'SP']);
@@ -308,7 +308,7 @@ test('a key already taken makes the generated one fall to a numbered variant', f
 });
 
 test('the sidebar plus asks the index page to open the create dialog', function () {
-    [$member] = projectWorkspace(WorkspaceRole::Bod1);
+    [$member] = projectWorkspace(WorkspaceRole::Owner);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $member->workspace_id])
@@ -321,7 +321,7 @@ test('the sidebar plus asks the index page to open the create dialog', function 
 });
 
 test('the index page leaves the create dialog shut without the flag', function () {
-    [$member] = projectWorkspace(WorkspaceRole::Bod1);
+    [$member] = projectWorkspace(WorkspaceRole::Owner);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $member->workspace_id])
@@ -331,7 +331,7 @@ test('the index page leaves the create dialog shut without the flag', function (
 });
 
 test('the key can be changed and every task reference follows it', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $project = Project::factory()->in($unit)->create(['key' => 'LAMA']);
     $project->members()->attach($member->user_id);
 
@@ -347,7 +347,7 @@ test('the key can be changed and every task reference follows it', function () {
 });
 
 test('a key already held by another project cannot be moved onto this one', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $session = ['workspace_id' => $member->workspace_id];
 
     Project::factory()->in($unit)->create(['key' => 'PANEN']);
@@ -367,7 +367,7 @@ test('a key already held by another project cannot be moved onto this one', func
 });
 
 test('a malformed or blank key is refused on update', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $session = ['workspace_id' => $member->workspace_id];
 
     $project = Project::factory()->in($unit)->create(['key' => 'LAMA']);
@@ -385,7 +385,7 @@ test('a malformed or blank key is refused on update', function () {
 test('dropping a sub task on another reorders it under the same parent', function () {
     // The modal sends the parent along, so a reorder never reads as a move to
     // the root, and the WBS numbers follow the new sibling order.
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod3);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $project = Project::factory()->in($unit)->create(['key' => 'SUB']);
     $project->members()->attach($member->user_id);
 
@@ -416,7 +416,7 @@ test('dropping a sub task on another reorders it under the same parent', functio
 test('every task view opens the task a notification links to', function () {
     // The three views share `taskWorkspaceProps`, so the deep link a
     // notification carries has to land on whichever one the viewer is on.
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod2);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
 
     $project = Project::factory()->in($unit)->create();
     $task = Task::factory()->for($project)->create();
@@ -440,7 +440,7 @@ test('every task view opens the task a notification links to', function () {
 });
 
 test('a move into a column that is not a status is refused', function () {
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod2);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
 
     $project = Project::factory()->in($unit)->create();
     $task = Task::factory()->for($project)->create(['status' => 'todo']);
@@ -456,7 +456,7 @@ test('a move into a column that is not a status is refused', function () {
 test('the tenth sub task follows the ninth rather than the first', function () {
     // `path` and `wbs_number` are text columns, so the database sorts `/10/`
     // before `/2/`. The views have to read the natural order instead.
-    [$member, $unit] = projectWorkspace(WorkspaceRole::Bod2);
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
 
     $project = Project::factory()->in($unit)->create();
     $hierarchy = app(TaskHierarchy::class);

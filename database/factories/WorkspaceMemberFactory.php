@@ -22,29 +22,29 @@ class WorkspaceMemberFactory extends Factory
         return [
             'workspace_id' => Workspace::factory(),
             'user_id' => User::factory(),
-            'role' => WorkspaceRole::Bod4,
+            'role' => WorkspaceRole::Member,
             'joined_at' => now(),
         ];
     }
 
-    public function kepalaDivisi(): static
+    public function owner(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'role' => WorkspaceRole::Bod1,
+            'role' => WorkspaceRole::Owner,
         ]);
     }
 
-    public function kepalaSubDivisi(): static
+    public function manager(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'role' => WorkspaceRole::Bod2,
+            'role' => WorkspaceRole::Manager,
         ]);
     }
 
-    public function asisten(): static
+    public function viewer(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'role' => WorkspaceRole::Bod3,
+            'role' => WorkspaceRole::Viewer,
         ]);
     }
 
@@ -62,7 +62,7 @@ class WorkspaceMemberFactory extends Factory
     /**
      * A leader over the given unit and everything below it.
      */
-    public function leading(OrgUnit $unit, WorkspaceRole $role = WorkspaceRole::Bod3): static
+    public function leading(OrgUnit $unit, WorkspaceRole $role = WorkspaceRole::Manager): static
     {
         return $this->state(fn (array $attributes): array => [
             'role' => $role,

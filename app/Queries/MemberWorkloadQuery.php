@@ -137,7 +137,7 @@ class MemberWorkloadQuery
     }
 
     /**
-     * Roster the viewer may monitor: the whole workspace for BOD-1, the
+     * Roster the viewer may monitor: the whole workspace for an Owner, the
      * viewer's own subtree for a leader below that, otherwise just themselves
      * (MON-1, MON-6).
      *

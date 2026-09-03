@@ -109,9 +109,10 @@ class Project extends Model
     /**
      * Projects the user may see in the active workspace (7.2).
      *
-     * BOD-1 sees the whole workspace. A leader below that sees every project
-     * hanging off their own org unit and its descendants. Everyone else sees
-     * the projects they are a member of.
+     * An Owner sees the whole workspace, and so does a Viewer nobody pinned to
+     * a branch. A leader or a branch Viewer sees every project hanging off
+     * their own org unit and its descendants. Everyone else sees the projects
+     * they are a member of.
      *
      * @param  Builder<Project>  $query
      */
@@ -119,11 +120,11 @@ class Project extends Model
     {
         $member = app(Tenancy::class)->member();
 
-        if ($member?->hasFullScope()) {
+        if ($member?->readsEverything()) {
             return;
         }
 
-        $scopePath = $member?->managesTeam() ? $member->scopePath() : null;
+        $scopePath = $member?->readScopePath();
 
         $query->where(function (Builder $query) use ($user, $scopePath): void {
             $query->whereHas('members', fn (Builder $members) => $members->whereKey($user->id));
@@ -149,7 +150,7 @@ class Project extends Model
     {
         $member = app(Tenancy::class)->member();
 
-        if ($member === null || $member->workspace_id !== $this->workspace_id) {
+        if ($member === null || $member->workspace_id !== $this->workspace_id || ! $member->canWrite()) {
             return false;
         }
 
@@ -166,7 +167,7 @@ class Project extends Model
     {
         $member = app(Tenancy::class)->member();
 
-        if ($member === null || $member->workspace_id !== $this->workspace_id) {
+        if ($member === null || $member->workspace_id !== $this->workspace_id || ! $member->canWrite()) {
             return false;
         }
 

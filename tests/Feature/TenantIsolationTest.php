@@ -15,7 +15,7 @@ use App\Models\WorkspaceMember;
 /**
  * @return array{0: WorkspaceMember, 1: OrgUnit}
  */
-function workspaceWith(WorkspaceRole $role = WorkspaceRole::Bod1): array
+function workspaceWith(WorkspaceRole $role = WorkspaceRole::Owner): array
 {
     $workspace = Workspace::factory()->create();
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
@@ -75,7 +75,7 @@ test('a sibling branch of the master tree stays out of the workspace', function 
     $workspace = Workspace::factory()->create(['root_org_unit_id' => $mine->id]);
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod1, 'org_unit_id' => $mine->id]);
+        ->create(['role' => WorkspaceRole::Owner, 'org_unit_id' => $mine->id]);
 
     expect($member->covers($mine->id))->toBeTrue()
         ->and($member->covers($theirs->id))->toBeFalse()
@@ -95,7 +95,7 @@ test('a workspace with no place in the tree has no units at all', function () {
     $workspace = Workspace::factory()->create(['root_org_unit_id' => null]);
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod1]);
+        ->create(['role' => WorkspaceRole::Owner]);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -109,7 +109,7 @@ test('a member cannot be moved into another workspace org unit', function () {
     [, $otherUnit] = workspaceWith();
     $target = WorkspaceMember::factory()
         ->for($manager->workspace)
-        ->create(['role' => WorkspaceRole::Bod4]);
+        ->create(['role' => WorkspaceRole::Member]);
 
     $this->actingAs($manager->user)
         ->withSession(['workspace_id' => $manager->workspace_id])
@@ -134,7 +134,7 @@ test('a task cannot be assigned to someone outside the project', function () {
 });
 
 test('a revoked membership loses access on the very next request', function () {
-    [$member, $unit] = workspaceWith(WorkspaceRole::Bod4);
+    [$member, $unit] = workspaceWith(WorkspaceRole::Member);
     Project::factory()->in($unit)->create();
 
     $session = ['workspace_id' => $member->workspace_id];

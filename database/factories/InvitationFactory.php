@@ -20,7 +20,7 @@ class InvitationFactory extends Factory
         return [
             'workspace_id' => Workspace::factory(),
             'email' => fake()->unique()->safeEmail(),
-            'role' => WorkspaceRole::Bod4,
+            'role' => WorkspaceRole::Member,
             'expires_at' => now()->addDays(Invitation::VALID_DAYS),
         ];
     }

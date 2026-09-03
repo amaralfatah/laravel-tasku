@@ -38,7 +38,7 @@ test('the org structure is the operators page, not a workspace one', function ()
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $owner = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod1, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Owner, 'org_unit_id' => $unit->id]);
 
     $this->actingAs(superAdmin())->get(route('organization.index'))->assertOk();
 
@@ -53,7 +53,7 @@ test('a leader cannot shape the master structure', function () {
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $owner = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod1, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Owner, 'org_unit_id' => $unit->id]);
 
     $this->actingAs($owner->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -66,7 +66,7 @@ test('a super admin cannot reach a single project of a workspace', function () {
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $owner = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod1, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Owner, 'org_unit_id' => $unit->id]);
     $project = Project::factory()
         ->for($workspace)
         ->create(['org_unit_id' => $unit->id, 'created_by' => $owner->user_id]);

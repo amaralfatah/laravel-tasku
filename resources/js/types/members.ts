@@ -13,6 +13,7 @@ export type MemberRow = {
     role: WorkspaceRole;
     role_label: string;
     role_code: string;
+    title: string;
     org_unit: NamedRef | null;
     manager_id: number | null;
     is_last_top_role: boolean;
@@ -43,4 +44,9 @@ export type OrgUnitPickerProps = {
     can_choose: boolean;
 };
 
-export type Option = { value: string; label: string; code?: string };
+export type Option = {
+    value: string;
+    label: string;
+    code?: string;
+    description?: string;
+};

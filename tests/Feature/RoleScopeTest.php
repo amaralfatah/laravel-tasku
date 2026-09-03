@@ -43,10 +43,10 @@ test('every leader role gets the same menu, an ODS gets none of it', function (W
             ->where('tenancy.membership.can_monitor', $leads)
         );
 })->with([
-    'kepala divisi' => [WorkspaceRole::Bod1, true],
-    'kepala sub divisi' => [WorkspaceRole::Bod2, true],
-    'asisten' => [WorkspaceRole::Bod3, true],
-    'ods' => [WorkspaceRole::Bod4, false],
+    'kepala divisi' => [WorkspaceRole::Owner, true],
+    'kepala sub divisi' => [WorkspaceRole::Manager, true],
+    'asisten' => [WorkspaceRole::Manager, true],
+    'ods' => [WorkspaceRole::Member, false],
 ]);
 
 test('a leader sees only the projects hanging off their own unit', function () {
@@ -57,7 +57,7 @@ test('a leader sees only the projects hanging off their own unit', function () {
 
     $leader = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Bod2)
+        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Manager)
         ->create();
 
     $this->actingAs($leader->user)
@@ -78,7 +78,7 @@ test('kepala divisi sees every project in the workspace', function () {
 
     $kadiv = WorkspaceMember::factory()
         ->for($workspace)
-        ->kepalaDivisi()
+        ->owner()
         ->create();
 
     $this->actingAs($kadiv->user)
@@ -93,7 +93,7 @@ test('an asisten may create a project in their own subtree but not outside it', 
 
     $asisten = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Bod3)
+        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Manager)
         ->create();
 
     $session = ['workspace_id' => $workspace->id];
@@ -118,69 +118,69 @@ test('a leader cannot touch a member outside their subtree', function () {
 
     $leader = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Bod2)
+        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Manager)
         ->create();
 
     $outsider = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $marketing->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $marketing->id]);
 
     $insider = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $backend->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $backend->id]);
 
     $session = ['workspace_id' => $workspace->id];
 
     $this->actingAs($leader->user)->withSession($session)
-        ->patch(route('members.update', $outsider), ['role' => WorkspaceRole::Bod3->value])
+        ->patch(route('members.update', $outsider), ['role' => WorkspaceRole::Manager->value])
         ->assertForbidden();
 
     $this->actingAs($leader->user)->withSession($session)
-        ->patch(route('members.update', $insider), ['role' => WorkspaceRole::Bod3->value])
+        ->patch(route('members.update', $insider), ['role' => WorkspaceRole::Manager->value])
         ->assertRedirect();
 
-    expect($insider->refresh()->role)->toBe(WorkspaceRole::Bod3);
+    expect($insider->refresh()->role)->toBe(WorkspaceRole::Manager);
 });
 
 test('nobody may hand out a role above their own', function () {
     ['workspace' => $workspace, 'backend' => $backend] = twoBranchWorkspace();
 
     // The workspace keeps a BOD-1 so the last top role guard is not what fails.
-    WorkspaceMember::factory()->for($workspace)->kepalaDivisi()->create();
+    WorkspaceMember::factory()->for($workspace)->owner()->create();
 
     $asisten = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Bod3)
+        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Manager)
         ->create();
 
     $subordinate = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $backend->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $backend->id]);
 
     $this->actingAs($asisten->user)
         ->withSession(['workspace_id' => $workspace->id])
-        ->patch(route('members.update', $subordinate), ['role' => WorkspaceRole::Bod1->value])
+        ->patch(route('members.update', $subordinate), ['role' => WorkspaceRole::Owner->value])
         ->assertSessionHasErrors('role');
 
-    expect($subordinate->refresh()->role)->toBe(WorkspaceRole::Bod4);
+    expect($subordinate->refresh()->role)->toBe(WorkspaceRole::Member);
 });
 
 test('an asisten cannot promote themselves', function () {
     ['workspace' => $workspace] = twoBranchWorkspace();
 
-    WorkspaceMember::factory()->for($workspace)->kepalaDivisi()->create();
+    WorkspaceMember::factory()->for($workspace)->owner()->create();
 
     $asisten = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Bod3)
+        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Manager)
         ->create();
 
     $this->actingAs($asisten->user)
         ->withSession(['workspace_id' => $workspace->id])
-        ->patch(route('members.update', $asisten), ['role' => WorkspaceRole::Bod1->value])
+        ->patch(route('members.update', $asisten), ['role' => WorkspaceRole::Owner->value])
         ->assertSessionHasErrors('role');
 
-    expect($asisten->refresh()->role)->toBe(WorkspaceRole::Bod3);
+    expect($asisten->refresh()->role)->toBe(WorkspaceRole::Manager);
 });
 
 test('an ODS is kept out of the roster and the organisation page', function () {
@@ -188,7 +188,7 @@ test('an ODS is kept out of the roster and the organisation page', function () {
 
     $ods = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $backend->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $backend->id]);
 
     $session = ['workspace_id' => $workspace->id];
 
@@ -204,7 +204,7 @@ test('a leader does not shape the structure, they only search it', function () {
 
     $leader = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Bod2)
+        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Manager)
         ->create();
 
     // The org tree is platform master data the operator maintains, so the
@@ -228,7 +228,7 @@ test('a leader searches inside their scope but not outside it', function () {
 
     $leader = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($engineering, WorkspaceRole::Bod2)
+        ->leading($engineering, WorkspaceRole::Manager)
         ->create();
 
     // Nothing outside the branch is reachable.
@@ -255,7 +255,7 @@ test('an ODS cannot reach the org tree endpoints at all', function () {
 
     $ods = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($engineering, WorkspaceRole::Bod4)
+        ->leading($engineering, WorkspaceRole::Member)
         ->create();
 
     $this->actingAs($ods->user)
@@ -272,7 +272,7 @@ test('the menu survives a page that loads the org unit without its path', functi
 
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($engineering, WorkspaceRole::Bod2)
+        ->leading($engineering, WorkspaceRole::Manager)
         ->create();
 
     $this->actingAs($member->user)

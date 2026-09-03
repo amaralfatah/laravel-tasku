@@ -157,9 +157,9 @@ class ProjectController extends Controller
             $project->created_by = $request->user()->id;
             $project->save();
 
-            // The creator joins their own project. Without this an Asisten
-            // (BOD-3) may create a project and then be unable to put a single
-            // task in it, since contributing requires project membership.
+            // The creator joins their own project. Without this a Manager may
+            // create a project and then be unable to put a single task in it,
+            // since contributing requires project membership.
             $memberIds = $this->workspaceUserIds($request->input('member_ids', []));
             $memberIds[] = $request->user()->id;
 

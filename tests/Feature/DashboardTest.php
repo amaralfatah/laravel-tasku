@@ -13,7 +13,7 @@ test('a member lands on their own task page', function () {
     $workspace = Workspace::factory()->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4]);
+        ->create(['role' => WorkspaceRole::Member]);
 
     $this->actingAs($member->user);
 

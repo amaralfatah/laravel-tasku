@@ -40,7 +40,9 @@ class ProjectPolicy
     {
         $member = $this->tenancy->member();
 
-        return $member !== null && ($member->managesTeam() || $member->org_unit_id !== null);
+        return $member !== null
+            && $member->canWrite()
+            && ($member->managesTeam() || $member->org_unit_id !== null);
     }
 
     /**

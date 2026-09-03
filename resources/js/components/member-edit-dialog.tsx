@@ -11,6 +11,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -28,9 +29,10 @@ import type {
 } from '@/types/members';
 
 /**
- * Edits everything about a membership except the person: their role and the
- * unit they sit in. The unit is what decides how much of the org tree a
- * leader reaches, so it is the only scope control there is.
+ * Edits everything about a membership except the person: the tier they act at,
+ * the position they hold and the unit they sit in. The unit is what decides
+ * how much of the org tree a leader reaches, so it is the only scope control
+ * there is; the position is a label the company chooses and grants nothing.
  *
  * The form and the picker are seeded from `member` on mount only, so the call
  * site keys this on the member id — picking a second person remounts it rather
@@ -48,7 +50,8 @@ export function MemberEditDialog({
     onClose: () => void;
 }) {
     const form = useForm({
-        role: member?.role ?? 'bod_4',
+        role: member?.role ?? 'member',
+        title: member?.title ?? '',
         org_unit_id: member?.org_unit?.id ?? null,
     });
 
@@ -109,12 +112,30 @@ export function MemberEditDialog({
                         </Select>
                         <p className="text-xs text-muted-foreground">
                             {member.is_last_top_role
-                                ? 'Kepala Divisi terakhir tidak bisa diturunkan rolenya.'
+                                ? 'Pemilik terakhir tidak bisa diturunkan rolenya.'
                                 : roleLocked
                                   ? 'Anda tidak bisa mengubah role orang yang setara atau di atas Anda.'
-                                  : 'Role menentukan posisi di jenjang BOD; cakupannya mengikuti unit penempatan.'}
+                                  : 'Role menentukan hak akses; cakupannya mengikuti unit penempatan.'}
                         </p>
                         <InputError message={form.errors.role} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="member-title">Jabatan</Label>
+                        <Input
+                            id="member-title"
+                            value={form.data.title}
+                            maxLength={100}
+                            placeholder="Kepala Divisi, Team Lead, Staf…"
+                            onChange={(event) =>
+                                form.setData('title', event.target.value)
+                            }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Sebutan jabatan di perusahaan Anda. Hanya label —
+                            hak aksesnya tetap dari role di atas.
+                        </p>
+                        <InputError message={form.errors.title} />
                     </div>
 
                     <div className="grid gap-2">

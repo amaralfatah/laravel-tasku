@@ -14,6 +14,15 @@ class ProjectStoreRequest extends FormRequest
     use ScopesValidationToWorkspace;
 
     /**
+     * Checked before the rules run: someone who may not start a project at
+     * all should be refused, not told which fields their attempt was missing.
+     */
+    public function authorize(): bool
+    {
+        return (bool) $this->user()?->can('create', Project::class);
+    }
+
+    /**
      * Keys are stored upper case, so a lower case one typed by hand is the
      * same key rather than a validation error.
      */

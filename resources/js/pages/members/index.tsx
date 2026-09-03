@@ -75,7 +75,7 @@ export default function Members({
     const [inviteOpen, setInviteOpen] = useState(false);
     const [copied, copy] = useClipboard();
 
-    const inviteForm = useForm({ email: '', role: 'bod_4' });
+    const inviteForm = useForm({ email: '', role: 'member' });
 
     return (
         <>
@@ -294,6 +294,7 @@ export default function Members({
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nama</TableHead>
+                                <TableHead>Jabatan</TableHead>
                                 <TableHead>Role</TableHead>
                                 <TableHead>Unit</TableHead>
                                 {can.manage && (
@@ -308,7 +309,7 @@ export default function Members({
                             {members.length === 0 && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={can.manage ? 4 : 3}
+                                        colSpan={can.manage ? 5 : 4}
                                         className="py-12 text-center"
                                     >
                                         <Users
@@ -335,18 +336,14 @@ export default function Members({
                                         </div>
                                     </TableCell>
 
+                                    <TableCell className="text-sm">
+                                        {member.title}
+                                    </TableCell>
+
                                     <TableCell>
-                                        <div className="flex items-center gap-1.5">
-                                            <Badge
-                                                variant="outline"
-                                                className="font-mono text-[10px] tabular-nums"
-                                            >
-                                                {member.role_code}
-                                            </Badge>
-                                            <span className="text-sm">
-                                                {member.role_label}
-                                            </span>
-                                        </div>
+                                        <Badge variant="outline">
+                                            {member.role_label}
+                                        </Badge>
                                     </TableCell>
 
                                     <TableCell className="text-sm">
@@ -385,7 +382,7 @@ export default function Members({
                                                                 )
                                                             }
                                                         >
-                                                            Ubah role & unit
+                                                            Ubah jabatan & unit
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem

@@ -188,7 +188,7 @@ class OrgUnitController extends Controller
     }
 
     /**
-     * Restrict a query to the branch the member runs. BOD-1 is left unfiltered
+     * Restrict a query to the branch the member runs. An Owner is left unfiltered
      * because the global scope already trims the tree to their workspace; a
      * super admin has no member at all and searches the whole master tree.
      *

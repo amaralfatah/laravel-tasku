@@ -10,9 +10,9 @@ use App\Support\Tenancy;
 /**
  * Membership management (7.1).
  *
- * Every leader — BOD-1 through BOD-3 — invites, removes and places people, but
+ * Every leader — Owner and Manager — invites, removes and places people, but
  * only inside their own subtree, and only at a role below their own. The last
- * BOD-1 can neither be demoted nor removed (7.2 rule 6).
+ * Owner can neither be demoted nor removed (7.2 rule 6).
  */
 class WorkspaceMemberPolicy
 {
@@ -24,7 +24,7 @@ class WorkspaceMemberPolicy
      */
     public function viewAny(User $user): bool
     {
-        return (bool) $this->tenancy->member()?->leadsAnyone();
+        return (bool) $this->tenancy->member()?->canObserve();
     }
 
     public function manage(User $user): bool
@@ -37,7 +37,7 @@ class WorkspaceMemberPolicy
      */
     public function monitorPeople(User $user): bool
     {
-        return (bool) $this->tenancy->member()?->leadsAnyone();
+        return (bool) $this->tenancy->member()?->canObserve();
     }
 
     /**
@@ -81,11 +81,11 @@ class WorkspaceMemberPolicy
             return false;
         }
 
-        return $viewer->coversMember($target);
+        return $viewer->readsMember($target);
     }
 
     /**
-     * A workspace must always keep at least one BOD-1.
+     * A workspace must always keep at least one Owner.
      */
     public function isLastTopRole(WorkspaceMember $member): bool
     {
@@ -94,7 +94,7 @@ class WorkspaceMemberPolicy
         }
 
         return WorkspaceMember::query()
-            ->where('role', WorkspaceRole::Bod1)
+            ->where('role', WorkspaceRole::Owner)
             ->where('id', '!=', $member->id)
             ->doesntExist();
     }

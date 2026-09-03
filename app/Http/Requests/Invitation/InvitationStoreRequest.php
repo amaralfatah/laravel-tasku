@@ -14,6 +14,16 @@ use Illuminate\Validation\Validator;
 class InvitationStoreRequest extends FormRequest
 {
     /**
+     * Checked before the rules run, so someone who may not invite at all gets
+     * a refusal rather than a complaint about the role field — a Viewer can
+     * hand out no role, which would otherwise read as a rank error.
+     */
+    public function authorize(): bool
+    {
+        return (bool) $this->user()?->can('manage', WorkspaceMember::class);
+    }
+
+    /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array

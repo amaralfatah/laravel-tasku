@@ -138,7 +138,7 @@ class InvitationAcceptController extends Controller
     /**
      * Unit the inviter sits in, which the new member inherits.
      *
-     * An invitation sent by the platform super admin, or by a BOD-1 who is not
+     * An invitation sent by the platform super admin, or by an Owner who is not
      * placed anywhere, leaves the unit empty for a leader to fill in.
      */
     protected function inviterUnitId(Invitation $invitation): ?int

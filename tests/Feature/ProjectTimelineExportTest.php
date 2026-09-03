@@ -17,7 +17,7 @@ function timelineExportProject(): array
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create(['name' => 'GrowMate']);
     $project->members()->attach($member->user_id);
@@ -100,7 +100,7 @@ test('someone who may not see the project may not export it', function () {
 
     $stranger = WorkspaceMember::factory()
         ->for(Workspace::find($project->workspace_id))
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $sibling->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $sibling->id]);
 
     $this->actingAs($stranger->user)
         ->withSession(['workspace_id' => $project->workspace_id])

@@ -16,11 +16,12 @@ use Illuminate\Support\Carbon;
  * @property int $workspace_id
  * @property int $user_id
  * @property WorkspaceRole $role
+ * @property string|null $title formal position, e.g. Kepala Divisi
  * @property int|null $org_unit_id
  * @property int|null $manager_id
  * @property Carbon|null $joined_at
  */
-#[Fillable(['user_id', 'role', 'org_unit_id', 'manager_id', 'joined_at'])]
+#[Fillable(['user_id', 'role', 'title', 'org_unit_id', 'manager_id', 'joined_at'])]
 class WorkspaceMember extends Model
 {
     /** @use HasFactory<WorkspaceMemberFactory> */
@@ -53,12 +54,65 @@ class WorkspaceMember extends Model
     }
 
     /**
-     * BOD-1 runs the entity, so its scope is the workspace itself rather than
-     * one branch of the tree.
+     * The formal position this person holds, as the customer wrote it. Falls
+     * back to the tier's own name so a row is never nameless.
+     */
+    public function positionTitle(): string
+    {
+        return $this->title ?: $this->role->defaultTitle();
+    }
+
+    /**
+     * Whether this member may change anything at all. A Viewer never may.
+     */
+    public function canWrite(): bool
+    {
+        return $this->role->canWrite();
+    }
+
+    /**
+     * An Owner runs the entity, so its scope is the workspace itself rather
+     * than one branch of the tree.
      */
     public function hasFullScope(): bool
     {
         return $this->role->isTop();
+    }
+
+    /**
+     * Whether this member reads the whole workspace: the Owner, and a Viewer
+     * nobody pinned to a branch — the commissioner or auditor who watches the
+     * entity end to end.
+     */
+    public function readsEverything(): bool
+    {
+        return $this->hasFullScope()
+            || ($this->role === WorkspaceRole::Viewer && $this->org_unit_id === null);
+    }
+
+    /**
+     * Root of the subtree this member may read, as a materialized path. Null
+     * when they read everything, or nothing beyond their own work.
+     */
+    public function readScopePath(): ?string
+    {
+        if ($this->readsEverything()) {
+            return null;
+        }
+
+        return $this->managesTeam() || $this->role === WorkspaceRole::Viewer
+            ? $this->scopePath()
+            : null;
+    }
+
+    /**
+     * Whether the reporting pages are open to this member: everyone who leads
+     * a slice of the tree, plus a Viewer, whose whole purpose is to read them.
+     */
+    public function canObserve(): bool
+    {
+        return $this->leadsAnyone()
+            || ($this->role === WorkspaceRole::Viewer && ($this->readsEverything() || $this->scopePath() !== null));
     }
 
     /**
@@ -93,7 +147,7 @@ class WorkspaceMember extends Model
     /**
      * Whether an org unit falls inside this member's scope.
      *
-     * A null unit is workspace level: only BOD-1 covers it, which is what
+     * A null unit is workspace level: only an Owner covers it, which is what
      * keeps a fresh workspace — where nobody has a unit yet — manageable.
      */
     public function covers(?int $orgUnitId): bool
@@ -103,8 +157,8 @@ class WorkspaceMember extends Model
         }
 
         // Full scope means the workspace, not the platform: the org tree is
-        // master data shared by every company, so even BOD-1 only reaches the
-        // subtree their workspace was placed on.
+        // master data shared by every company, so even an Owner only reaches
+        // the subtree their workspace was placed on.
         if ($this->hasFullScope()) {
             return $orgUnitId === null || $this->unitPath($orgUnitId) !== null;
         }
@@ -135,6 +189,36 @@ class WorkspaceMember extends Model
     public function coversMember(self $target): bool
     {
         return $this->user_id === $target->user_id || $this->covers($target->org_unit_id);
+    }
+
+    /**
+     * Whether an org unit falls inside what this member may read. Wider than
+     * {@see covers()}, which answers the same question for writing.
+     */
+    public function readsUnit(?int $orgUnitId): bool
+    {
+        if ($this->readsEverything()) {
+            return $orgUnitId === null || $this->unitPath($orgUnitId) !== null;
+        }
+
+        $scopePath = $this->readScopePath();
+
+        if ($scopePath === null || $orgUnitId === null) {
+            return false;
+        }
+
+        $unitPath = $this->unitPath($orgUnitId);
+
+        return $unitPath !== null && str_starts_with($unitPath, $scopePath);
+    }
+
+    /**
+     * Whether this member may read another one's workload: their own row
+     * always, everyone else inside the read scope.
+     */
+    public function readsMember(self $target): bool
+    {
+        return $this->user_id === $target->user_id || $this->readsUnit($target->org_unit_id);
     }
 
     /**

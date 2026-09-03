@@ -16,7 +16,7 @@ function completionProject(): array
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod3, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Manager, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create();
     $project->members()->attach($member->user_id);

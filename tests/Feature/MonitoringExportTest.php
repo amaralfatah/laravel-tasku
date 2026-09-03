@@ -14,7 +14,7 @@ test('a person export carries their tasks with a week based timeline', function 
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create(['name' => 'GrowMate']);
     Task::factory()->for($project)->done()->create([
@@ -51,7 +51,7 @@ test('the sheet is painted the way the reference workbook is', function () {
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create(['name' => 'GrowMate']);
     Task::factory()->for($project)->done()->create([
@@ -97,12 +97,12 @@ test('the workspace export gives every visible member a sheet behind a cover', f
 
     $leader = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($root, WorkspaceRole::Bod2)
+        ->leading($root, WorkspaceRole::Manager)
         ->create();
 
     $worker = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $root->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $root->id]);
 
     $project = Project::factory()->in($root)->create();
     Task::factory()->for($project)->create(['assignee_id' => $worker->user_id]);
@@ -128,11 +128,11 @@ test('someone outside the viewer scope cannot be exported', function () {
 
     $viewer = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $root->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $root->id]);
 
     $stranger = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $sibling->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $sibling->id]);
 
     $this->actingAs($viewer->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -154,7 +154,7 @@ test('the export follows the timeline zoom it was asked for', function (string $
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create(['name' => 'GrowMate']);
     Task::factory()->for($project)->done()->create([
@@ -187,7 +187,7 @@ test('an unknown zoom falls back to the reference week grid', function () {
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create(['name' => 'GrowMate']);
     Task::factory()->for($project)->done()->create([

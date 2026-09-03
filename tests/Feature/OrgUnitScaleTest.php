@@ -27,7 +27,7 @@ function wideWorkspace(int $children = 40): array
 
     $leader = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($root, WorkspaceRole::Bod1)
+        ->leading($root, WorkspaceRole::Owner)
         ->create();
 
     return compact('workspace', 'leader', 'root');

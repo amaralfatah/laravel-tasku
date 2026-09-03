@@ -16,9 +16,9 @@ use Illuminate\Support\Facades\Hash;
  * Worked example based on a plantation company's in-house software team.
  *
  * Perkebunan Nusantara
- *   └── Divisi Transformasi Digital   ← Kepala Divisi (BOD-1)
- *         └── Pengembangan Digital    ← Kepala Sub Divisi (BOD-2) and one
- *                                        ODS / programmer (BOD-4)
+ *   └── Divisi Transformasi Digital   ← Kepala Divisi (Owner)
+ *         └── Pengembangan Digital    ← Kepala Sub Divisi (Manager) and one
+ *                                        ODS / programmer (Member)
  *
  * Only the people are seeded here — no projects, no tasks, no comments.
  * {@see AmarWorkloadSeeder} brings the applications and the backlog with it.
@@ -76,33 +76,36 @@ class DemoWorkspaceSeeder extends Seeder
      */
     protected function seedMembers(Workspace $workspace, array $units): void
     {
-        // Kepala Divisi is BOD-1, the top of the entity. There is no account
-        // above them inside the workspace.
+        // The Kepala Divisi runs the entity, so they hold the Owner tier.
+        // There is no account above them inside the workspace.
         $this->seedMember(
             $workspace,
             'Prasetyo Mimboro',
             'kadiv@perkebunan.test',
-            WorkspaceRole::Bod1,
+            WorkspaceRole::Owner,
             $units['transformasi'],
+            'Kepala Divisi',
         );
 
-        // Kepala Sub Divisi is BOD-2; sitting in Pengembangan Digital is what
-        // gives them that whole subtree (7.2 rule 2).
+        // A Manager sitting in Pengembangan Digital is what gives them that
+        // whole subtree (7.2 rule 2).
         $this->seedMember(
             $workspace,
             'Rakhmat Akbar Sinaga',
             'kasubdiv@perkebunan.test',
-            WorkspaceRole::Bod2,
+            WorkspaceRole::Manager,
             $units['pengembangan'],
+            'Kepala Sub Divisi',
         );
 
-        // The only ODS: BOD-4 sees just the projects they are a member of.
+        // The only ODS: a plain Member sees just the projects they are on.
         $this->seedMember(
             $workspace,
             'Amar',
             'amar@perkebunan.test',
-            WorkspaceRole::Bod4,
+            WorkspaceRole::Member,
             $units['pengembangan'],
+            'ODS / Programmer',
         );
     }
 
@@ -115,6 +118,7 @@ class DemoWorkspaceSeeder extends Seeder
         string $email,
         WorkspaceRole $role,
         ?OrgUnit $unit = null,
+        ?string $title = null,
     ): array {
         $user = User::firstOrCreate(
             ['email' => $email],
@@ -125,6 +129,7 @@ class DemoWorkspaceSeeder extends Seeder
             'workspace_id' => $workspace->id,
             'user_id' => $user->id,
             'role' => $role,
+            'title' => $title,
             'org_unit_id' => $unit?->id,
             'joined_at' => now(),
         ]);
@@ -136,12 +141,12 @@ class DemoWorkspaceSeeder extends Seeder
     {
         $this->command->info("Workspace {$workspace->name} dibuat. Kata sandi semua akun: password");
         $this->command->table(
-            ['Nama', 'Email', 'Jenjang', 'Role', 'Unit', 'Cakupan pemantauan'],
+            ['Nama', 'Email', 'Role', 'Jabatan', 'Unit', 'Cakupan pemantauan'],
             [
-                ['Super Admin', 'admin@perkebunan.test', 'SA', 'Super Admin', '— (di luar workspace)', 'semua workspace'],
-                ['Prasetyo Mimboro', 'kadiv@perkebunan.test', 'BOD-1', 'Kepala Divisi', 'Divisi Transformasi Digital', 'seluruh workspace'],
-                ['Rakhmat Akbar Sinaga', 'kasubdiv@perkebunan.test', 'BOD-2', 'Kepala Sub Divisi', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
-                ['Amar', 'amar@perkebunan.test', 'BOD-4', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
+                ['Super Admin', 'admin@perkebunan.test', 'Super Admin', '—', '— (di luar workspace)', 'semua workspace'],
+                ['Prasetyo Mimboro', 'kadiv@perkebunan.test', 'Pemilik', 'Kepala Divisi', 'Divisi Transformasi Digital', 'seluruh workspace'],
+                ['Rakhmat Akbar Sinaga', 'kasubdiv@perkebunan.test', 'Manajer', 'Kepala Sub Divisi', 'Pengembangan Digital', 'Pengembangan Digital & turunannya'],
+                ['Amar', 'amar@perkebunan.test', 'Anggota', 'ODS / Programmer', 'Pengembangan Digital', 'project yang diikuti'],
             ],
         );
     }

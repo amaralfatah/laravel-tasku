@@ -75,10 +75,13 @@ class HandleInertiaRequests extends Middleware
                 'role' => $member->role->value,
                 'role_label' => $member->role->label(),
                 'role_code' => $member->role->code(),
+                'title' => $member->positionTitle(),
                 'can_manage' => $member->managesTeam(),
                 // Someone who leads nobody has no use for the roster or the
                 // monitoring pages; "Task saya" already is that page for them.
-                'can_monitor' => $member->leadsAnyone(),
+                // A Viewer is the exception: reading them is all they do.
+                'can_monitor' => $member->canObserve(),
+                'can_write' => $member->canWrite(),
             ],
             'workspaces' => $this->switchableWorkspaces($request),
             'projects' => $workspace === null ? [] : $this->sidebarProjects($request),

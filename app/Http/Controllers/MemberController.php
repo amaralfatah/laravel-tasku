@@ -49,6 +49,7 @@ class MemberController extends Controller
                     'role' => $member->role->value,
                     'role_label' => $member->role->label(),
                     'role_code' => $member->role->code(),
+                    'title' => $member->positionTitle(),
                     'org_unit' => $member->orgUnit?->only(['id', 'name']),
                     'manager_id' => $member->manager_id,
                     'is_last_top_role' => $policy->isLastTopRole($member),
@@ -65,6 +66,7 @@ class MemberController extends Controller
                     'value' => $role->value,
                     'label' => $role->label(),
                     'code' => $role->code(),
+                    'description' => $role->description(),
                 ],
                 $viewer?->role->assignableRoles() ?? [],
             ),
@@ -138,9 +140,9 @@ class MemberController extends Controller
             ->orderBy('users.name')
             ->select('workspace_members.*');
 
-        $scopePath = $viewer->managesTeam() ? $viewer->scopePath() : null;
+        $scopePath = $viewer->readScopePath();
 
-        if (! $viewer->hasFullScope()) {
+        if (! $viewer->readsEverything()) {
             $query->where(function (Builder $inner) use ($viewer, $scopePath): void {
                 $inner->where('workspace_members.user_id', $viewer->user_id);
 

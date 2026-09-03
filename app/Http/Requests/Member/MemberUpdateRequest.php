@@ -20,6 +20,7 @@ class MemberUpdateRequest extends FormRequest
     {
         return [
             'role' => ['sometimes', Rule::in($this->assignableRoleValues())],
+            'title' => ['sometimes', 'nullable', 'string', 'max:100'],
             'org_unit_id' => ['sometimes', 'nullable', 'integer', $this->existsAsOrgUnit()],
             'manager_id' => ['sometimes', 'nullable', 'integer', $this->existsAsWorkspaceMember()],
         ];
@@ -48,6 +49,7 @@ class MemberUpdateRequest extends FormRequest
     {
         return [
             'role' => 'role',
+            'title' => 'jabatan',
             'org_unit_id' => 'unit',
             'manager_id' => 'atasan langsung',
         ];

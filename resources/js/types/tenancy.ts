@@ -1,4 +1,4 @@
-export type WorkspaceRole = 'bod_1' | 'bod_2' | 'bod_3' | 'bod_4';
+export type WorkspaceRole = 'owner' | 'manager' | 'member' | 'viewer';
 
 export type WorkspaceSummary = {
     id: number;
@@ -9,12 +9,16 @@ export type WorkspaceSummary = {
 export type Membership = {
     role: WorkspaceRole;
     role_label: string;
-    /** Short ladder code, e.g. `BOD-1`. */
+    /** Short tier code, e.g. `OWNER`. */
     role_code: string;
-    /** True for BOD-1 through BOD-3, who lead a slice of the org tree. */
+    /** Formal position the customer typed, e.g. `Kepala Divisi`. */
+    title: string;
+    /** True for an owner or a manager, who lead a slice of the org tree. */
     can_manage: boolean;
     /** False for someone whose scope covers only themselves. */
     can_monitor: boolean;
+    /** False for a viewer, who reads and changes nothing. */
+    can_write: boolean;
 };
 
 /** Project entry listed in the sidebar. */

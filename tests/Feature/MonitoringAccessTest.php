@@ -15,7 +15,7 @@ test('my own task page lets me edit the tasks of projects i belong to', function
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create();
     $project->members()->attach($member->user_id);
@@ -44,12 +44,12 @@ test('an asisten may edit the tasks of a project inside their own subtree', func
 
     $viewer = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($root, WorkspaceRole::Bod3)
+        ->leading($root, WorkspaceRole::Manager)
         ->create();
 
     $worker = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $child->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $child->id]);
 
     $project = Project::factory()->in($child)->create();
     Task::factory()->for($project)->create(['assignee_id' => $worker->user_id]);
@@ -70,10 +70,10 @@ test('an ODS cannot open someone elses task page', function () {
 
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
     $other = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -85,7 +85,7 @@ test('the people roster is closed to someone who can only see themselves', funct
     $workspace = Workspace::factory()->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4]);
+        ->create(['role' => WorkspaceRole::Member]);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -99,7 +99,7 @@ test('a leader placed in a unit opens the roster and the division page', functio
 
     $viewer = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading($root, WorkspaceRole::Bod3)
+        ->leading($root, WorkspaceRole::Manager)
         ->create();
 
     $session = ['workspace_id' => $workspace->id];
@@ -115,7 +115,7 @@ test('division monitoring is closed to an ODS', function () {
     $workspace = Workspace::factory()->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4]);
+        ->create(['role' => WorkspaceRole::Member]);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -140,7 +140,7 @@ test('my own task page keeps edit rights on a project i started myself', functio
 
     $owner = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create(['created_by' => $owner->user_id]);
     Task::factory()->for($project)->create(['assignee_id' => $owner->user_id]);

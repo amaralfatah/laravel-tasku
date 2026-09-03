@@ -42,7 +42,7 @@ export function AppSidebar() {
             icon: ListChecks,
         });
 
-        // BOD-1 through BOD-3 lead a slice of the org tree and get exactly the
+        // An owner or manager leads a slice of the org tree and gets exactly the
         // same menu; only how far that slice reaches differs. An ODS leads
         // nobody, so none of this is theirs.
         if (membership?.can_monitor) {

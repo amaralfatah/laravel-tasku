@@ -23,7 +23,7 @@ function sidebarWorkspace(WorkspaceRole $role): array
 }
 
 test('the sidebar lists the projects a manager may open, by name', function () {
-    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Bod1);
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Owner);
 
     // Recency runs against the alphabet here on purpose: a sidebar that
     // reshuffles as projects are touched costs the reader their bearings.
@@ -53,7 +53,7 @@ test('the sidebar lists the projects a manager may open, by name', function () {
 });
 
 test('the sidebar carries the open project even when the limit left it out', function () {
-    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Bod1);
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Owner);
 
     foreach (['Alfa', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot'] as $name) {
         Project::factory()->in($unit)->create(['name' => $name]);
@@ -72,7 +72,7 @@ test('the sidebar carries the open project even when the limit left it out', fun
 });
 
 test('the sidebar does not smuggle in a project the member may not open', function () {
-    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Bod4);
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Member);
 
     $mine = Project::factory()->in($unit)->create(['name' => 'Punya Saya']);
     $mine->members()->attach($member->user_id);
@@ -86,7 +86,7 @@ test('the sidebar does not smuggle in a project the member may not open', functi
 });
 
 test('the sidebar hides projects the member does not belong to', function () {
-    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Bod4);
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Member);
 
     $mine = Project::factory()->in($unit)->create(['name' => 'Punya Saya']);
     $mine->members()->attach($member->user_id);

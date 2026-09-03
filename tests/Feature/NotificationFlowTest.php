@@ -16,7 +16,7 @@ test('opening a notification lands on the task itself, even a nested one', funct
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $member = WorkspaceMember::factory()
         ->for($workspace)
-        ->create(['role' => WorkspaceRole::Bod4, 'org_unit_id' => $unit->id]);
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
 
     $project = Project::factory()->in($unit)->create();
     $project->members()->attach($member->user_id);

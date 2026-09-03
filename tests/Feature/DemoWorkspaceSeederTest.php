@@ -23,6 +23,6 @@ it('leaves Amar as the only programmer', function () {
 
     $amar = User::where('email', 'amar@perkebunan.test')->sole();
 
-    expect(WorkspaceMember::where('user_id', $amar->id)->sole()->role)->toBe(WorkspaceRole::Bod4)
-        ->and(WorkspaceMember::where('role', WorkspaceRole::Bod4)->count())->toBe(1);
+    expect(WorkspaceMember::where('user_id', $amar->id)->sole()->role)->toBe(WorkspaceRole::Member)
+        ->and(WorkspaceMember::where('role', WorkspaceRole::Member)->count())->toBe(1);
 });

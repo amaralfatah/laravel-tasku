@@ -53,7 +53,7 @@ class DivisionController extends Controller
     }
 
     /**
-     * Where the tree starts for this viewer: the workspace roots for BOD-1,
+     * Where the tree starts for this viewer: the workspace roots for an Owner,
      * their own unit for every leader below that.
      */
     protected function defaultRoot(): ?OrgUnit
