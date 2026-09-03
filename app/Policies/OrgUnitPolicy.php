@@ -7,9 +7,19 @@ use App\Models\User;
 use App\Support\Tenancy;
 
 /**
- * The org tree is platform master data imported from SAP: only the super admin
- * shapes it. A workspace leader reads the slice their workspace runs, which is
- * what the unit picker on the member and project pages searches through.
+ * The org tree is one platform-wide structure, and two kinds of people write
+ * to it.
+ *
+ * The operator owns the roots and everything mirrored from SAP: those rows
+ * carry an `external_id`, a re-import overwrites them, and a customer editing
+ * one would have their change silently reverted. Nobody but the super admin
+ * touches them.
+ *
+ * Everything a customer draws themselves — a studio adding its first two
+ * teams, a company adding a sub division — has a null `external_id` and is
+ * theirs: an Owner or a Manager shapes it, inside the branch their own unit
+ * gives them. That is what lets a workspace start with one node and grow its
+ * own structure without an operator.
  */
 class OrgUnitPolicy
 {
@@ -32,27 +42,52 @@ class OrgUnitPolicy
     }
 
     /**
-     * Shape the structure. Master data, so the operator alone writes it —
-     * a leader placing someone in a unit is `WorkspaceMemberPolicy`, not this.
+     * Whether this person shapes the structure at all — the gate on the page's
+     * own controls.
      */
     public function create(User $user): bool
     {
-        return $user->is_super_admin;
+        return $user->is_super_admin || $this->leads();
     }
 
+    /**
+     * Hang a new unit under this parent.
+     *
+     * A root is an operating entity, which is the operator's to hand out: a
+     * customer only ever grows the branch they were given.
+     */
     public function createUnder(User $user, ?OrgUnit $parent): bool
     {
-        return $this->create($user);
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        return $parent !== null
+            && $this->leads()
+            && $this->belongsToActiveWorkspace($parent)
+            && (bool) $this->tenancy->member()?->covers($parent->id);
     }
 
+    /**
+     * Rename or retype a unit.
+     *
+     * The workspace's own root is excluded: it is the node the operator placed
+     * the company on, and moving or renaming it would change what the whole
+     * workspace is.
+     */
     public function update(User $user, OrgUnit $orgUnit): bool
     {
-        return $this->create($user);
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        return $this->isCustomerOwned($orgUnit)
+            && $orgUnit->id !== $this->tenancy->workspace()?->root_org_unit_id;
     }
 
     public function delete(User $user, OrgUnit $orgUnit): bool
     {
-        return $this->create($user);
+        return $this->update($user, $orgUnit);
     }
 
     /**
@@ -70,6 +105,28 @@ class OrgUnitPolicy
     {
         return $this->belongsToActiveWorkspace($orgUnit)
             && (bool) $this->tenancy->member()?->readsUnit($orgUnit->id);
+    }
+
+    /**
+     * A unit the customer drew and may therefore change: inside their scope,
+     * and not a row SAP owns.
+     */
+    protected function isCustomerOwned(OrgUnit $orgUnit): bool
+    {
+        return $orgUnit->external_id === null
+            && $this->leads()
+            && $this->belongsToActiveWorkspace($orgUnit)
+            && (bool) $this->tenancy->member()?->covers($orgUnit->id);
+    }
+
+    /**
+     * Whether the active member leads a branch and may write at all.
+     */
+    protected function leads(): bool
+    {
+        $member = $this->tenancy->member();
+
+        return $member !== null && $member->canWrite() && $member->leadsAnyone();
     }
 
     /**

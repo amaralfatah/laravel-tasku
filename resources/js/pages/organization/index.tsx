@@ -26,6 +26,7 @@ import {
 import {
     destroy as destroyUnit,
     masterSearch,
+    search as scopedSearch,
     store as storeUnit,
     update as updateUnit,
 } from '@/routes/org-units';
@@ -39,11 +40,19 @@ export default function Organization({
     units,
     maxDepth,
     can,
+    workspace,
 }: {
     units: OrgUnitNode[];
     maxDepth: number;
-    can: { manage: boolean };
+    can: { manage: boolean; manage_roots: boolean };
+    workspace: { id: number; name: string } | null;
 }) {
+    /*
+     * The operator searches the untrimmed master tree; everyone else searches
+     * their own branch. Both endpoints run the same query and return the same
+     * shape — only the scope differs.
+     */
+    const searchEndpoint = can.manage_roots ? masterSearch : scopedSearch;
     const [unitDialog, setUnitDialog] = useState<UnitDialogMode>(null);
     const [target, setTarget] = useState<OrgUnitNode | null>(null);
     const [revealPath, setRevealPath] = useState<string | null>(null);
@@ -143,14 +152,23 @@ export default function Organization({
             <div className="space-y-6">
                 <PageHeader
                     title="Organisasi"
-                    description="Data master struktur organisasi, dicerminkan dari SAP dan dipakai seluruh workspace."
+                    description={
+                        can.manage_roots
+                            ? 'Data master struktur organisasi, dicerminkan dari SAP dan dipakai seluruh workspace.'
+                            : `Struktur ${workspace?.name ?? 'workspace ini'}. Tambahkan divisi, subdivisi, dan unit sesuai kebutuhan Anda sendiri.`
+                    }
                 />
 
                 <section className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                         <h2 className="font-medium">Struktur unit</h2>
 
-                        {can.manage && (
+                        {/*
+                         * A root is an operating entity, which the operator
+                         * hands out. A customer grows their own branch from the
+                         * node they were given, using the row actions.
+                         */}
+                        {can.manage && can.manage_roots && (
                             <Button size="sm" onClick={() => openCreate(null)}>
                                 <Plus className="size-4" aria-hidden="true" />
                                 Unit baru
@@ -159,9 +177,13 @@ export default function Organization({
                     </div>
 
                     <OrgUnitSearch
-                        endpoint={masterSearch}
+                        endpoint={searchEndpoint}
                         onSelect={(hit) => setRevealPath(hit.path)}
-                        placeholder="Cari unit di seluruh struktur…"
+                        placeholder={
+                            can.manage_roots
+                                ? 'Cari unit di seluruh struktur…'
+                                : 'Cari unit di struktur Anda…'
+                        }
                         emptyHint="Ketik minimal 2 huruf untuk mencari unit tanpa membuka satu per satu."
                     />
 
@@ -291,7 +313,7 @@ export default function Organization({
                                 {/* A unit cannot be moved into itself or its own subtree. */}
                                 <OrgUnitSearch
                                     autoFocus
-                                    endpoint={masterSearch}
+                                    endpoint={searchEndpoint}
                                     excludeSubtreeOf={target?.path ?? null}
                                     placeholder="Cari unit induk…"
                                     onSelect={(hit) => {

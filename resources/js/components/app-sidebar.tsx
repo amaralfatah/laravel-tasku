@@ -78,10 +78,20 @@ export function AppSidebar() {
                 { title: 'Monitoring', icon: Gauge, items: monitoringItems },
             );
         }
+
+        // A leader shapes the branch they run, so the structure page is
+        // theirs too — scoped to that branch, and never the roots.
+        if (showsOrganisation && membership?.can_manage) {
+            mainNavItems.push({
+                title: 'Struktur organisasi',
+                href: organizationIndex(),
+                icon: Network,
+            });
+        }
     }
 
-    // The org structure is platform master data mirrored from SAP, so it is
-    // the operator's page, not a workspace one.
+    // Without a workspace the same page opens on the whole master tree, which
+    // is the operator's own view of it.
     if (isSuperAdmin) {
         mainNavItems.push(
             {

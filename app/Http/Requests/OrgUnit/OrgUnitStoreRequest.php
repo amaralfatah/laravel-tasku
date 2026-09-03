@@ -17,7 +17,9 @@ class OrgUnitStoreRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'type' => ['nullable', 'string', Rule::in(['company', 'division', 'sub_division', 'team'])],
-            // The page is the operator's, so the parent may be any node of the master tree.
+            // Any node the viewer can reach: the whole master tree for the
+            // operator, the workspace's own subtree for everyone else, which
+            // `parent()` resolves through the global scope.
             'parent_id' => ['nullable', 'integer', 'exists:org_units,id'],
         ];
     }

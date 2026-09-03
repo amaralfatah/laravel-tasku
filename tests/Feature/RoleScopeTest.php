@@ -199,26 +199,85 @@ test('an ODS is kept out of the roster and the organisation page', function () {
         ->get(route('organization.index'))->assertForbidden();
 });
 
-test('a leader does not shape the structure, they only search it', function () {
+test('a leader shapes their own branch and opens it at their own unit', function () {
     ['workspace' => $workspace] = twoBranchWorkspace();
+
+    $engineering = OrgUnit::whereName('Engineering')->firstOrFail();
 
     $leader = WorkspaceMember::factory()
         ->for($workspace)
-        ->leading(OrgUnit::whereName('Engineering')->firstOrFail(), WorkspaceRole::Manager)
+        ->leading($engineering, WorkspaceRole::Manager)
         ->create();
 
-    // The org tree is platform master data the operator maintains, so the
-    // structure page is closed even to the leader of a branch.
-    $this->actingAs($leader->user)
-        ->withSession(['workspace_id' => $workspace->id])
-        ->get(route('organization.index'))
-        ->assertForbidden();
+    $this->actingAs($leader->user)->withSession(['workspace_id' => $workspace->id]);
 
-    $this->actingAs($leader->user)
-        ->withSession(['workspace_id' => $workspace->id])
-        ->getJson(route('org-units.search', ['q' => 'Engineering']))
+    // The page opens on the single node their scope hangs off, not on the
+    // master roots the operator sees.
+    $this->get(route('organization.index'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('units', 1)
+            ->where('units.0.name', 'Engineering')
+            ->where('can.manage', true)
+            ->where('can.manage_roots', false)
+        );
+
+    $this->post(route('org-units.store'), ['name' => 'Platform', 'parent_id' => $engineering->id])
+        ->assertRedirect();
+
+    expect(OrgUnit::whereName('Platform')->firstOrFail()->parent_id)->toBe($engineering->id);
+
+    $this->getJson(route('org-units.search', ['q' => 'Engineering']))
         ->assertOk()
         ->assertJsonPath('units.0.name', 'Engineering');
+});
+
+test('a leader may not shape the tree outside their own branch', function () {
+    ['workspace' => $workspace, 'marketing' => $marketing] = twoBranchWorkspace();
+
+    $engineering = OrgUnit::whereName('Engineering')->firstOrFail();
+
+    $leader = WorkspaceMember::factory()
+        ->for($workspace)
+        ->leading($engineering, WorkspaceRole::Manager)
+        ->create();
+
+    $this->actingAs($leader->user)->withSession(['workspace_id' => $workspace->id]);
+
+    // A sibling branch, a root of the master tree, and their own scope root's
+    // parent are all off limits.
+    $this->post(route('org-units.store'), ['name' => 'Diselundupkan', 'parent_id' => $marketing->id])
+        ->assertForbidden();
+    $this->post(route('org-units.store'), ['name' => 'Entitas baru'])
+        ->assertForbidden();
+    $this->patch(route('org-units.update', $marketing), ['name' => 'Dirampas'])
+        ->assertForbidden();
+
+    expect(OrgUnit::whereName('Diselundupkan')->exists())->toBeFalse()
+        ->and($marketing->refresh()->name)->toBe('Marketing');
+});
+
+test('a unit mirrored from SAP stays the operators, even inside a leaders branch', function () {
+    ['workspace' => $workspace] = twoBranchWorkspace();
+
+    $engineering = OrgUnit::whereName('Engineering')->firstOrFail();
+    $imported = OrgUnit::factory()
+        ->childOf($engineering)
+        ->create(['name' => 'Backend SAP', 'external_id' => '50000001']);
+
+    $leader = WorkspaceMember::factory()
+        ->for($workspace)
+        ->leading($engineering, WorkspaceRole::Manager)
+        ->create();
+
+    $this->actingAs($leader->user)->withSession(['workspace_id' => $workspace->id]);
+
+    // A re-import would overwrite the change, so it is refused rather than
+    // silently reverted later.
+    $this->patch(route('org-units.update', $imported), ['name' => 'Diubah'])->assertForbidden();
+    $this->delete(route('org-units.destroy', $imported))->assertForbidden();
+
+    expect($imported->refresh()->name)->toBe('Backend SAP');
 });
 
 test('a leader searches inside their scope but not outside it', function () {

@@ -16,13 +16,14 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The org structure, which is platform master data mirrored from SAP.
+ * The org structure: one platform-wide tree, part of it mirrored from SAP and
+ * part of it drawn by the customers themselves.
  *
- * Everything but `search()` belongs to the super admin: the structure page and
- * the writes behind it run without tenant context and therefore see the whole
- * tree. `search()` is the one action a workspace leader reaches, and it is
- * scoped to the branch they lead so the member and project pickers can place
- * someone without exposing another company.
+ * Who sees what follows the tenant context. The operator arrives without one
+ * and starts at the master roots — the operating companies SAP hands over. An
+ * Owner or Manager arrives with one and starts at the single node their scope
+ * hangs off, growing their own branch below it; `OrgUnitPolicy` is what keeps
+ * them off the roots and off anything SAP owns.
  *
  * The tree is served one level at a time. The import puts tens of thousands of
  * units in the table, so shipping the whole structure in the page props would
@@ -54,7 +55,11 @@ class OrgUnitController extends Controller
             'maxDepth' => OrgUnit::MAX_DEPTH,
             'can' => [
                 'manage' => request()->user()->can('create', OrgUnit::class),
+                // A root is an operating entity, so only the operator adds
+                // one — and only the operator searches the untrimmed tree.
+                'manage_roots' => (bool) request()->user()?->is_super_admin,
             ],
+            'workspace' => $this->tenancy->workspace()?->only(['id', 'name']),
         ]);
     }
 
@@ -162,14 +167,20 @@ class OrgUnitController extends Controller
      */
     protected function level(?OrgUnit $parent): array
     {
+        $entryId = $parent === null ? $this->entryUnitId() : null;
+
         return OrgUnit::query()
             ->withCount(['children', 'projects', 'assignedMembers'])
             ->when(
                 $parent !== null,
                 fn (Builder $query) => $query->where('parent_id', $parent->id),
-                // The page belongs to the operator, who starts at the top of
-                // the master tree: the operating companies SAP hands over.
-                fn (Builder $query) => $query->whereNull('parent_id'),
+                // Without a parent the page opens at the top of the viewer's
+                // own slice: the operator starts at the master roots — the
+                // operating companies SAP hands over — while a leader starts
+                // at the single node their scope hangs off.
+                fn (Builder $query) => $entryId === null
+                    ? $query->whereNull('parent_id')
+                    : $query->whereKey($entryId),
             )
             ->orderBy('name')
             ->get()
@@ -185,6 +196,25 @@ class OrgUnitController extends Controller
                 'members_count' => $unit->assigned_members_count,
             ])
             ->all();
+    }
+
+    /**
+     * The single unit a workspace leader's structure page opens on: the node
+     * their workspace runs for an Owner, their own unit for a Manager.
+     *
+     * Null for the operator, who has no membership and starts at the roots.
+     */
+    protected function entryUnitId(): ?int
+    {
+        $member = $this->tenancy->member();
+
+        if ($member === null) {
+            return null;
+        }
+
+        return $member->hasFullScope()
+            ? $this->tenancy->workspace()?->root_org_unit_id
+            : $member->org_unit_id;
     }
 
     /**

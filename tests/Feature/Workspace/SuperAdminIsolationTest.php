@@ -33,32 +33,55 @@ test('every workspace page bounces a super admin back to the roster', function (
     'members.index',
 ]);
 
-test('the org structure is the operators page, not a workspace one', function () {
+test('the structure page shows the master tree to the operator and one branch to an owner', function () {
     $workspace = Workspace::factory()->create();
-    $unit = OrgUnit::factory()->rootOf($workspace)->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create(['name' => 'Entitas A']);
+    OrgUnit::factory()->create(['name' => 'Entitas B']);
+
     $owner = WorkspaceMember::factory()
         ->for($workspace)
         ->create(['role' => WorkspaceRole::Owner, 'org_unit_id' => $unit->id]);
 
-    $this->actingAs(superAdmin())->get(route('organization.index'))->assertOk();
+    $this->actingAs(superAdmin())
+        ->get(route('organization.index'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('units', 2)
+            ->where('can.manage_roots', true)
+        );
 
     $this->actingAs($owner->user)
         ->withSession(['workspace_id' => $workspace->id])
         ->get(route('organization.index'))
-        ->assertForbidden();
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('units', 1)
+            ->where('units.0.name', 'Entitas A')
+            ->where('can.manage_roots', false)
+        );
 });
 
-test('a leader cannot shape the master structure', function () {
+test('an owner grows their own branch but never adds a root', function () {
     $workspace = Workspace::factory()->create();
     $unit = OrgUnit::factory()->rootOf($workspace)->create();
     $owner = WorkspaceMember::factory()
         ->for($workspace)
         ->create(['role' => WorkspaceRole::Owner, 'org_unit_id' => $unit->id]);
 
-    $this->actingAs($owner->user)
-        ->withSession(['workspace_id' => $workspace->id])
-        ->post(route('org-units.store'), ['name' => 'Unit Baru', 'parent_id' => $unit->id])
+    $this->actingAs($owner->user)->withSession(['workspace_id' => $workspace->id]);
+
+    $this->post(route('org-units.store'), ['name' => 'Unit Baru', 'parent_id' => $unit->id])
+        ->assertRedirect();
+
+    // A root is an operating entity, which the platform operator hands out.
+    $this->post(route('org-units.store'), ['name' => 'Entitas Sendiri'])
         ->assertForbidden();
+
+    // The node the workspace itself runs is not the owner's to rename either.
+    $this->patch(route('org-units.update', $unit), ['name' => 'Diubah'])->assertForbidden();
+
+    expect(OrgUnit::whereName('Unit Baru')->exists())->toBeTrue()
+        ->and(OrgUnit::whereName('Entitas Sendiri')->exists())->toBeFalse();
 });
 
 test('a super admin cannot reach a single project of a workspace', function () {

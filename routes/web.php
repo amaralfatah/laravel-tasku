@@ -18,6 +18,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', HomeController::class)->name('dashboard');
 
     Route::get('workspace/none', [WorkspaceContextController::class, 'none'])->name('workspace.none');
+    // Self-serve: someone who belongs to no workspace starts their own.
+    Route::post('workspace/start', [WorkspaceContextController::class, 'start'])
+        ->middleware('throttle:6,1')
+        ->name('workspace.start');
     Route::post('workspace/{workspace}/change', [WorkspaceContextController::class, 'change'])->name('workspace.change');
 });
 
