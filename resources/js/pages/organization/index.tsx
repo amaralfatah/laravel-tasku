@@ -197,7 +197,9 @@ export default function Organization({
                                 ? `Unit baru akan berada di bawah ${target.name}.`
                                 : unitDialog === 'move' && target
                                   ? `Cari unit induk baru untuk ${target.name}.`
-                                  : 'Maksimal ' + (maxDepth + 1) + ' tingkat kedalaman.'}
+                                  : 'Maksimal ' +
+                                    (maxDepth + 1) +
+                                    ' tingkat kedalaman.'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -225,7 +227,9 @@ export default function Organization({
                                         autoFocus
                                         placeholder="Divisi Engineering"
                                     />
-                                    <InputError message={unitForm.errors.name} />
+                                    <InputError
+                                        message={unitForm.errors.name}
+                                    />
                                 </div>
 
                                 <div className="grid gap-2">
@@ -252,7 +256,9 @@ export default function Organization({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <InputError message={unitForm.errors.type} />
+                                    <InputError
+                                        message={unitForm.errors.type}
+                                    />
                                 </div>
                             </>
                         )}
@@ -294,7 +300,9 @@ export default function Organization({
                                     }}
                                 />
 
-                                <InputError message={unitForm.errors.parent_id} />
+                                <InputError
+                                    message={unitForm.errors.parent_id}
+                                />
                             </div>
                         )}
 
@@ -306,7 +314,10 @@ export default function Organization({
                             >
                                 Batal
                             </Button>
-                            <Button type="submit" disabled={unitForm.processing}>
+                            <Button
+                                type="submit"
+                                disabled={unitForm.processing}
+                            >
                                 {unitForm.processing ? 'Menyimpan…' : 'Simpan'}
                             </Button>
                         </DialogFooter>

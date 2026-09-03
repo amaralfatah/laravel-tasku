@@ -6,8 +6,8 @@ use App\Enums\ExportZoom;
 use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Support\TimelineGrid;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Date;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -139,7 +139,7 @@ class WorkloadExport
      * Every date a set of tasks carries, both ends, nulls dropped.
      *
      * @param  Collection<int, Task>  $tasks
-     * @return Collection<int, Carbon>
+     * @return Collection<int, CarbonImmutable>
      */
     protected function datesOf(Collection $tasks): Collection
     {

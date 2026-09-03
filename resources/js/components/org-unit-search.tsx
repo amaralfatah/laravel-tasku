@@ -40,26 +40,29 @@ export function OrgUnitSearch({
     endpoint?: typeof searchUnits;
 }) {
     const [term, setTerm] = useState('');
-    const [hits, setHits] = useState<OrgUnitHit[] | null>(null);
-    const [searching, setSearching] = useState(false);
+
+    // Results carry the term they answer, so a stale set from an earlier term
+    // is simply not shown rather than having to be cleared from an effect.
+    const [result, setResult] = useState<{
+        term: string;
+        units: OrgUnitHit[];
+    } | null>(null);
 
     // Only the newest request may write to state; a slow earlier one is dropped.
     const requestId = useRef(0);
 
+    const trimmed = term.trim();
+    const tooShort = trimmed.length < MIN_TERM;
+    const hits = !tooShort && result?.term === trimmed ? result.units : null;
+    const searching = !tooShort && hits === null;
+
     useEffect(() => {
-        const trimmed = term.trim();
-
-        if (trimmed.length < MIN_TERM) {
-            setHits(null);
-            setSearching(false);
-
+        if (tooShort) {
             return;
         }
 
         const id = ++requestId.current;
         const controller = new AbortController();
-
-        setSearching(true);
 
         const timer = window.setTimeout(() => {
             fetch(endpoint({ query: { q: trimmed } }).url, {
@@ -67,20 +70,17 @@ export function OrgUnitSearch({
                 credentials: 'same-origin',
                 signal: controller.signal,
             })
-                .then((response) => (response.ok ? response.json() : { units: [] }))
+                .then((response) =>
+                    response.ok ? response.json() : { units: [] },
+                )
                 .then((payload: { units: OrgUnitHit[] }) => {
                     if (id === requestId.current) {
-                        setHits(payload.units);
+                        setResult({ term: trimmed, units: payload.units });
                     }
                 })
                 .catch(() => {
                     if (id === requestId.current) {
-                        setHits([]);
-                    }
-                })
-                .finally(() => {
-                    if (id === requestId.current) {
-                        setSearching(false);
+                        setResult({ term: trimmed, units: [] });
                     }
                 });
         }, DEBOUNCE_MS);
@@ -89,11 +89,10 @@ export function OrgUnitSearch({
             window.clearTimeout(timer);
             controller.abort();
         };
-    }, [term, endpoint]);
+    }, [trimmed, tooShort, endpoint]);
 
     const visible = (hits ?? []).filter(
-        (hit) =>
-            !excludeSubtreeOf || !hit.path.startsWith(excludeSubtreeOf),
+        (hit) => !excludeSubtreeOf || !hit.path.startsWith(excludeSubtreeOf),
     );
 
     return (
@@ -127,7 +126,10 @@ export function OrgUnitSearch({
 
             {searching && (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                    <Loader2
+                        className="size-3.5 animate-spin"
+                        aria-hidden="true"
+                    />
                     Mencari…
                 </p>
             )}

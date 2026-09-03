@@ -1,5 +1,10 @@
-import { ChevronRight, FolderTree, Loader2, MoreHorizontal } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    ChevronRight,
+    FolderTree,
+    Loader2,
+    MoreHorizontal,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +21,25 @@ import type { OrgUnitNode } from '@/types/organization';
 
 /** Children already fetched, keyed by parent id. */
 type ChildCache = Record<number, OrgUnitNode[]>;
+
+/**
+ * Everything fetched so far, stamped with the `resetKey` it was fetched under.
+ * A bumped key retires the whole set in the same render that carries the bump,
+ * which is why the drop needs no effect.
+ */
+type Branches = { stamp: number; cache: ChildCache; failed: Set<number> };
+
+const EMPTY_CACHE: ChildCache = {};
+
+const EMPTY_FAILED: Set<number> = new Set();
+
+function without(ids: Set<number>, id: number): Set<number> {
+    const next = new Set(ids);
+
+    next.delete(id);
+
+    return next;
+}
 
 async function fetchChildren(id: number): Promise<OrgUnitNode[]> {
     const response = await fetch(childrenRoute(id).url, {
@@ -63,96 +87,133 @@ export function OrgUnitTree({
     onMove: (unit: OrgUnitNode) => void;
     onDelete: (unit: OrgUnitNode) => void;
 }) {
-    const [cache, setCache] = useState<ChildCache>({});
-    const [expanded, setExpanded] = useState<Set<number>>(new Set());
-    const [loading, setLoading] = useState<Set<number>>(new Set());
-    const [failed, setFailed] = useState<Set<number>>(new Set());
+    const [branches, setBranches] = useState<Branches>({
+        stamp: resetKey,
+        cache: {},
+        failed: new Set(),
+    });
 
-    const highlighted = revealPath ? unitIdsOnPath(revealPath).at(-1) : undefined;
+    // Branches the viewer opened and closed by hand. `revealPath` adds its own
+    // ancestors on top, and closing one of those has to survive, so the two
+    // sets are kept apart instead of merged into one `expanded`.
+    const [opened, setOpened] = useState<Set<number>>(new Set());
+    const [closed, setClosed] = useState<Set<number>>(new Set());
+
+    // A saved change can move or rename anything below, so a bumped `resetKey`
+    // retires every cached branch; the still-open ones refetch through the
+    // effect further down.
+    const current = branches.stamp === resetKey ? branches : null;
+    const cache = current?.cache ?? EMPTY_CACHE;
+    const failed = current?.failed ?? EMPTY_FAILED;
+
+    const highlighted = revealPath
+        ? unitIdsOnPath(revealPath).at(-1)
+        : undefined;
     const highlightRef = useRef<HTMLDivElement | null>(null);
 
-    const load = useCallback((id: number) => {
-        setLoading((current) => new Set(current).add(id));
+    // In-flight ids live in a ref, not state: a fetch that has only been
+    // started is not something the tree renders, and marking it in state would
+    // mean writing state from the effect that starts it.
+    const inFlight = useRef<Set<string>>(new Set());
 
-        fetchChildren(id)
-            .then((rows) => {
-                setCache((current) => ({ ...current, [id]: rows }));
-                setFailed((current) => {
-                    const next = new Set(current);
-                    next.delete(id);
+    const writeBranches = useCallback(
+        (
+            update: (held: Omit<Branches, 'stamp'>) => Omit<Branches, 'stamp'>,
+        ) => {
+            setBranches((held) => ({
+                stamp: resetKey,
+                ...update(
+                    held.stamp === resetKey
+                        ? held
+                        : { cache: EMPTY_CACHE, failed: EMPTY_FAILED },
+                ),
+            }));
+        },
+        [resetKey],
+    );
 
-                    return next;
+    const load = useCallback(
+        (id: number) => {
+            // Stamped, so a branch retired by a bump is fetched again rather
+            // than skipped as already in flight.
+            const token = `${resetKey}:${id}`;
+
+            if (inFlight.current.has(token)) {
+                return;
+            }
+
+            inFlight.current.add(token);
+
+            fetchChildren(id)
+                .then((rows) => {
+                    writeBranches((held) => ({
+                        cache: { ...held.cache, [id]: rows },
+                        failed: without(held.failed, id),
+                    }));
+                })
+                .catch(() => {
+                    writeBranches((held) => ({
+                        cache: held.cache,
+                        failed: new Set(held.failed).add(id),
+                    }));
+                })
+                .finally(() => {
+                    inFlight.current.delete(token);
                 });
-            })
-            .catch(() => {
-                setFailed((current) => new Set(current).add(id));
-            })
-            .finally(() => {
-                setLoading((current) => {
-                    const next = new Set(current);
-                    next.delete(id);
+        },
+        [resetKey, writeBranches],
+    );
 
-                    return next;
-                });
-            });
-    }, []);
+    const revealed = useMemo(
+        () => (revealPath ? unitIdsOnPath(revealPath).slice(0, -1) : []),
+        [revealPath],
+    );
 
-    // A saved change can move or rename anything below, so every cached branch
-    // is dropped and the still-open ones refetch through the effect below.
-    useEffect(() => {
-        if (resetKey > 0) {
-            setCache({});
-            setFailed(new Set());
+    const expanded = useMemo(() => {
+        const next = new Set(opened);
+
+        for (const id of revealed) {
+            next.add(id);
         }
-    }, [resetKey]);
 
-    // Fetch whatever is open but not loaded yet. Covers both a plain click and
-    // the cascade of ancestors opened by `revealPath`.
+        for (const id of closed) {
+            next.delete(id);
+        }
+
+        return next;
+    }, [opened, revealed, closed]);
+
+    // Fetch whatever is open but not loaded yet. Covers a plain click, the
+    // cascade of ancestors opened by `revealPath`, and a bumped `resetKey`.
     useEffect(() => {
         for (const id of expanded) {
-            if (!(id in cache) && !loading.has(id) && !failed.has(id)) {
+            if (!(id in cache) && !failed.has(id)) {
                 load(id);
             }
         }
-    }, [expanded, cache, loading, failed, load]);
-
-    useEffect(() => {
-        if (!revealPath) {
-            return;
-        }
-
-        const ancestors = unitIdsOnPath(revealPath).slice(0, -1);
-
-        setExpanded((current) => {
-            const next = new Set(current);
-            ancestors.forEach((id) => next.add(id));
-
-            return next;
-        });
-    }, [revealPath]);
+    }, [expanded, cache, failed, load]);
 
     useEffect(() => {
         highlightRef.current?.scrollIntoView({ block: 'center' });
     }, [highlighted, cache]);
 
     const toggle = (id: number) => {
-        setExpanded((current) => {
-            const next = new Set(current);
+        const isOpen = expanded.has(id);
 
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-                setFailed((stale) => {
-                    const cleaned = new Set(stale);
-                    cleaned.delete(id);
+        setOpened((held) =>
+            isOpen ? without(held, id) : new Set(held).add(id),
+        );
+        setClosed((held) =>
+            isOpen ? new Set(held).add(id) : without(held, id),
+        );
 
-                    return cleaned;
-                });
-            }
-
-            return next;
-        });
+        if (!isOpen) {
+            // Opening again after a failure is how the viewer retries.
+            writeBranches((held) => ({
+                cache: held.cache,
+                failed: without(held.failed, id),
+            }));
+        }
     };
 
     if (units.length === 0) {
@@ -173,9 +234,9 @@ export function OrgUnitTree({
     const renderNode = (node: OrgUnitNode) => {
         const hasChildren = node.children_count > 0;
         const isOpen = expanded.has(node.id);
-        const isLoading = loading.has(node.id);
         const didFail = failed.has(node.id);
         const rows = cache[node.id];
+        const isLoading = isOpen && rows === undefined && !didFail;
         const canNest = node.depth < maxDepth;
         const isHighlighted = node.id === highlighted;
 
@@ -199,7 +260,9 @@ export function OrgUnitTree({
                             onClick={() => toggle(node.id)}
                             aria-expanded={isOpen}
                             aria-label={
-                                isOpen ? `Tutup ${node.name}` : `Buka ${node.name}`
+                                isOpen
+                                    ? `Tutup ${node.name}`
+                                    : `Buka ${node.name}`
                             }
                             className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted"
                         >
@@ -225,7 +288,9 @@ export function OrgUnitTree({
                     </Badge>
 
                     <span className="ml-auto hidden shrink-0 gap-4 text-xs text-muted-foreground tabular-nums sm:flex">
-                        {hasChildren && <span>{node.children_count} sub unit</span>}
+                        {hasChildren && (
+                            <span>{node.children_count} sub unit</span>
+                        )}
                         <span>{node.members_count} anggota</span>
                         <span>{node.projects_count} project</span>
                     </span>
@@ -250,7 +315,9 @@ export function OrgUnitTree({
                                 >
                                     Tambah sub unit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => onRename(node)}>
+                                <DropdownMenuItem
+                                    onSelect={() => onRename(node)}
+                                >
                                     Ubah nama
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => onMove(node)}>
@@ -271,7 +338,9 @@ export function OrgUnitTree({
                 {isOpen && didFail && (
                     <p
                         className="py-1 text-sm text-destructive"
-                        style={{ paddingLeft: `${(node.depth + 1) * 14 + 8}px` }}
+                        style={{
+                            paddingLeft: `${(node.depth + 1) * 14 + 8}px`,
+                        }}
                     >
                         Sub unit gagal dimuat.{' '}
                         <button

@@ -333,7 +333,7 @@ class OrgStructureImporter
      * and hanging those next to the real structure makes the top level read as
      * fifty-odd unrelated entries instead of the company.
      *
-     * @param  array<string, array{external_id: string, name: string, parent: string|null, depth: int}>  $nodes
+     * @param  array<array-key, array{external_id: string, name: string, parent: string|null, depth: int}>  $nodes
      * @param  array<string, string>  $parentOf
      * @return array{dropped: int, excluded: int}
      */

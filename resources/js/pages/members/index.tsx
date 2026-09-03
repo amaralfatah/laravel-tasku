@@ -426,6 +426,7 @@ export default function Members({
             </div>
 
             <MemberEditDialog
+                key={editing?.id ?? 'none'}
                 member={editing}
                 unitPicker={unitPicker}
                 roles={roles}

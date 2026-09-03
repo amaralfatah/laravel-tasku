@@ -234,22 +234,28 @@ class TimelineGrid
      */
     protected function bands(callable $key, callable $label): array
     {
-        $bands = [];
+        $labels = [];
+        $spans = [];
         $previous = null;
 
         foreach ($this->columns as $column) {
             $current = $key($column);
 
             if ($current === $previous) {
-                $bands[count($bands) - 1]['span']++;
+                $spans[count($spans) - 1]++;
 
                 continue;
             }
 
-            $bands[] = ['label' => $label($column), 'span' => 1];
+            $labels[] = $label($column);
+            $spans[] = 1;
             $previous = $current;
         }
 
-        return $bands;
+        return array_map(
+            fn (string $bandLabel, int $span): array => ['label' => $bandLabel, 'span' => $span],
+            $labels,
+            $spans,
+        );
     }
 }

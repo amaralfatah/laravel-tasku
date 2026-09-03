@@ -7,6 +7,7 @@ use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Observers\TaskObserver;
 use App\Support\TaskPresenter;
+use Carbon\CarbonImmutable;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -17,7 +18,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -33,13 +33,13 @@ use Illuminate\Support\Carbon;
  * @property int|null $assignee_id
  * @property TaskStatus $status
  * @property int $progress
- * @property Carbon|null $completed_at stamped when the status turns done
+ * @property CarbonImmutable|null $completed_at stamped when the status turns done
  * @property TaskPriority $priority
- * @property Carbon|null $start_date
- * @property Carbon|null $due_date
+ * @property CarbonImmutable|null $start_date
+ * @property CarbonImmutable|null $due_date
  * @property int $position
  * @property int|null $created_by
- * @property Carbon|null $deleted_at
+ * @property CarbonImmutable|null $deleted_at
  */
 #[ObservedBy(TaskObserver::class)]
 #[Fillable([
@@ -74,6 +74,8 @@ class Task extends Model
      *
      * Reads the project relation, so callers that render many tasks should
      * either eager load it or hand the key straight to {@see TaskPresenter}.
+     *
+     * @return Attribute<non-falsy-string, never>
      */
     protected function reference(): Attribute
     {
@@ -165,9 +167,9 @@ class Task extends Model
         return [
             'status' => TaskStatus::class,
             'priority' => TaskPriority::class,
-            'start_date' => 'date',
-            'due_date' => 'date',
-            'completed_at' => 'datetime',
+            'start_date' => 'immutable_date',
+            'due_date' => 'immutable_date',
+            'completed_at' => 'immutable_datetime',
         ];
     }
 }

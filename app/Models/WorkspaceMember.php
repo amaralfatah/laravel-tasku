@@ -83,7 +83,7 @@ class WorkspaceMember extends Model
             // "no scope" silently demotes a leader to a plain member.
             $loaded = $this->relationLoaded('orgUnit') ? $this->orgUnit : null;
 
-            $this->resolvedScopePath = $loaded?->path
+            $this->resolvedScopePath = $loaded->path
                 ?? OrgUnit::query()->whereKey($this->org_unit_id)->value('path');
         }
 

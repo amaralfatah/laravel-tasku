@@ -215,7 +215,7 @@ class OrgUnitController extends Controller
         $ids = [];
 
         foreach ($paths as $path) {
-            foreach (array_filter(explode('/', $path), 'strlen') as $id) {
+            foreach (array_filter(explode('/', $path), fn (string $segment): bool => $segment !== '') as $id) {
                 $ids[(int) $id] = true;
             }
         }
@@ -238,7 +238,7 @@ class OrgUnitController extends Controller
      */
     protected function trail(OrgUnit $unit, array $names): array
     {
-        $ids = array_map('intval', array_filter(explode('/', $unit->path), 'strlen'));
+        $ids = array_map('intval', array_filter(explode('/', $unit->path), fn (string $segment): bool => $segment !== ''));
 
         return array_values(array_filter(array_map(
             fn (int $id): ?string => $id === $unit->id ? null : ($names[$id] ?? null),

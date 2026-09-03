@@ -145,7 +145,7 @@ class TaskHierarchy
             return;
         }
 
-        $average = (int) round($average);
+        $average = (int) round((float) $average);
 
         // Progress and status must not contradict each other (TSK-16).
         $status = match (true) {

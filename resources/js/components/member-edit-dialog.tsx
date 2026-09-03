@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { OrgUnitPicker } from '@/components/org-unit-picker';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,10 @@ import type {
  * Edits everything about a membership except the person: their role and the
  * unit they sit in. The unit is what decides how much of the org tree a
  * leader reaches, so it is the only scope control there is.
+ *
+ * The form and the picker are seeded from `member` on mount only, so the call
+ * site keys this on the member id — picking a second person remounts it rather
+ * than leaving the previous one's role in the fields.
  */
 export function MemberEditDialog({
     member,
@@ -50,19 +54,6 @@ export function MemberEditDialog({
 
     // The form only carries the id; the picker needs a name to show.
     const [unit, setUnit] = useState<NamedRef | null>(member?.org_unit ?? null);
-
-    useEffect(() => {
-        if (member) {
-            form.setDefaults({
-                role: member.role,
-                org_unit_id: member.org_unit?.id ?? null,
-            });
-            form.reset();
-            form.clearErrors();
-            setUnit(member.org_unit ?? null);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [member?.id]);
 
     if (!member) {
         return null;
