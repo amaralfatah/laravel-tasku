@@ -4,6 +4,17 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Jira marks the picked row in a menu, not just the indicator beside it: a
+ * wash of the accent, the label in the accent colour, and a bar down the left
+ * edge. Hover stays neutral, so the two states never read as the same thing.
+ *
+ * The checked rules repeat under `focus:` because the plain `focus:bg-accent`
+ * on the base row would otherwise turn the picked row grey under the cursor.
+ */
+const CHECKED_ROW =
+  "before:absolute before:inset-y-0 before:left-0 before:w-0.5 data-[state=checked]:before:bg-primary data-[state=checked]:bg-primary/10 data-[state=checked]:font-medium data-[state=checked]:text-primary data-[state=checked]:focus:bg-primary/15 data-[state=checked]:focus:text-primary"
+
 function DropdownMenu({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
@@ -91,6 +102,7 @@ function DropdownMenuCheckboxItem({
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        CHECKED_ROW,
         className
       )}
       checked={checked}
@@ -127,6 +139,7 @@ function DropdownMenuRadioItem({
       data-slot="dropdown-menu-radio-item"
       className={cn(
         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        CHECKED_ROW,
         className
       )}
       {...props}
