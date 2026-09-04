@@ -1,4 +1,4 @@
-import { ListFilter, Search, X } from 'lucide-react';
+import { ListFilter, Search, TriangleAlert, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -70,6 +70,7 @@ export function TaskFilterBar({
         filters.assignee_id !== null ||
         filters.status !== null ||
         filters.priority !== null ||
+        filters.overdue ||
         Boolean(filters.search);
 
     /** What the "Filter" button counts: the two fields the menu holds. */
@@ -190,6 +191,18 @@ export function TaskFilterBar({
                 </div>
             )}
 
+            {/* A leader watching a branch wants the tasks in trouble, not a
+                healthy board, so this one filter sits in the open rather than
+                behind the menu. */}
+            <Button
+                variant={filters.overdue ? 'default' : 'outline'}
+                aria-pressed={filters.overdue}
+                onClick={() => onChange({ overdue: !filters.overdue })}
+            >
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                Terlambat
+            </Button>
+
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" aria-label="Filter task">
@@ -297,6 +310,7 @@ export function TaskFilterBar({
                             status: null,
                             priority: null,
                             search: null,
+                            overdue: false,
                         });
                     }}
                 >

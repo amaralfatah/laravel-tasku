@@ -13,7 +13,6 @@ use App\Services\TaskHierarchy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class TaskController extends Controller
@@ -46,8 +45,6 @@ class TaskController extends Controller
 
         $attributes = $this->hierarchy->syncProgress($request->validated(), $task);
 
-        $this->guardApproval($request, $task, $attributes);
-
         $task->fill($attributes);
         // The review trail is stamped by the system, so it is not fillable.
         $task->forceFill($this->reviewTrail($attributes, $task));
@@ -64,6 +61,10 @@ class TaskController extends Controller
      * Approving finishes the task; returning it puts it back in progress with
      * the reason recorded as a comment, so the worker reads why rather than
      * finding the card moved and guessing.
+     *
+     * The route is offered, never imposed: anyone who may edit a task may also
+     * mark it Done outright. Handing work up is for teams that want a second
+     * pair of eyes, not a toll gate every task has to pass.
      */
     public function review(Request $request, Task $task, Notify $notify): RedirectResponse
     {
@@ -129,10 +130,6 @@ class TaskController extends Controller
                 $task,
             );
 
-            // Dropping a card in the Done column is the same statement as
-            // setting the status, so it meets the same approval rule.
-            $this->guardApproval($request, $task, $attributes);
-
             $task->fill($attributes);
             $task->forceFill($this->reviewTrail($attributes, $task));
             $task->save();
@@ -162,34 +159,6 @@ class TaskController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Task dihapus beserta sub task-nya.']);
 
         return back();
-    }
-
-    /**
-     * Refuse someone closing their own work when acceptance is not theirs.
-     *
-     * A task's assignee hands it up with the `review` status; whoever may
-     * review it decides. Without this, the same person could skip straight to
-     * Done and the approval step would be advisory. Someone who administers
-     * the project — its leader, or whoever started it — is unaffected, which
-     * is what keeps a one-person workspace working normally.
-     *
-     * @param  array<string, mixed>  $attributes
-     */
-    protected function guardApproval(Request $request, Task $task, array $attributes): void
-    {
-        $status = isset($attributes['status']) ? TaskStatus::from((string) $attributes['status']) : null;
-
-        if ($status !== TaskStatus::Done || $task->status === TaskStatus::Done) {
-            return;
-        }
-
-        if ($request->user()->can('review', $task)) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'status' => 'Kirim task ini untuk direview; yang menyetujui selesainya adalah pemilik task di atasnya.',
-        ]);
     }
 
     /**

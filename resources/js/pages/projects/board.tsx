@@ -30,8 +30,9 @@ import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
 import { useFocusedTask } from '@/hooks/use-focused-task';
 import { useTaskFilters } from '@/hooks/use-task-filters';
+import { projectCrumbs } from '@/lib/project-crumbs';
 import { cn } from '@/lib/utils';
-import { index as projectsIndex, show } from '@/routes/projects';
+import { show } from '@/routes/projects';
 import { move } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import { TASK_STATUS_LABELS, TASK_STATUS_ORDER } from '@/types/tasks';
@@ -482,8 +483,5 @@ function BoardColumn({
 }
 
 ProjectBoard.layout = ({ project }: PageProps) => ({
-    breadcrumbs: [
-        { title: 'Project', href: projectsIndex() },
-        { title: project.name, href: show(project.id) },
-    ],
+    breadcrumbs: projectCrumbs(project, show(project.id)),
 });

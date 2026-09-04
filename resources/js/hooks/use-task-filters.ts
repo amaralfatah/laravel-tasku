@@ -19,6 +19,7 @@ export function useTaskFilters(current: TaskFilterState, baseUrl: string) {
                     priority: next.priority ?? undefined,
                     search: next.search || undefined,
                     sort: next.sort === 'wbs' ? undefined : next.sort,
+                    overdue: next.overdue ? 1 : undefined,
                 },
                 { preserveState: true, preserveScroll: true, replace: true },
             );

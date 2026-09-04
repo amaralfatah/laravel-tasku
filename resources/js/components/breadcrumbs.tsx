@@ -30,6 +30,12 @@ export function Breadcrumbs({
                                             <BreadcrumbPage>
                                                 {item.title}
                                             </BreadcrumbPage>
+                                        ) : !item.href ? (
+                                            // A crumb that leads nowhere: it
+                                            // names a place, so it must not
+                                            // claim to be the current page
+                                            // either.
+                                            <span>{item.title}</span>
                                         ) : (
                                             <BreadcrumbLink asChild>
                                                 <Link href={item.href}>

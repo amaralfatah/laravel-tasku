@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { UserInfo } from '@/components/user-info';
+import { projectCrumbs } from '@/lib/project-crumbs';
 import { normalizeProjectKey, PROJECT_KEY_MAX_LENGTH } from '@/lib/project-key';
 import {
     destroy as removeMember,
@@ -30,7 +31,6 @@ import {
 } from '@/routes/project-members';
 import {
     destroy as destroyProject,
-    index as projectsIndex,
     show,
     update as updateProject,
 } from '@/routes/projects';
@@ -353,8 +353,5 @@ export default function ProjectSettings({
 }
 
 ProjectSettings.layout = ({ project }: { project: ProjectDetail }) => ({
-    breadcrumbs: [
-        { title: 'Project', href: projectsIndex() },
-        { title: project.name, href: show(project.id) },
-    ],
+    breadcrumbs: projectCrumbs(project, show(project.id)),
 });

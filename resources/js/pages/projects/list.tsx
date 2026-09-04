@@ -9,7 +9,8 @@ import { TaskTreeRow } from '@/components/task/task-tree-row';
 import { Button } from '@/components/ui/button';
 import { useFocusedTask } from '@/hooks/use-focused-task';
 import { useTaskFilters } from '@/hooks/use-task-filters';
-import { index as projectsIndex, list } from '@/routes/projects';
+import { projectCrumbs } from '@/lib/project-crumbs';
+import { list } from '@/routes/projects';
 import type { Option } from '@/types/members';
 import type {
     ProjectSummary,
@@ -248,8 +249,5 @@ export default function ProjectList({
 }
 
 ProjectList.layout = ({ project }: PageProps) => ({
-    breadcrumbs: [
-        { title: 'Project', href: projectsIndex() },
-        { title: project.name, href: list(project.id) },
-    ],
+    breadcrumbs: projectCrumbs(project, list(project.id)),
 });

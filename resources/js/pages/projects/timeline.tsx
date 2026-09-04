@@ -17,9 +17,10 @@ import type { Zoom } from '@/components/task/timeline-scale';
 import { Button } from '@/components/ui/button';
 import { useFocusedTask } from '@/hooks/use-focused-task';
 import { useTaskFilters } from '@/hooks/use-task-filters';
+import { projectCrumbs } from '@/lib/project-crumbs';
 import { cn } from '@/lib/utils';
 import { formatDay } from '@/lib/week';
-import { index as projectsIndex, timeline } from '@/routes/projects';
+import { timeline } from '@/routes/projects';
 import { exportMethod as exportTimeline } from '@/routes/projects/timeline';
 import type { Option } from '@/types/members';
 import type {
@@ -107,6 +108,7 @@ export default function ProjectTimeline({
             status: filters.status ?? undefined,
             priority: filters.priority ?? undefined,
             search: filters.search ?? undefined,
+            overdue: filters.overdue ? 1 : undefined,
             zoom,
         },
     }).url;
@@ -425,8 +427,5 @@ export default function ProjectTimeline({
 }
 
 ProjectTimeline.layout = ({ project }: PageProps) => ({
-    breadcrumbs: [
-        { title: 'Project', href: projectsIndex() },
-        { title: project.name, href: timeline(project.id) },
-    ],
+    breadcrumbs: projectCrumbs(project, timeline(project.id)),
 });

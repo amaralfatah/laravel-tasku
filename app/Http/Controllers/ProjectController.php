@@ -25,6 +25,11 @@ class ProjectController extends Controller
     use PicksOrgUnits;
 
     /**
+     * How many ancestor units a project's location trail carries at most.
+     */
+    protected const TRAIL_ANCESTORS = 3;
+
+    /**
      * Project list, filtered by org unit subtree (PRJ-5).
      */
     public function index(Request $request): Response
@@ -119,7 +124,7 @@ class ProjectController extends Controller
     {
         $this->authorize('view', $project);
 
-        $project->load(['orgUnit:id,name', 'members:id,name,email,avatar_path', 'creator:id,name']);
+        $project->load(['orgUnit:id,name,path', 'members:id,name,email,avatar_path', 'creator:id,name']);
 
         return Inertia::render('projects/settings', [
             'project' => [
@@ -211,7 +216,7 @@ class ProjectController extends Controller
      */
     protected function taskWorkspaceProps(Request $request, Project $project): array
     {
-        $project->load('orgUnit:id,name');
+        $project->load('orgUnit:id,name,path');
 
         $filters = TaskFilters::fromRequest($request);
         $canEdit = $request->user()->can('contribute', $project);
@@ -268,8 +273,48 @@ class ProjectController extends Controller
             'description' => $project->description,
             'status' => $project->status->value,
             'status_label' => $project->status->label(),
-            'org_unit' => $project->orgUnit->only(['id', 'name']),
+            'org_unit' => [
+                ...$project->orgUnit->only(['id', 'name']),
+                'trail' => $this->orgTrail($project->orgUnit),
+            ],
         ];
+    }
+
+    /**
+     * Ancestor names of the unit a project sits in, top down and without the
+     * unit itself, so a task view can say where in the organisation it lives —
+     * `Divisi IT › Subdivisi Pengembangan › Unit Cyber`.
+     *
+     * `WorkspaceOrgUnitScope` limits the lookup to the workspace's own subtree,
+     * so nothing above the entity's root leaks into the trail. The imported SAP
+     * tree runs eleven levels deep, which no header can carry, so only the
+     * nearest few are kept and a trimmed trail opens with an ellipsis.
+     *
+     * @return array<int, string>
+     */
+    protected function orgTrail(OrgUnit $unit): array
+    {
+        $ids = array_map('intval', array_filter(
+            explode('/', $unit->path),
+            fn (string $segment): bool => $segment !== '' && (int) $segment !== $unit->id,
+        ));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = OrgUnit::query()->whereKey($ids)->pluck('name', 'id')->all();
+
+        $trail = array_values(array_filter(array_map(
+            fn (int $id): ?string => $names[$id] ?? null,
+            $ids,
+        )));
+
+        if (count($trail) <= self::TRAIL_ANCESTORS) {
+            return $trail;
+        }
+
+        return ['…', ...array_slice($trail, -self::TRAIL_ANCESTORS)];
     }
 
     /**

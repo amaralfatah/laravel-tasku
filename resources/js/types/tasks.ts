@@ -1,4 +1,4 @@
-import type { ProjectStatus } from '@/types/projects';
+import type { OrgUnitLocation, ProjectStatus } from '@/types/projects';
 
 export type ProjectSummary = {
     id: number;
@@ -7,7 +7,7 @@ export type ProjectSummary = {
     description: string | null;
     status: ProjectStatus;
     status_label: string;
-    org_unit: { id: number; name: string };
+    org_unit: OrgUnitLocation;
 };
 
 export type TaskFilterState = {
@@ -16,6 +16,8 @@ export type TaskFilterState = {
     priority: TaskPriority | null;
     search: string | null;
     sort: 'wbs' | 'due_date' | 'priority' | 'created_at';
+    /** Past its due date and still open — the "needs attention" filter. */
+    overdue: boolean;
 };
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';

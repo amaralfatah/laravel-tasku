@@ -22,6 +22,7 @@ class TaskFilters
         public readonly ?TaskPriority $priority = null,
         public readonly ?string $search = null,
         public readonly string $sort = 'wbs',
+        public readonly bool $overdue = false,
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -34,6 +35,7 @@ class TaskFilters
             sort: in_array($request->query('sort'), ['wbs', 'due_date', 'priority', 'created_at'], true)
                 ? (string) $request->query('sort')
                 : 'wbs',
+            overdue: $request->boolean('overdue'),
         );
     }
 
@@ -46,7 +48,14 @@ class TaskFilters
             ->when($this->assigneeId, fn (Builder $q, int $id) => $q->where('assignee_id', $id))
             ->when($this->status, fn (Builder $q, TaskStatus $status) => $q->where('status', $status))
             ->when($this->priority, fn (Builder $q, TaskPriority $priority) => $q->where('priority', $priority))
-            ->when($this->search, fn (Builder $q, string $term) => $q->where('title', 'ilike', "%{$term}%"));
+            ->when($this->search, fn (Builder $q, string $term) => $q->where('title', 'ilike', "%{$term}%"))
+            // Work that has run past its date and is not finished: the one
+            // filter a leader reaches for, since a healthy task needs no
+            // attention and an overdue one always does.
+            ->when($this->overdue, fn (Builder $q) => $q
+                ->whereNotNull('due_date')
+                ->whereDate('due_date', '<', now()->toDateString())
+                ->where('status', '!=', TaskStatus::Done));
     }
 
     /**
@@ -74,7 +83,8 @@ class TaskFilters
         return $this->assigneeId !== null
             || $this->status !== null
             || $this->priority !== null
-            || $this->search !== null;
+            || $this->search !== null
+            || $this->overdue;
     }
 
     /**
@@ -88,6 +98,7 @@ class TaskFilters
             'priority' => $this->priority?->value,
             'search' => $this->search,
             'sort' => $this->sort,
+            'overdue' => $this->overdue,
         ];
     }
 }

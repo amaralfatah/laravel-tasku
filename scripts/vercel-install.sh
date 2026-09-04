@@ -19,11 +19,13 @@ export QUEUE_CONNECTION="${QUEUE_CONNECTION:-sync}"
 
 composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
 
-# The build image may not ship Bun. Install it into a system path, because the
-# shell that runs `buildCommand` is a separate one that inherits no exports.
-if ! command -v bun >/dev/null 2>&1; then
-  curl -fsSL https://bun.sh/install | bash
-  install -m 0755 "$HOME/.bun/bin/bun" /usr/local/bin/bun
-fi
+# The build image ships its own Bun, and it is older than the one that wrote
+# bun.lock — a lockfile from a newer Bun is unreadable to it ("Unknown lockfile
+# version"). So pin the version here rather than trusting whatever is present,
+# and keep it at an absolute path: the shell that runs `buildCommand` is a
+# separate one, and its PATH may still resolve `bun` to the preinstalled copy.
+BUN_VERSION=1.4.0
+curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"
+install -m 0755 "$HOME/.bun/bin/bun" /usr/local/bin/bun
 
-bun install --frozen-lockfile
+/usr/local/bin/bun install --frozen-lockfile
