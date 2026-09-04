@@ -544,7 +544,15 @@ function TaskDetail({
                                             setTitle(task.title);
                                         }
                                     }}
-                                    className="h-auto border-transparent bg-transparent px-2 py-1 text-2xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-2xl"
+                                    // `-mx-2 px-2`: the field keeps its padding
+                                    // so the hover and focus box has room, but
+                                    // pays for it out of the column's own
+                                    // gutter. Without the negative margin the
+                                    // heading sat 8px right of the breadcrumb
+                                    // above it and of every heading below it —
+                                    // the one line in the column that did not
+                                    // start where the others do.
+                                    className="-mx-2 h-auto border-transparent bg-transparent px-2 py-1 text-2xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-2xl"
                                 />
                                 <InputError message={errors.title} />
                             </div>
@@ -581,11 +589,15 @@ function TaskDetail({
                                                 setEditingDescription(false);
                                             }}
                                             placeholder="Tambahkan deskripsi…"
-                                            className="min-h-28 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                            // Same gutter as the button it
+                                            // replaces, so the text does not
+                                            // shift sideways when the
+                                            // description is clicked open.
+                                            className="-mx-2 min-h-28 w-[calc(100%+1rem)] rounded-md border border-input bg-transparent px-2 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                         />
                                     </>
                                 ) : readOnly ? (
-                                    <p className="px-2 py-1.5 text-sm whitespace-pre-wrap">
+                                    <p className="-mx-2 px-2 py-1.5 text-sm whitespace-pre-wrap">
                                         {description.trim() || (
                                             <span className="text-muted-foreground">
                                                 Tidak ada deskripsi.
