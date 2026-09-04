@@ -1,4 +1,6 @@
 import { Link } from '@inertiajs/react';
+import { ChartGantt, Columns3, List, Settings } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { list, settings, show, timeline } from '@/routes/projects';
@@ -18,16 +20,35 @@ export function ProjectHeader({
     project: ProjectSummary;
     active: Tab;
 }) {
-    const tabs: { key: Tab; label: string; href: string }[] = [
-        { key: 'board', label: 'Papan', href: show(project.id).url },
-        { key: 'list', label: 'Daftar', href: list(project.id).url },
-        { key: 'timeline', label: 'Timeline', href: timeline(project.id).url },
-        {
-            key: 'settings',
-            label: 'Pengaturan',
-            href: settings(project.id).url,
-        },
-    ];
+    // Jira names a view with an icon as well as a word, which is what makes the
+    // row readable at a glance once there are more than three of them.
+    const tabs: { key: Tab; label: string; href: string; icon: LucideIcon }[] =
+        [
+            {
+                key: 'board',
+                label: 'Papan',
+                href: show(project.id).url,
+                icon: Columns3,
+            },
+            {
+                key: 'list',
+                label: 'Daftar',
+                href: list(project.id).url,
+                icon: List,
+            },
+            {
+                key: 'timeline',
+                label: 'Timeline',
+                href: timeline(project.id).url,
+                icon: ChartGantt,
+            },
+            {
+                key: 'settings',
+                label: 'Pengaturan',
+                href: settings(project.id).url,
+                icon: Settings,
+            },
+        ];
 
     return (
         <div className="space-y-4">
@@ -50,12 +71,13 @@ export function ProjectHeader({
                         href={tab.href}
                         aria-current={tab.key === active ? 'page' : undefined}
                         className={cn(
-                            'relative -mb-px flex min-h-11 items-center border-b-2 px-3 text-sm transition-colors',
+                            'relative -mb-px flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm transition-colors',
                             tab.key === active
-                                ? 'border-foreground font-medium text-foreground'
+                                ? 'border-primary font-medium text-foreground'
                                 : 'border-transparent text-muted-foreground hover:text-foreground',
                         )}
                     >
+                        <tab.icon className="size-4" aria-hidden="true" />
                         {tab.label}
                     </Link>
                 ))}
