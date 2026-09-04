@@ -10,4 +10,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | config/**, config/database.php | .ai/rules/config.md |
 | app/Http/Controllers/** | .ai/rules/controllers.md |
 | resources/css/app.css | .ai/rules/css.md |
-| vercel.json | .ai/rules/general.md |
+| vercel.json, package.json | .ai/rules/general.md |
