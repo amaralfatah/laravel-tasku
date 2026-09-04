@@ -3,19 +3,30 @@ import { useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useInitials } from '@/hooks/use-initials';
+import { cn } from '@/lib/utils';
 
 /**
- * Avatar picker for the profile form.
+ * Image picker for a profile photo or a workspace logo.
  *
- * Posts either a new `avatar` file or `remove_avatar=1`; the preview is a
- * local object URL so the change is visible before the form is submitted.
+ * Posts either a new file under `field` or `remove_<field>=1`; the preview is
+ * a local object URL so the change is visible before the form is submitted.
+ * A logo is square because a company mark is drawn to its own edges, while a
+ * person keeps the round frame the rest of the app shows them in.
  */
 export function AvatarField({
     name,
     currentUrl,
+    field = 'avatar',
+    shape = 'circle',
+    label = 'Unggah foto',
+    alt,
 }: {
     name: string;
     currentUrl?: string | null;
+    field?: string;
+    shape?: 'circle' | 'square';
+    label?: string;
+    alt?: string;
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [preview, setPreview] = useState<string | null>(null);
@@ -25,12 +36,18 @@ export function AvatarField({
     const shownUrl =
         preview ?? (removed ? undefined : (currentUrl ?? undefined));
     const hasImage = Boolean(shownUrl);
+    const radius = shape === 'circle' ? 'rounded-full' : 'rounded-md';
 
     return (
         <div className="flex items-center gap-4">
-            <Avatar className="size-16 rounded-full">
-                <AvatarImage src={shownUrl} alt={`Foto profil ${name}`} />
-                <AvatarFallback className="rounded-full bg-muted text-base font-medium">
+            <Avatar className={cn('size-16', radius)}>
+                <AvatarImage
+                    src={shownUrl}
+                    alt={alt ?? `Foto profil ${name}`}
+                />
+                <AvatarFallback
+                    className={cn('bg-muted text-base font-medium', radius)}
+                >
                     {getInitials(name)}
                 </AvatarFallback>
             </Avatar>
@@ -44,7 +61,7 @@ export function AvatarField({
                         onClick={() => inputRef.current?.click()}
                     >
                         <Upload className="size-4" aria-hidden="true" />
-                        Unggah foto
+                        {label}
                     </Button>
 
                     {hasImage && (
@@ -76,10 +93,10 @@ export function AvatarField({
             <input
                 ref={inputRef}
                 type="file"
-                name="avatar"
+                name={field}
                 accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
-                aria-label="Pilih file foto profil"
+                aria-label={`Pilih file ${label.toLowerCase()}`}
                 onChange={(event) => {
                     const file = event.target.files?.[0];
                     setPreview(file ? URL.createObjectURL(file) : null);
@@ -87,7 +104,9 @@ export function AvatarField({
                 }}
             />
 
-            {removed && <input type="hidden" name="remove_avatar" value="1" />}
+            {removed && (
+                <input type="hidden" name={`remove_${field}`} value="1" />
+            )}
         </div>
     );
 }

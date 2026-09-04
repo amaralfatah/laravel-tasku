@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
+import { edit as editWorkspace } from '@/routes/workspace/settings';
 import type { NavItem } from '@/types';
 
 const sidebarNavItems: NavItem[] = [
@@ -30,6 +31,22 @@ const sidebarNavItems: NavItem[] = [
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
+    const { tenancy } = usePage().props;
+
+    /*
+     * The workspace tab is the Owner's, not the account's: everyone else in a
+     * workspace only has settings about themselves. It is deliberately outside
+     * the `scale` gating the sidebar uses — a solo owner still names their own
+     * workspace, the same way a one-person Jira site is renamed by the person
+     * who created it.
+     */
+    const navItems: NavItem[] =
+        tenancy?.membership?.role === 'owner'
+            ? [
+                  ...sidebarNavItems,
+                  { title: 'Workspace', href: editWorkspace(), icon: null },
+              ]
+            : sidebarNavItems;
 
     return (
         <div>
@@ -44,7 +61,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                         className="flex flex-col space-y-1 space-x-0"
                         aria-label="Pengaturan"
                     >
-                        {sidebarNavItems.map((item, index) => (
+                        {navItems.map((item, index) => (
                             <Button
                                 key={`${toUrl(item.href)}-${index}`}
                                 size="sm"

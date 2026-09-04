@@ -16,3 +16,14 @@ The flat sorts (`due_date`, `priority`, `created_at`) are correct as the databas
 `TaskHierarchy::syncProgress()` reads the status with `TaskStatus::from()`, which throws a `ValueError` — a 500, not a 422 — on anything the enum does not carry.
 
 `TaskController::move()` validates the dropped column with `Rule::enum(TaskStatus::class)` for that reason. Any inline `$request->validate()` that feeds an enum cast or an `Enum::from()` call needs the same; `'string'` alone is not enough.
+
+## Workspace identity is the Owner's, placement is the operator's
+Two controllers write the `workspaces` row and they are not interchangeable.
+
+`App\Http\Controllers\WorkspaceController` (routes/workspaces.php, `super-admin`) is the operator console: it hands entities out and owns `parent_id`, `root_org_unit_id` and `is_active` through `WorkspaceUpdateRequest`.
+
+`App\Http\Controllers\Settings\WorkspaceController` (routes/settings.php, `workspace` middleware, `settings/workspace`) is the customer's, and owns the name and the logo alone through `WorkspaceIdentityRequest` + `WorkspacePolicy::manageIdentity()` (`hasFullScope()`, i.e. Owner). Never reuse `WorkspaceUpdateRequest` there — it would hand a customer the group structure and their own activation switch through fields the form never renders. The policy has no `update()` for the same reason.
+
+A rename also renames the root org unit when that node is the customer's own (`external_id` null), because a self-serve workspace named it after itself; a SAP-mirrored root keeps its name.
+
+Slug is set on `creating` only, so renaming never moves the workspace's URL.

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\WorkspaceController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,16 @@ Route::middleware(['auth', 'verified', 'workspace:optional'])->group(function ()
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
+});
+
+/*
+ * The workspace's own settings, as opposed to the account's. `workspace`
+ * rather than `workspace:optional`: there is nothing to rename until one is
+ * active, and the page reads the tenant instead of taking an id in the URL.
+ */
+Route::middleware(['auth', 'workspace'])->group(function () {
+    Route::get('settings/workspace', [WorkspaceController::class, 'edit'])->name('workspace.settings.edit');
+    Route::patch('settings/workspace', [WorkspaceController::class, 'update'])->name('workspace.settings.update');
 });
 
 Route::get('.well-known/passkey-endpoints', function () {

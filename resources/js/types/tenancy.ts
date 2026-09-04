@@ -10,6 +10,8 @@ export type WorkspaceSummary = {
 
 /** The active workspace, with the group context it sits in. */
 export type ActiveWorkspace = WorkspaceSummary & {
+    /** Uploaded logo, or null while the workspace goes by its name alone. */
+    logo: string | null;
     /** True when this workspace runs other workspaces. */
     is_holding: boolean;
     /** The holding above it, when it is itself an operating company. */
@@ -20,6 +22,7 @@ export type ActiveWorkspace = WorkspaceSummary & {
 
 /** A row in the workspace switcher. */
 export type SwitchableWorkspace = WorkspaceSummary & {
+    logo: string | null;
     parent_id: number | null;
     /** True when other rows in the list sit under this one. */
     is_group_parent: boolean;

@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use Database\Factories\WorkspaceFactory;
+use Illuminate\Database\Eloquent\Attributes\Appends;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -19,6 +22,8 @@ use Illuminate\Support\Str;
  * @property int|null $parent_id the holding this workspace operates under
  * @property string $name
  * @property string $slug
+ * @property string|null $logo_path
+ * @property-read string|null $logo public URL derived from logo_path
  * @property int|null $root_org_unit_id node of the platform org tree this workspace runs
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -26,11 +31,30 @@ use Illuminate\Support\Str;
  * @property-read OrgUnit|null $rootOrgUnit null until an operator or a self
  *   serve owner places the workspace in the tree
  */
+#[Appends(['logo'])]
 #[Fillable(['parent_id', 'name', 'slug', 'root_org_unit_id', 'is_active'])]
 class Workspace extends Model
 {
     /** @use HasFactory<WorkspaceFactory> */
     use HasFactory;
+
+    /**
+     * Public URL of the uploaded logo, exposed to the frontend as `logo`.
+     *
+     * Not fillable: the file is written by
+     * `App\Http\Controllers\Settings\WorkspaceController`, which also deletes
+     * the one it replaces.
+     *
+     * @return Attribute<string|null, never>
+     */
+    protected function logo(): Attribute
+    {
+        return new Attribute(
+            get: fn (): ?string => $this->logo_path === null
+                ? null
+                : Storage::disk('public')->url($this->logo_path),
+        );
+    }
 
     /**
      * Materialized path of the root unit, resolved once per instance.

@@ -72,6 +72,8 @@ class HandleInertiaRequests extends Middleware
                 'id' => $workspace->id,
                 'name' => $workspace->name,
                 'slug' => $workspace->slug,
+                // The mark the workspace goes by, set by its own Owner.
+                'logo' => $workspace->logo,
                 // Group context: whether this workspace runs others, and the
                 // holding above it when it is itself an operating company.
                 'is_holding' => $workspace->isHolding(),

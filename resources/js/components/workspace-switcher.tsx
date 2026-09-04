@@ -57,9 +57,21 @@ export function WorkspaceSwitcher() {
 
     const identity = (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                <Building2 className="size-4" />
-            </div>
+            {/*
+             * The Owner's own logo when they uploaded one, so a workspace is
+             * recognised by its mark before its name is read.
+             */}
+            {active.logo ? (
+                <img
+                    src={active.logo}
+                    alt=""
+                    className="aspect-square size-8 shrink-0 rounded-md object-cover"
+                />
+            ) : (
+                <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                    <Building2 className="size-4" />
+                </div>
+            )}
             <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{active.name}</span>
                 <span className="truncate text-xs text-muted-foreground">

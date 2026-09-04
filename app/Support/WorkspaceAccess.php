@@ -91,7 +91,7 @@ class WorkspaceAccess
      * holding above a company sits before it, and a group's companies follow
      * their parent.
      *
-     * @return array<int, array{id: int, name: string, slug: string, parent_id: int|null, is_group_parent: bool, via_group: bool}>
+     * @return array<int, array{id: int, name: string, slug: string, logo: string|null, parent_id: int|null, is_group_parent: bool, via_group: bool}>
      */
     public function switchable(User $user): array
     {
@@ -105,6 +105,7 @@ class WorkspaceAccess
                     'id' => $workspace->id,
                     'name' => $workspace->name,
                     'slug' => $workspace->slug,
+                    'logo' => $workspace->logo,
                     'parent_id' => $workspace->parent_id,
                     // Whether this row is itself a holding the user reaches.
                     'is_group_parent' => false,

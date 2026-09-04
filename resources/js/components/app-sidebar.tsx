@@ -65,6 +65,19 @@ export function AppSidebar() {
         // An owner or manager leads a slice of the org tree and gets exactly the
         // same menu; only how far that slice reaches differs. An ODS leads
         // nobody, so none of this is theirs.
+        //
+        // The roster is not behind the scale gate, and must not be: it is where
+        // people are invited, so hiding it while a workspace is solo left the
+        // owner no way to add the second person that ends solo. A freelancer
+        // hands a client a Viewer seat from here too.
+        if (membership?.can_monitor) {
+            mainNavItems.push({
+                title: 'Anggota',
+                href: membersIndex(),
+                icon: Users,
+            });
+        }
+
         if (showsOrganisation && membership?.can_monitor) {
             // Both views watch the same workload from a different angle, so
             // they sit under one heading instead of repeating "Monitoring".
@@ -73,10 +86,11 @@ export function AppSidebar() {
                 { title: 'Per divisi', href: divisions(), icon: Network },
             ];
 
-            mainNavItems.push(
-                { title: 'Anggota', href: membersIndex(), icon: Users },
-                { title: 'Monitoring', icon: Gauge, items: monitoringItems },
-            );
+            mainNavItems.push({
+                title: 'Monitoring',
+                icon: Gauge,
+                items: monitoringItems,
+            });
         }
 
         // A leader shapes the branch they run, so the structure page is
