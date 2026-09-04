@@ -20,6 +20,13 @@ use Illuminate\Validation\ValidationException;
 class TaskHierarchy
 {
     /**
+     * The percentage work carries while it is being done again, after having
+     * once read as finished. Any figure below 100 would do; this is the one a
+     * returned review has always used.
+     */
+    public const UNFINISHED_PROGRESS = 90;
+
+    /**
      * Create a task, optionally under a parent, and number it.
      *
      * @param  array<string, mixed>  $attributes
@@ -197,6 +204,23 @@ class TaskHierarchy
 
         if ($statusChanged && $forced !== null) {
             $attributes['progress'] = $forced;
+
+            return $attributes;
+        }
+
+        // In Progress forces no figure — how far along the work is, is the
+        // worker's to say. But work being done is not finished work, so a task
+        // carried back off Done or Review steps off 100 rather than sitting
+        // there reading complete. Left at 100 it held its parent's bar full
+        // while a sub task was plainly unfinished: 100% over "11 dari 12 sub
+        // task selesai". A percentage sent with the status is the user's own
+        // and is left to the contradiction rules below.
+        if ($statusChanged
+            && $status === TaskStatus::InProgress
+            && ! array_key_exists('progress', $attributes)
+            && $task->progress >= 100
+        ) {
+            $attributes['progress'] = self::UNFINISHED_PROGRESS;
 
             return $attributes;
         }

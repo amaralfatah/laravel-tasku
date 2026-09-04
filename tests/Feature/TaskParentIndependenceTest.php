@@ -272,3 +272,109 @@ test('renaming a sub task from the parent modal touches only its title', functio
         ->and($first->status)->toBe(TaskStatus::Done)
         ->and($first->progress)->toBe(100);
 });
+
+test('reopening a finished sub task drops the percentage above it', function () {
+    // The report: a parent read 100% over "11 dari 12 sub task selesai",
+    // because In Progress forces no figure and the sub task kept the 100 it
+    // was given when it was done.
+    [$member, $project] = progressProject();
+
+    $parent = Task::factory()->for($project)->create([
+        'workspace_id' => $project->workspace_id,
+        'title' => 'Induk',
+        'status' => TaskStatus::InProgress,
+    ]);
+
+    $first = subtaskOf($parent, 'Anak satu');
+    $second = subtaskOf($parent, 'Anak dua');
+
+    foreach ([$first, $second] as $child) {
+        $this->actingAs($member->user)
+            ->withSession(['workspace_id' => $member->workspace_id])
+            ->patch(route('tasks.update', $child), ['status' => 'done'])
+            ->assertRedirect();
+    }
+
+    expect($parent->refresh()->progress)->toBe(100);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('tasks.update', $first), ['status' => 'in_progress'])
+        ->assertRedirect();
+
+    expect($first->refresh()->progress)->toBe(90)
+        ->and($parent->refresh()->progress)->toBe(95);
+});
+
+test('dragging a done card back to Dikerjakan steps it off 100', function () {
+    [$member, $project] = progressProject();
+
+    $task = Task::factory()->for($project)->create([
+        'workspace_id' => $project->workspace_id,
+        'title' => 'Tugas',
+        'status' => TaskStatus::Done,
+        'progress' => 100,
+    ]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->post(route('tasks.move', $task), ['status' => 'in_progress'])
+        ->assertRedirect();
+
+    $task->refresh();
+
+    expect($task->status)->toBe(TaskStatus::InProgress)
+        ->and($task->progress)->toBe(90);
+});
+
+test('a percentage sent with In Progress is the one that is kept', function () {
+    // The step off 100 only fills a gap. A figure the user actually typed is
+    // theirs, and 100 typed against In Progress is still read as finishing.
+    [$member, $project] = progressProject();
+
+    $task = Task::factory()->for($project)->create([
+        'workspace_id' => $project->workspace_id,
+        'title' => 'Tugas',
+        'status' => TaskStatus::Done,
+        'progress' => 100,
+    ]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('tasks.update', $task), ['status' => 'in_progress', 'progress' => 30])
+        ->assertRedirect();
+
+    $task->refresh();
+
+    expect($task->status)->toBe(TaskStatus::InProgress)
+        ->and($task->progress)->toBe(30);
+});
+
+test('a parent already at 100 is not stepped back when it is moved', function () {
+    // The percentage of a task with sub tasks is not its own, so In Progress
+    // must not write 90 over what the children add up to — that would put the
+    // GRO-25 revert back, in the percentage instead of the status.
+    [$member, $project] = progressProject();
+
+    $parent = Task::factory()->for($project)->create([
+        'workspace_id' => $project->workspace_id,
+        'title' => 'Induk',
+        'status' => TaskStatus::Done,
+        'progress' => 100,
+    ]);
+
+    subtaskOf($parent, 'Anak satu')->forceFill([
+        'status' => TaskStatus::Done,
+        'progress' => 100,
+    ])->save();
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->post(route('tasks.move', $parent), ['status' => 'in_progress'])
+        ->assertRedirect();
+
+    $parent->refresh();
+
+    expect($parent->status)->toBe(TaskStatus::InProgress)
+        ->and($parent->progress)->toBe(100);
+});

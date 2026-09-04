@@ -83,7 +83,7 @@ class TaskController extends Controller
             'status' => $approved ? TaskStatus::Done : TaskStatus::InProgress,
             // Returned work is not finished work, so its percentage steps back
             // off 100 rather than sitting there contradicting the status.
-            'progress' => $approved ? 100 : 90,
+            'progress' => $approved ? 100 : TaskHierarchy::UNFINISHED_PROGRESS,
             'reviewed_at' => now(),
             'reviewed_by' => $request->user()->id,
         ])->save();

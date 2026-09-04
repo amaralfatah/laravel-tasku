@@ -23,3 +23,14 @@ Two consequences worth knowing:
 There is no control anywhere for typing a percentage on a task that has sub tasks, which is the whole reason the rollup exists. A leaf's percentage is driven by its status alone, so it is effectively 0 or 100 — `TaskStatus::InProgress::forcedProgress()` is null and leaves the number where it was.
 
 Covered by tests/Feature/TaskParentIndependenceTest.php.
+
+## In Progress steps a leaf off 100, or the parent's bar lies
+`TaskStatus::InProgress->forcedProgress()` is null on purpose — how far along the work is, is the worker's to say. But that left a leaf carried back off Done or Review sitting at 100, and since `syncParentProgress()` averages `progress`, the parent read 100% over "11 dari 12 sub task selesai". Reported bug.
+
+So `syncProgress()` writes `TaskHierarchy::UNFINISHED_PROGRESS` (90, the figure a returned review has always used) when *all* of: the status actually changed, it changed to In Progress, the request sent no `progress` of its own, and the task is at 100. A percentage the user typed is theirs and falls through to the TSK-16 contradiction rules instead.
+
+The guard sits *after* the `children()->exists()` early return, so a parent is never stepped back — its percentage belongs to its children, and writing 90 over their rollup would be the GRO-25 revert again, in the percentage instead of the status.
+
+`TaskController::review()` bypasses `syncProgress()` and now reads the same constant.
+
+Covered by tests/Feature/TaskParentIndependenceTest.php.
