@@ -79,7 +79,7 @@ export default function MonitoringPeople({
                 />
 
                 <div className="rounded-lg border">
-                    <Table>
+                    <Table className="min-w-[46rem]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Anggota</TableHead>

@@ -280,7 +280,7 @@ export default function Projects({
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                    <div className="w-72">
+                    <div className="w-full sm:w-72">
                         <OrgUnitPicker
                             value={filters.org_unit}
                             canChoose={unitPicker.can_choose}
@@ -301,7 +301,7 @@ export default function Projects({
                         }
                     >
                         <SelectTrigger
-                            className="w-44"
+                            className="w-full sm:w-44"
                             aria-label="Filter status"
                         >
                             <SelectValue placeholder="Semua status" />

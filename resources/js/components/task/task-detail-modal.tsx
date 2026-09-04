@@ -350,7 +350,7 @@ function TaskDetail({
     return (
         <Dialog open onOpenChange={(open) => !open && closeAfterSaving()}>
             <DialogContent
-                className="flex h-[92vh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[84rem]"
+                className="flex h-[92vh] w-[96vw] flex-col gap-0 overflow-hidden overflow-y-hidden p-0 sm:max-w-[84rem]"
                 // Radix focuses the first field on open, which selects the
                 // whole title and invites an accidental overwrite. The modal is
                 // for reading first, so nothing is focused until it is clicked.
@@ -360,7 +360,7 @@ function TaskDetail({
                 // sit on top of them.
                 showCloseButton={false}
             >
-                <DialogHeader className="shrink-0 flex-row items-center gap-2 border-b px-6 py-3">
+                <DialogHeader className="shrink-0 flex-row items-center gap-2 border-b px-4 py-3 sm:px-6">
                     <DialogTitle className="flex min-w-0 flex-1 items-center gap-2 text-base font-normal">
                         <Badge variant="outline" className="tabular-nums">
                             {task.reference}
@@ -447,11 +447,18 @@ function TaskDetail({
                 </DialogHeader>
 
                 <div className="flex min-h-0 flex-1 flex-col">
-                    <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_26rem]">
+                    {/*
+                     * Two side-by-side panes that scroll on their own only once
+                     * they are side by side. Stacked on a phone they became two
+                     * auto-height rows inside a fixed-height dialog, so the
+                     * fields below the fold could not be reached at all — there
+                     * the whole body is the one scroller instead.
+                     */}
+                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_26rem] lg:overflow-y-hidden">
                         {/* `min-w-0` plus `overflow-x-hidden`: the work column
                             never scrolls sideways, so a long sub task title
                             wraps and is clamped instead of widening the row. */}
-                        <div className="min-h-0 min-w-0 space-y-7 overflow-x-hidden overflow-y-auto px-8 py-6">
+                        <div className="min-w-0 space-y-7 overflow-x-hidden px-4 py-6 sm:px-8 lg:min-h-0 lg:overflow-y-auto">
                             <div className="grid gap-2">
                                 <Label htmlFor="task-title" className="sr-only">
                                     Judul
@@ -699,7 +706,7 @@ function TaskDetail({
                             </section>
                         </div>
 
-                        <aside className="min-h-0 space-y-4 overflow-y-auto border-t bg-muted/20 px-6 py-6 lg:border-t-0 lg:border-l">
+                        <aside className="space-y-4 border-t bg-muted/20 px-4 py-6 sm:px-6 lg:min-h-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
                             {/* Jira leads the panel with the status as a
                                 standalone button, unlabelled — the value names
                                 the field well enough. */}
@@ -1066,7 +1073,7 @@ function TaskDetail({
  * one column and there is no room for five fields beside a title.
  */
 const SUBTASK_COLUMNS =
-    'grid grid-cols-[1rem_minmax(0,1fr)_9rem_2rem] items-center gap-3 md:grid-cols-[1rem_minmax(0,1fr)_7.5rem_9rem_9rem_2rem]';
+    'grid grid-cols-[1rem_minmax(0,1fr)_6.5rem_2rem] items-center gap-2 sm:grid-cols-[1rem_minmax(0,1fr)_9rem_2rem] sm:gap-3 md:grid-cols-[1rem_minmax(0,1fr)_7.5rem_9rem_9rem_2rem]';
 
 /**
  * A sub task row edits itself. Every picker on the row PATCHes that row alone,
@@ -1184,7 +1191,12 @@ function SubtaskRow({
                     />
                 ) : (
                     <>
-                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        {/* The reference and the pencil both go on a phone:
+                            together they left the title no width at all, and
+                            the pencil only ever appears on hover anyway, which
+                            a touch screen has none of — the title opens the sub
+                            task, where it can be renamed. */}
+                        <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">
                             {child.reference}
                         </span>
 
@@ -1209,7 +1221,7 @@ function SubtaskRow({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                className="hidden size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex"
                                 aria-label={`Ubah judul ${child.reference}`}
                                 title="Ubah judul"
                                 onClick={onStartRename}

@@ -176,7 +176,7 @@ export function TaskCreateDialog({
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
             <DialogContent
                 showCloseButton={false}
-                className="gap-0 overflow-hidden p-0 sm:max-w-xl"
+                className="gap-0 overflow-hidden overflow-y-hidden p-0 sm:max-w-xl"
             >
                 {/* Jira's chrome, minus its work-type chip: this app has one
                     kind of work, so the project is the whole heading. */}

@@ -122,13 +122,13 @@ export default function ProjectSettings({
                         </h2>
 
                         {can.edit && candidates.length > 0 && (
-                            <div className="flex gap-2">
+                            <div className="flex w-full gap-2 sm:w-auto">
                                 <Select
                                     value={candidateId}
                                     onValueChange={setCandidateId}
                                 >
                                     <SelectTrigger
-                                        className="w-64"
+                                        className="w-full sm:w-64"
                                         aria-label="Pilih anggota workspace"
                                     >
                                         <SelectValue placeholder="Pilih anggota" />

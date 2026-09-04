@@ -94,7 +94,7 @@ export default function MonitoringDivisions({
                 </nav>
 
                 <div className="rounded-lg border">
-                    <Table>
+                    <Table className="min-w-[56rem]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Unit</TableHead>

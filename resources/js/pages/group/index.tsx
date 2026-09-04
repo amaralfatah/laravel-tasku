@@ -78,7 +78,7 @@ export default function GroupIndex({
                 </dl>
 
                 <div className="rounded-lg border">
-                    <Table>
+                    <Table className="min-w-[56rem]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Entitas</TableHead>

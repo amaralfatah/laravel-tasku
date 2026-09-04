@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useInitials } from '@/hooks/use-initials';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { formatDay } from '@/lib/week';
 import { people, person as personRoute } from '@/routes/monitoring';
@@ -47,8 +48,15 @@ type Member = {
 
 const ZOOMS: Zoom[] = ['week', 'month', 'quarter'];
 
-/** Sticky label column, in pixels — `w-88`. */
+/**
+ * Sticky label column, in pixels.
+ *
+ * The desktop column is wider than a phone, which left no chart beside it at
+ * all; the narrow one drops the progress bar and keeps reference plus title.
+ * Applied as an inline width so the constant stays the single source of it.
+ */
 const LABEL_WIDTH = 352;
+const LABEL_WIDTH_MOBILE = 176;
 
 /**
  * One person's work across every project (MON-2..MON-5), laid out as a
@@ -91,7 +99,10 @@ export default function MonitoringPerson({
     // usually far wider than one project's — it opens at the level that fits.
     const [zoom, setZoom] = useState<Zoom>(() => fittingZoom(ranges));
 
-    const [panelRef, fillWidth] = useFillWidth<HTMLDivElement>(LABEL_WIDTH);
+    const isMobile = useIsMobile();
+    const labelWidth = isMobile ? LABEL_WIDTH_MOBILE : LABEL_WIDTH;
+
+    const [panelRef, fillWidth] = useFillWidth<HTMLDivElement>(labelWidth);
 
     const scale = useTimelineScale(ranges, zoom, fillWidth);
 
@@ -146,32 +157,37 @@ export default function MonitoringPerson({
                     </Avatar>
 
                     <div className="min-w-0 flex-1">
-                        <h1 className="flex items-center gap-2 text-xl font-semibold">
-                            {member.name}
+                        <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold">
+                            <span className="truncate">{member.name}</span>
                             {isSelf && (
                                 <Badge
                                     variant="secondary"
-                                    className="font-normal"
+                                    className="shrink-0 font-normal"
                                 >
                                     Anda
                                 </Badge>
                             )}
                         </h1>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="truncate text-sm text-muted-foreground">
                             {member.org_unit ?? member.email}
                         </p>
                     </div>
 
-                    <Button variant="outline" size="sm" asChild>
-                        <a href={exportUrl}>
-                            <Download aria-hidden="true" />
-                            Ekspor Excel
-                        </a>
-                    </Button>
+                    {/* One wrapping unit: the identity beside it is `flex-1`
+                        with `min-w-0`, so loose buttons never pushed a row of
+                        their own — they squeezed the name to nothing instead. */}
+                    <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={exportUrl}>
+                                <Download aria-hidden="true" />
+                                Ekspor Excel
+                            </a>
+                        </Button>
 
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={people()}>Semua anggota</Link>
-                    </Button>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={people()}>Semua anggota</Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap items-end gap-3">
@@ -182,7 +198,7 @@ export default function MonitoringPerson({
                         <Input
                             id="range-from"
                             type="date"
-                            className="w-44"
+                            className="w-36 sm:w-44"
                             value={filters.from ?? ''}
                             onChange={(event) =>
                                 applyRange({ from: event.target.value || null })
@@ -197,7 +213,7 @@ export default function MonitoringPerson({
                         <Input
                             id="range-to"
                             type="date"
-                            className="w-44"
+                            className="w-36 sm:w-44"
                             value={filters.to ?? ''}
                             onChange={(event) =>
                                 applyRange({ to: event.target.value || null })
@@ -254,15 +270,20 @@ export default function MonitoringPerson({
                             className="min-w-max"
                             style={{
                                 // Left column is sticky while the weeks scroll (TML-2).
-                                width: `${LABEL_WIDTH + scale.width}px`,
+                                width: `${labelWidth + scale.width}px`,
                             }}
                         >
                             <div className="flex border-b bg-muted">
                                 {/* Opaque like the project rows below it: the
                                     week columns scroll underneath this cell,
                                     and a tint shows them through. */}
-                                <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
-                                    Task · Judul · Progress
+                                <div
+                                    className="sticky left-0 z-10 shrink-0 border-r bg-muted px-3 py-2 text-xs font-medium text-muted-foreground"
+                                    style={{ width: `${labelWidth}px` }}
+                                >
+                                    {isMobile
+                                        ? 'Task · Judul'
+                                        : 'Task · Judul · Progress'}
                                 </div>
                                 <TimelineHeader scale={scale} />
                             </div>
@@ -278,12 +299,17 @@ export default function MonitoringPerson({
                                     )}
                                 >
                                     <div className="flex border-b bg-muted">
-                                        <div className="sticky left-0 z-10 w-88 shrink-0 border-r bg-muted px-3 py-2">
+                                        <div
+                                            className="sticky left-0 z-10 shrink-0 border-r bg-muted px-3 py-2"
+                                            style={{
+                                                width: `${labelWidth}px`,
+                                            }}
+                                        >
                                             <Link
                                                 href={showProject(
                                                     group.project.id,
                                                 )}
-                                                className="text-sm font-semibold tracking-wide uppercase hover:underline"
+                                                className="block truncate text-sm font-semibold tracking-wide uppercase hover:underline"
                                             >
                                                 {group.project.name}
                                             </Link>
@@ -301,8 +327,9 @@ export default function MonitoringPerson({
                                             className="group flex border-b last:border-b-0 hover:bg-accent"
                                         >
                                             <div
-                                                className="sticky left-0 z-10 flex w-88 shrink-0 items-center gap-2 border-r bg-background px-3 py-1.5 group-hover:bg-accent"
+                                                className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r bg-background px-3 py-1.5 group-hover:bg-accent"
                                                 style={{
+                                                    width: `${labelWidth}px`,
                                                     paddingLeft: `${12 + task.depth * 14}px`,
                                                 }}
                                             >
@@ -319,15 +346,23 @@ export default function MonitoringPerson({
                                                 >
                                                     {task.title}
                                                 </button>
-                                                <span className="w-24 shrink-0">
-                                                    <ProgressBar
-                                                        value={task.progress}
-                                                        rollup={
-                                                            task.rollup_progress
-                                                        }
-                                                        showLabel
-                                                    />
-                                                </span>
+                                                {/* The narrow label column has
+                                                    no room for it; the bar's
+                                                    own fill already carries
+                                                    progress on the chart. */}
+                                                {!isMobile && (
+                                                    <span className="w-24 shrink-0">
+                                                        <ProgressBar
+                                                            value={
+                                                                task.progress
+                                                            }
+                                                            rollup={
+                                                                task.rollup_progress
+                                                            }
+                                                            showLabel
+                                                        />
+                                                    </span>
+                                                )}
                                             </div>
 
                                             <div

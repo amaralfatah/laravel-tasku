@@ -8,6 +8,7 @@ import {
     Users,
     UserSearch,
 } from 'lucide-react';
+import { useEffect } from 'react';
 import { NavMain } from '@/components/nav-main';
 import { NavProjects } from '@/components/nav-projects';
 import { NavUser } from '@/components/nav-user';
@@ -16,6 +17,7 @@ import {
     SidebarContent,
     SidebarFooter,
     SidebarHeader,
+    useSidebar,
 } from '@/components/ui/sidebar';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { index as groupIndex } from '@/routes/group';
@@ -26,7 +28,23 @@ import { index as workspacesIndex } from '@/routes/workspaces';
 import type { NavEntry, NavItem } from '@/types';
 
 export function AppSidebar() {
-    const { auth, tenancy } = usePage().props;
+    const page = usePage();
+    const { auth, tenancy } = page.props;
+    const { isMobile, setOpenMobile } = useSidebar();
+
+    /*
+     * On a phone the sidebar is a sheet drawn over the page, and Inertia swaps
+     * the page underneath without unmounting it — so tapping a row used to
+     * load the destination behind a drawer that stayed open on top of it.
+     * Closing on every URL change covers every row, including the projects and
+     * the workspace switcher, without wiring an onClick onto each link.
+     */
+    useEffect(() => {
+        if (isMobile) {
+            setOpenMobile(false);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page.url]);
 
     // Read from the user, not the membership: a super admin belongs to no
     // workspace at all, so `tenancy.membership` is always null for them.

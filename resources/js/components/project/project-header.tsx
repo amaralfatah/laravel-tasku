@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { ChartGantt, Columns3, List, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { list, settings, show, timeline } from '@/routes/projects';
@@ -20,6 +21,17 @@ export function ProjectHeader({
     project: ProjectSummary;
     active: Tab;
 }) {
+    const activeRef = useRef<HTMLAnchorElement>(null);
+
+    // The row scrolls sideways on a phone, so the tab that is open can start
+    // out half past the right edge — Pengaturan always did.
+    useEffect(() => {
+        activeRef.current?.scrollIntoView({
+            block: 'nearest',
+            inline: 'nearest',
+        });
+    }, [active]);
+
     // Jira names a view with an icon as well as a word, which is what makes the
     // row readable at a glance once there are more than three of them.
     const tabs: { key: Tab; label: string; href: string; icon: LucideIcon }[] =
@@ -54,24 +66,35 @@ export function ProjectHeader({
         <div className="space-y-4">
             <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-xl font-semibold">{project.name}</h1>
+                    <h1 className="min-w-0 truncate text-xl font-semibold">
+                        {project.name}
+                    </h1>
                     <Badge variant={PROJECT_STATUS_VARIANT[project.status]}>
                         {project.status_label}
                     </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="truncate text-sm text-muted-foreground">
                     {project.org_unit.name}
                 </p>
             </div>
 
-            <nav className="flex gap-1 border-b" aria-label="Tampilan project">
+            {/*
+             * Four labelled tabs are wider than a phone, so the row scrolls
+             * sideways rather than wrapping onto a second line that breaks the
+             * underline the active tab hangs on.
+             */}
+            <nav
+                className="-mx-4 flex [scrollbar-width:none] gap-1 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+                aria-label="Tampilan project"
+            >
                 {tabs.map((tab) => (
                     <Link
                         key={tab.key}
                         href={tab.href}
+                        ref={tab.key === active ? activeRef : undefined}
                         aria-current={tab.key === active ? 'page' : undefined}
                         className={cn(
-                            'relative -mb-px flex min-h-11 items-center gap-2 border-b-2 px-3 text-sm transition-colors',
+                            'relative -mb-px flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm whitespace-nowrap transition-colors',
                             tab.key === active
                                 ? 'border-primary font-medium text-foreground'
                                 : 'border-transparent text-muted-foreground hover:text-foreground',

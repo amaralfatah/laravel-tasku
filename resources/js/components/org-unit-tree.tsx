@@ -281,7 +281,9 @@ export function OrgUnitTree({
                         <span className="size-6 shrink-0" aria-hidden="true" />
                     )}
 
-                    <span className="truncate font-medium">{node.name}</span>
+                    <span className="min-w-0 truncate font-medium">
+                        {node.name}
+                    </span>
 
                     <Badge variant="secondary" className="shrink-0 font-normal">
                         {ORG_UNIT_TYPE_LABELS[node.type] ?? node.type}

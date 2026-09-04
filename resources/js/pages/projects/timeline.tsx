@@ -16,6 +16,7 @@ import {
 import type { Zoom } from '@/components/task/timeline-scale';
 import { Button } from '@/components/ui/button';
 import { useFocusedTask } from '@/hooks/use-focused-task';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { projectCrumbs } from '@/lib/project-crumbs';
 import { cn } from '@/lib/utils';
@@ -31,7 +32,16 @@ import type {
 } from '@/types/tasks';
 
 const ZOOMS: Zoom[] = ['week', 'month', 'quarter'];
+
+/**
+ * Width of the sticky label column, in pixels.
+ *
+ * A phone is 360-430px wide, so the desktop column left barely a finger of
+ * chart beside it — and a Gantt with no visible bars is not a Gantt. The narrow
+ * column still fits the reference plus a truncated title.
+ */
 const LEFT_WIDTH = 320;
+const LEFT_WIDTH_MOBILE = 176;
 
 type PageProps = {
     project: ProjectSummary;
@@ -142,7 +152,10 @@ export default function ProjectTimeline({
         [scheduled, spans],
     );
 
-    const [panelRef, fillWidth] = useFillWidth<HTMLDivElement>(LEFT_WIDTH);
+    const isMobile = useIsMobile();
+    const leftWidth = isMobile ? LEFT_WIDTH_MOBILE : LEFT_WIDTH;
+
+    const [panelRef, fillWidth] = useFillWidth<HTMLDivElement>(leftWidth);
 
     const scale = useTimelineScale(ranges, zoom, fillWidth);
 
@@ -255,7 +268,7 @@ export default function ProjectTimeline({
                     >
                         <div
                             className="min-w-max"
-                            style={{ width: `${LEFT_WIDTH + scale.width}px` }}
+                            style={{ width: `${leftWidth + scale.width}px` }}
                         >
                             <div className="flex border-b bg-muted">
                                 <div
@@ -263,7 +276,7 @@ export default function ProjectTimeline({
                                     // scroll underneath this cell, and a
                                     // translucent one shows them through.
                                     className="sticky left-0 z-10 shrink-0 border-r bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
-                                    style={{ width: `${LEFT_WIDTH}px` }}
+                                    style={{ width: `${leftWidth}px` }}
                                 >
                                     <div className="pt-1">Task</div>
                                     <div className="text-[10px] font-normal">
@@ -291,7 +304,7 @@ export default function ProjectTimeline({
                                             // opaque to cover the grid behind.
                                             className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r bg-background px-2 py-1.5 group-hover:bg-accent"
                                             style={{
-                                                width: `${LEFT_WIDTH}px`,
+                                                width: `${leftWidth}px`,
                                                 paddingLeft: `${8 + task.depth * 14}px`,
                                             }}
                                         >

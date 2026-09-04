@@ -290,7 +290,7 @@ export default function Members({
                 )}
 
                 <div className="rounded-lg border">
-                    <Table>
+                    <Table className="min-w-[40rem]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nama</TableHead>

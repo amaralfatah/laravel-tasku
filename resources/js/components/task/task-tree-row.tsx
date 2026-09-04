@@ -61,7 +61,7 @@ export function TaskTreeRow({
     return (
         <div
             className={cn(
-                'grid min-h-12 grid-cols-[minmax(0,1fr)_repeat(3,auto)] items-center gap-3 border-b px-3 py-1.5 last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(0,1fr)_9rem_10rem_7rem_9rem_2rem]',
+                'grid min-h-12 grid-cols-[minmax(0,1fr)_repeat(3,auto)] items-center gap-2 border-b px-3 py-1.5 last:border-b-0 hover:bg-muted/40 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_9rem_10rem_7rem_9rem_2rem]',
             )}
         >
             <div
@@ -95,7 +95,10 @@ export function TaskTreeRow({
                     <span className="size-6 shrink-0" aria-hidden="true" />
                 )}
 
-                <span className="w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums">
+                {/* On a phone the reference took a quarter of the row and left
+                    the title truncated to a couple of characters; it is on the
+                    card in the detail sheet either way. */}
+                <span className="hidden w-24 shrink-0 truncate text-xs text-muted-foreground tabular-nums sm:inline">
                     {task.reference}
                 </span>
 

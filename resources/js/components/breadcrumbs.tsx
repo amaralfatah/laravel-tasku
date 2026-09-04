@@ -18,16 +18,28 @@ export function Breadcrumbs({
     return (
         <>
             {breadcrumbs.length > 0 && (
-                <Breadcrumb>
-                    <BreadcrumbList>
+                <Breadcrumb className="min-w-0">
+                    {/*
+                     * The trail sits inside a fixed-height bar, so it must not
+                     * wrap: on a phone it keeps the current page only — the
+                     * ancestors are one back-swipe away and were what pushed a
+                     * long project name onto a second line.
+                     */}
+                    <BreadcrumbList className="flex-nowrap">
                         {breadcrumbs.map((item, index) => {
                             const isLast = index === breadcrumbs.length - 1;
 
                             return (
                                 <Fragment key={index}>
-                                    <BreadcrumbItem>
+                                    <BreadcrumbItem
+                                        className={
+                                            isLast
+                                                ? 'min-w-0'
+                                                : 'hidden sm:inline-flex'
+                                        }
+                                    >
                                         {isLast ? (
-                                            <BreadcrumbPage>
+                                            <BreadcrumbPage className="truncate">
                                                 {item.title}
                                             </BreadcrumbPage>
                                         ) : !item.href ? (
@@ -35,16 +47,23 @@ export function Breadcrumbs({
                                             // names a place, so it must not
                                             // claim to be the current page
                                             // either.
-                                            <span>{item.title}</span>
+                                            <span className="whitespace-nowrap">
+                                                {item.title}
+                                            </span>
                                         ) : (
                                             <BreadcrumbLink asChild>
-                                                <Link href={item.href}>
+                                                <Link
+                                                    href={item.href}
+                                                    className="whitespace-nowrap"
+                                                >
                                                     {item.title}
                                                 </Link>
                                             </BreadcrumbLink>
                                         )}
                                     </BreadcrumbItem>
-                                    {!isLast && <BreadcrumbSeparator />}
+                                    {!isLast && (
+                                        <BreadcrumbSeparator className="hidden sm:block" />
+                                    )}
                                 </Fragment>
                             );
                         })}

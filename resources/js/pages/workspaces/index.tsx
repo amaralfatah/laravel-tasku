@@ -297,7 +297,7 @@ export default function Workspaces({
                 </div>
 
                 <div className="overflow-hidden rounded-lg border bg-background">
-                    <Table>
+                    <Table className="min-w-[56rem]">
                         <TableHeader>
                             <TableRow className="hover:bg-transparent">
                                 <TableHead>Perusahaan</TableHead>
