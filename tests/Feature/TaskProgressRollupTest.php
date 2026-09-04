@@ -200,3 +200,49 @@ test('renaming a sub task from the parent modal touches only its title', functio
     expect($first->progress)->toBe(100);
     expect($parent->refresh()->progress)->toBe(50);
 });
+
+test('a sub task moved to Dikerjakan lifts the parent off To Do without a percentage', function () {
+    [$member, $project] = progressProject();
+
+    $parent = Task::factory()
+        ->for($project)
+        ->create(['workspace_id' => $project->workspace_id, 'title' => 'Induk']);
+
+    $first = subtaskOf($parent, 'Anak satu');
+    subtaskOf($parent, 'Anak dua');
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('tasks.update', $first), ['status' => 'in_progress'])
+        ->assertRedirect();
+
+    $parent->refresh();
+
+    // Nobody typed a number, so the average is still zero — the status the
+    // person set on the sub task is what moves the task above it.
+    expect($parent->progress)->toBe(0);
+    expect($parent->status->value)->toBe('in_progress');
+});
+
+test('a parent whose sub tasks are all back on To Do returns to To Do', function () {
+    [$member, $project] = progressProject();
+
+    $parent = Task::factory()
+        ->for($project)
+        ->create(['workspace_id' => $project->workspace_id, 'title' => 'Induk']);
+
+    $first = subtaskOf($parent, 'Anak satu');
+    subtaskOf($parent, 'Anak dua');
+
+    foreach (['in_progress', 'todo'] as $status) {
+        $this->actingAs($member->user)
+            ->withSession(['workspace_id' => $member->workspace_id])
+            ->patch(route('tasks.update', $first), ['status' => $status])
+            ->assertRedirect();
+    }
+
+    $parent->refresh();
+
+    expect($parent->progress)->toBe(0);
+    expect($parent->status->value)->toBe('todo');
+});

@@ -12,3 +12,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/css/app.css | .ai/rules/css.md |
 | vercel.json, package.json | .ai/rules/general.md |
 | scripts/vercel-install.sh | .ai/rules/scripts.md |
+| app/Services/TaskHierarchy.php | .ai/rules/services.md |

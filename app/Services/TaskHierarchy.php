@@ -154,7 +154,7 @@ class TaskHierarchy
             // rolling it up would skip the approval entirely.
             $parent->status === TaskStatus::Review => TaskStatus::Review,
             $average >= 100 && $this->allChildrenDone($parent) => TaskStatus::Done,
-            $average > 0 => TaskStatus::InProgress,
+            $average > 0 || $this->anyChildStarted($parent) => TaskStatus::InProgress,
             default => TaskStatus::Todo,
         };
 
@@ -172,6 +172,21 @@ class TaskHierarchy
             'progress' => $average,
             'status' => $status,
         ])->save();
+    }
+
+    /**
+     * Whether anybody has picked up a sub task, whatever its percentage says.
+     *
+     * The average alone missed the case people hit most: a sub task moved to
+     * Dikerjakan without a number typed yet leaves the average at 0, which
+     * used to drag the task above it back to To Do and made the column look
+     * stuck. Status is the statement a person made, so it counts on its own.
+     */
+    protected function anyChildStarted(Task $parent): bool
+    {
+        return $parent->children()
+            ->where('status', '!=', TaskStatus::Todo->value)
+            ->exists();
     }
 
     /**
