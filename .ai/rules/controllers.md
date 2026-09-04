@@ -27,3 +27,8 @@ Two controllers write the `workspaces` row and they are not interchangeable.
 A rename also renames the root org unit when that node is the customer's own (`external_id` null), because a self-serve workspace named it after itself; a SAP-mirrored root keeps its name.
 
 Slug is set on `creating` only, so renaming never moves the workspace's URL.
+
+## Review is offered, never required, to finish a task
+Anyone who may edit a task may set it to Done directly — assignee included. `TaskController::update()` and `move()` used to run a `guardApproval()` that refused Done unless the caller could `review` the task, which turned a two-tier flow into a toll gate on every task; it was removed on purpose, so do not reintroduce it.
+
+The `review` status and `tasks.review` still exist for teams that want a second pair of eyes: submitting stamps `submitted_at`, and `TaskPolicy::review()` still keeps a worker from approving their own submission. Covered by tests/Feature/TaskReviewTest.php.

@@ -1,6 +1,6 @@
 import { index as projectsIndex } from '@/routes/projects';
-import type { OrgUnitLocation } from '@/types/projects';
 import type { BreadcrumbItem } from '@/types/navigation';
+import type { OrgUnitLocation } from '@/types/projects';
 
 /**
  * Breadcrumbs for any view of a project, ending on the project itself.

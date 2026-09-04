@@ -500,3 +500,68 @@ test('the tenth sub task follows the ninth rather than the first', function () {
             )
         );
 });
+
+test('a project view names the units it hangs under, without the tree above the workspace', function () {
+    // The workspace runs the division; the project sits two levels below it,
+    // and everything above the division belongs to another entity.
+    $workspace = Workspace::factory()->create();
+    $group = OrgUnit::factory()->create(['name' => 'Holding']);
+    $division = OrgUnit::factory()->childOf($group)->create(['name' => 'Divisi IT']);
+    $workspace->forceFill(['root_org_unit_id' => $division->id])->save();
+
+    $subDivision = OrgUnit::factory()->childOf($division)->create(['name' => 'Subdivisi Pengembangan']);
+    $squad = OrgUnit::factory()->childOf($subDivision)->create(['name' => 'Unit Cyber']);
+
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Manager, 'org_unit_id' => $division->id]);
+
+    $project = Project::factory()->in($squad)->create();
+    $project->members()->attach($member->user_id);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('projects.show', $project))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('projects/board')
+            ->where('project.org_unit.name', 'Unit Cyber')
+            ->where('project.org_unit.trail', ['Divisi IT', 'Subdivisi Pengembangan'])
+            ->etc()
+        );
+});
+
+test('the overdue filter keeps only open work past its due date', function () {
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
+    $project = Project::factory()->in($unit)->create();
+    $project->members()->attach($member->user_id);
+
+    Task::factory()->for($project)->create([
+        'title' => 'Telat',
+        'due_date' => now()->subDay(),
+        'status' => 'in_progress',
+    ]);
+    Task::factory()->for($project)->create([
+        'title' => 'Telat tapi sudah selesai',
+        'due_date' => now()->subDay(),
+        'status' => 'done',
+    ]);
+    Task::factory()->for($project)->create([
+        'title' => 'Masih ada waktu',
+        'due_date' => now()->addWeek(),
+        'status' => 'in_progress',
+    ]);
+    Task::factory()->for($project)->create(['title' => 'Tanpa tenggat', 'due_date' => null]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.show', ['project' => $project, 'overdue' => 1]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('projects/board')
+            ->where('filters.overdue', true)
+            ->has('tasks', 1)
+            ->where('tasks.0.title', 'Telat')
+            ->etc()
+        );
+});

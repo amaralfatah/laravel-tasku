@@ -13,8 +13,11 @@ use App\Services\TaskHierarchy;
 
 /**
  * A staff member's sub task is reviewed by whoever owns the task above it
- * (TSK-18): submitting hands it up, the reviewer accepts or returns it, and a
- * worker cannot sign off their own work by skipping straight to Done.
+ * (TSK-18): submitting hands it up and the reviewer accepts or returns it.
+ *
+ * The route is offered, not imposed — closing a task never waits on anybody's
+ * approval — so what these cover is that the review path works when a team
+ * chooses to use it.
  *
  * @return array{workspace: Workspace, project: Project, lead: WorkspaceMember, staff: WorkspaceMember, parent: Task, child: Task}
  */
@@ -51,15 +54,20 @@ function reviewProject(): array
     return compact('workspace', 'project', 'lead', 'staff', 'parent', 'child');
 }
 
-test('a worker cannot close their own task, only send it up for review', function () {
+test('a worker closes their own task without waiting for approval', function () {
     ['workspace' => $workspace, 'staff' => $staff, 'child' => $child] = reviewProject();
 
     $this->actingAs($staff->user)
         ->withSession(['workspace_id' => $workspace->id])
         ->patch(route('tasks.update', $child), ['status' => 'done'])
-        ->assertSessionHasErrors('status');
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
-    expect($child->refresh()->status)->toBe(TaskStatus::InProgress);
+    expect($child->refresh()->status)->toBe(TaskStatus::Done);
+});
+
+test('a worker may still hand the work up for review instead', function () {
+    ['workspace' => $workspace, 'staff' => $staff, 'child' => $child] = reviewProject();
 
     $this->actingAs($staff->user)
         ->withSession(['workspace_id' => $workspace->id])
@@ -144,7 +152,7 @@ test('a worker may not review their own submitted task', function () {
     expect($child->refresh()->status)->toBe(TaskStatus::Review);
 });
 
-test('a project leader may close their own leaf task directly, since nobody owns a task above it', function () {
+test('a project leader closes their own leaf task directly', function () {
     ['workspace' => $workspace, 'project' => $project, 'lead' => $lead] = reviewProject();
 
     // A leaf task, not the parent from reviewProject() — that one has a child
