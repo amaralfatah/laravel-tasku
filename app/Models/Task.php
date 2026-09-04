@@ -41,7 +41,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property CarbonImmutable|null $start_date
  * @property CarbonImmutable|null $due_date
  * @property int $position
- * @property int|null $created_by
+ * @property int|null $created_by who filed the task
+ * @property int|null $requester_id who asked for the work, off the workspace list
  * @property CarbonImmutable|null $deleted_at
  */
 #[ObservedBy(TaskObserver::class)]
@@ -54,6 +55,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'priority',
     'start_date',
     'due_date',
+    'requester_id',
 ])]
 class Task extends Model
 {
@@ -119,6 +121,18 @@ class Task extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Whoever asked for the work, as opposed to {@see creator()}, who filed
+     * it. Picked off the workspace's managed list, and often not a user of
+     * the application at all.
+     *
+     * @return BelongsTo<Requester, $this>
+     */
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(Requester::class);
     }
 
     /**

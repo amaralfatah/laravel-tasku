@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { show } from '@/routes/projects';
 import { move } from '@/routes/tasks';
 import type { Option } from '@/types/members';
+import type { RequesterOption } from '@/types/requesters';
 import { TASK_STATUS_LABELS, TASK_STATUS_ORDER } from '@/types/tasks';
 import type {
     ProjectSummary,
@@ -51,6 +52,7 @@ type PageProps = {
     statuses: Option[];
     priorities: Option[];
     assignees: TaskAssignee[];
+    requesters: RequesterOption[];
     maxDepth: number;
     /** Task to open on arrival, e.g. when following a notification (NTF-3). */
     focusTaskId: number | null;
@@ -140,6 +142,7 @@ export default function ProjectBoard({
     statuses,
     priorities,
     assignees,
+    requesters,
     focusTaskId,
     can,
 }: PageProps) {
@@ -367,7 +370,13 @@ export default function ProjectBoard({
                 subtasks={tasks.filter(
                     (item) => item.parent_task_id === openTaskId,
                 )}
+                parent={
+                    tasks.find(
+                        (item) => item.id === openTask?.parent_task_id,
+                    ) ?? null
+                }
                 assignees={assignees}
+                requesters={requesters}
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
@@ -389,6 +398,7 @@ export default function ProjectBoard({
                 parent={creating?.parent ?? null}
                 status={creating?.status ?? 'todo'}
                 assignees={assignees}
+                requesters={requesters}
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setCreating(null)}

@@ -27,6 +27,7 @@ import { people, person as personRoute } from '@/routes/monitoring';
 import { exportMethod as exportPerson } from '@/routes/monitoring/person';
 import { show as showProject } from '@/routes/projects';
 import type { Option } from '@/types/members';
+import type { RequesterOption } from '@/types/requesters';
 import type { TaskAssignee, TaskNode } from '@/types/tasks';
 
 type ProjectGroup = {
@@ -68,6 +69,7 @@ export default function MonitoringPerson({
     tasks,
     statuses,
     priorities,
+    requesters,
     filters,
     isSelf,
 }: {
@@ -75,6 +77,7 @@ export default function MonitoringPerson({
     tasks: ProjectGroup[];
     statuses: Option[];
     priorities: Option[];
+    requesters: RequesterOption[];
     filters: { from: string | null; to: string | null };
     isSelf: boolean;
 }) {
@@ -436,6 +439,7 @@ export default function MonitoringPerson({
             <TaskDetailModal
                 task={open?.task ?? null}
                 assignees={open?.assignees ?? []}
+                requesters={requesters}
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}

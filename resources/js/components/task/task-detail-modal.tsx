@@ -62,6 +62,7 @@ import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/week';
 import { destroy, move, review, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
+import type { RequesterOption } from '@/types/requesters';
 import {
     TASK_PRIORITY_BADGE,
     TASK_PRIORITY_CLASSES,
@@ -72,6 +73,9 @@ import {
 import type { TaskAssignee, TaskNode, TaskPriority } from '@/types/tasks';
 
 const UNASSIGNED = 'none';
+
+/** No requester chosen. Most internal work has none. */
+const NO_REQUESTER = 'none';
 
 /**
  * Jira's Details panel and sub task table read as a list of facts, not as a
@@ -111,7 +115,18 @@ export function TaskDetailModal({
 type TaskDetailModalProps = {
     /** Direct children, when the calling page has the whole tree loaded. */
     subtasks?: TaskNode[];
+    /**
+     * The task above this one, when the calling page has it. Opening a sub
+     * task is a one-way trip otherwise: the modal replaces itself, so the way
+     * back up has to be in the modal.
+     */
+    parent?: TaskNode | null;
     assignees: TaskAssignee[];
+    /**
+     * The workspace's requester list, active rows only. Defaults to empty so a
+     * page that does not offer the field still renders the task's own value.
+     */
+    requesters?: RequesterOption[];
     statuses: Option[];
     priorities: Option[];
     onClose: () => void;
@@ -127,7 +142,9 @@ type TaskDetailModalProps = {
 function TaskDetail({
     task,
     subtasks = [],
+    parent = null,
     assignees,
+    requesters = [],
     statuses,
     priorities,
     onClose,
@@ -199,6 +216,26 @@ function TaskDetail({
 
         onClose();
     };
+
+    /**
+     * Swap the modal over to another task, keeping whatever is in the two
+     * drafts. Going up to the parent and down into a sub task are the same
+     * move as far as the open editors are concerned, so both run through here.
+     */
+    const openTask = (id: number) => {
+        if (!readOnly) {
+            commitTitle();
+            commitDescription();
+        }
+
+        onOpenTask?.(id);
+    };
+
+    /**
+     * The navigating version of {@see openTask}, withheld entirely on a page
+     * that cannot swap task — a sub task row reads that as "not clickable".
+     */
+    const swapTask = onOpenTask === undefined ? undefined : openTask;
 
     /**
      * The person on the task, for the avatar in the trigger. A task can carry an
@@ -361,12 +398,37 @@ function TaskDetail({
                 showCloseButton={false}
             >
                 <DialogHeader className="shrink-0 flex-row items-center gap-2 border-b px-4 py-3 sm:px-6">
-                    <DialogTitle className="flex min-w-0 flex-1 items-center gap-2 text-base font-normal">
-                        <Badge variant="outline" className="tabular-nums">
-                            {task.reference}
-                        </Badge>
+                    {/* Jira's breadcrumb, and only that: references, separated
+                        by a slash, with no titles on them. The title belongs to
+                        the heading below — repeating it here made the modal
+                        open with the same sentence twice, once truncated.
+
+                        The parent's reference is the way back up. Without it
+                        the modal is a trapdoor: it replaces itself on the way
+                        down into a sub task, and closing lands you on the board
+                        rather than on the task you came from. Drawn only when
+                        the calling page can actually swap tasks. */}
+                    <DialogTitle className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-normal tabular-nums">
+                        {parent !== null && onOpenTask !== undefined && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => openTask(parent.id)}
+                                    title={`Kembali ke ${parent.reference} ${parent.title}`}
+                                    className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                >
+                                    {parent.reference}
+                                </button>
+                                <span
+                                    className="shrink-0 text-muted-foreground"
+                                    aria-hidden="true"
+                                >
+                                    /
+                                </span>
+                            </>
+                        )}
                         <span className="truncate text-muted-foreground">
-                            {task.title}
+                            {task.reference}
                         </span>
                     </DialogTitle>
                     <DialogDescription className="sr-only">
@@ -599,10 +661,9 @@ function TaskDetail({
                                             <div
                                                 className={cn(
                                                     SUBTASK_COLUMNS,
-                                                    'border-b bg-muted px-3 py-2 text-xs font-medium text-muted-foreground',
+                                                    'border-b bg-muted py-2 text-xs font-medium text-muted-foreground',
                                                 )}
                                             >
-                                                <span aria-hidden="true" />
                                                 <span>Sub task</span>
                                                 <span className="hidden md:block">
                                                     Prioritas
@@ -681,7 +742,7 @@ function TaskDetail({
                                                                         );
                                                                     }}
                                                                     onOpenTask={
-                                                                        onOpenTask
+                                                                        swapTask
                                                                     }
                                                                 />
                                                             ),
@@ -1023,6 +1084,101 @@ function TaskDetail({
                                         <InputError message={errors.due_date} />
                                     </div>
 
+                                    {/* Jira keeps Reporter at the foot of the
+                                        Details panel; the requester is the same
+                                        kind of fact — who the work is for rather
+                                        than who is doing it — so it sits in that
+                                        slot rather than beside the assignee. */}
+                                    <Label
+                                        htmlFor="task-requester"
+                                        className="text-sm font-normal text-muted-foreground"
+                                    >
+                                        Pemohon
+                                    </Label>
+                                    <div className="min-w-0">
+                                        <Select
+                                            value={String(
+                                                task.requester?.id ??
+                                                    NO_REQUESTER,
+                                            )}
+                                            disabled={readOnly}
+                                            onValueChange={(value) =>
+                                                save({
+                                                    requester_id:
+                                                        value === NO_REQUESTER
+                                                            ? null
+                                                            : Number(value),
+                                                })
+                                            }
+                                        >
+                                            <SelectTrigger
+                                                id="task-requester"
+                                                className={cn(
+                                                    'w-full',
+                                                    QUIET_CONTROL,
+                                                )}
+                                                title="Daftar pemohon dikelola di halaman Pemohon."
+                                            >
+                                                <span className="truncate">
+                                                    {task.requester?.name ??
+                                                        'Tanpa pemohon'}
+                                                </span>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    value={NO_REQUESTER}
+                                                >
+                                                    Tanpa pemohon
+                                                </SelectItem>
+                                                {/* A retired requester is not
+                                                    in the list, so the task
+                                                    that still names one keeps
+                                                    its own row here. */}
+                                                {task.requester &&
+                                                    !requesters.some(
+                                                        (option) =>
+                                                            option.id ===
+                                                            task.requester?.id,
+                                                    ) && (
+                                                        <SelectItem
+                                                            value={String(
+                                                                task.requester
+                                                                    .id,
+                                                            )}
+                                                        >
+                                                            {
+                                                                task.requester
+                                                                    .name
+                                                            }
+                                                            <span className="text-muted-foreground">
+                                                                (nonaktif)
+                                                            </span>
+                                                        </SelectItem>
+                                                    )}
+                                                {requesters.map((option) => (
+                                                    <SelectItem
+                                                        key={option.id}
+                                                        value={String(
+                                                            option.id,
+                                                        )}
+                                                    >
+                                                        {option.name}
+                                                        {option.organization && (
+                                                            <span className="text-muted-foreground">
+                                                                {
+                                                                    option.organization
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError
+                                            message={errors.requester_id}
+                                        />
+                                    </div>
+
                                     {/* Read-only: progress is derived from the
                                         sub tasks that are done, or from the
                                         task's own status when it is a leaf. */}
@@ -1072,8 +1228,15 @@ function TaskDetail({
  * two line up. Priority and assignee are dropped below `md`, where the modal is
  * one column and there is no room for five fields beside a title.
  */
+/**
+ * Jira's sub task table runs on one gap the whole way across — grip, key,
+ * summary and the pickers are all 8px apart. Widening it to 12px on the larger
+ * breakpoints was what made the row read as a set of loose columns rather than
+ * as a line of text with controls after it, so the gap is uniform and only the
+ * column widths change with the viewport.
+ */
 const SUBTASK_COLUMNS =
-    'grid grid-cols-[1rem_minmax(0,1fr)_6.5rem_2rem] items-center gap-2 sm:grid-cols-[1rem_minmax(0,1fr)_9rem_2rem] sm:gap-3 md:grid-cols-[1rem_minmax(0,1fr)_7.5rem_9rem_9rem_2rem]';
+    'grid grid-cols-[minmax(0,1fr)_6.5rem_2rem] items-center gap-2 pr-3 pl-5 sm:grid-cols-[minmax(0,1fr)_9rem_2rem] md:grid-cols-[minmax(0,1fr)_7.5rem_9rem_9rem_2rem]';
 
 /**
  * A sub task row edits itself. Every picker on the row PATCHes that row alone,
@@ -1145,13 +1308,18 @@ function SubtaskRow({
             }}
             className={cn(
                 SUBTASK_COLUMNS,
-                'group px-3 py-2 text-sm',
+                'group relative py-2 text-sm',
                 // Lifted over its neighbours so the moving row stays readable
                 // while the rest of the list slides under it.
-                isDragging && 'relative z-10 bg-accent',
+                isDragging && 'z-10 bg-accent',
             )}
         >
-            {child.can_edit ? (
+            {/* Out of the grid and into the row's left padding. A reserved grip
+                column pushed the key 40px in from the panel's edge, where Jira
+                starts it at 12px — and it only ever held something while the
+                row was hovered. Positioned rather than laid out, it costs the
+                key nothing and still nudges down to the summary's first line. */}
+            {child.can_edit && (
                 <button
                     type="button"
                     ref={setActivatorNodeRef}
@@ -1159,16 +1327,22 @@ function SubtaskRow({
                     {...listeners}
                     aria-label={`Urutkan ${child.reference}`}
                     title="Geser untuk mengurutkan"
-                    className="-ml-1 shrink-0 cursor-grab touch-none text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
+                    className="absolute top-2.5 left-0.5 cursor-grab touch-none text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
                 >
                     <GripVertical className="size-4" aria-hidden="true" />
                 </button>
-            ) : (
-                // Keeps a read-only row's reference lined up with the rest.
-                <span className="size-4 shrink-0" aria-hidden="true" />
             )}
 
-            <div className="flex min-w-0 items-center gap-2">
+            {/* The key and the summary are one cluster in Jira, set closer to
+                each other than the row's own columns are.
+
+                Aligned to the top, not the centre: a summary that wraps to two
+                lines used to push the key down between them, so the key sat in
+                a different place on every row depending on how long its title
+                was. Each piece then carries the nudge that puts it on the first
+                line — the key's own line box is 16px against the summary's
+                20px, and the pencil is a 32px control. */}
+            <div className="flex min-w-0 items-start gap-1.5">
                 {isEditing ? (
                     <Input
                         autoFocus
@@ -1196,7 +1370,7 @@ function SubtaskRow({
                             the pencil only ever appears on hover anyway, which
                             a touch screen has none of — the title opens the sub
                             task, where it can be renamed. */}
-                        <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums sm:inline">
+                        <span className="hidden shrink-0 pt-0.5 text-xs text-muted-foreground tabular-nums sm:inline">
                             {child.reference}
                         </span>
 
@@ -1221,7 +1395,7 @@ function SubtaskRow({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="hidden size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex"
+                                className="-mt-1.5 hidden size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex"
                                 aria-label={`Ubah judul ${child.reference}`}
                                 title="Ubah judul"
                                 onClick={onStartRename}

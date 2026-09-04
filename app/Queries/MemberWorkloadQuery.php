@@ -130,6 +130,9 @@ class MemberWorkloadQuery
                 'assignee:id,name,avatar_path',
                 // The review check reads the parent's assignee, once per task.
                 'parent:id,assignee_id',
+                // Rendered on every task, so it is loaded rather than left to
+                // one query per row (see MonitoringQueryBudgetTest).
+                'requester:id,name,organization',
             ])
             ->when($from, fn (Builder $query, string $date) => $query->where(function (Builder $q) use ($date): void {
                 $q->whereNull('due_date')->orWhereDate('due_date', '>=', $date);

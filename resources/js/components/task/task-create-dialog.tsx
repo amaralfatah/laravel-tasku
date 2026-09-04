@@ -2,6 +2,7 @@ import { useForm, usePage } from '@inertiajs/react';
 import {
     CalendarDays,
     CircleDashed,
+    ContactRound,
     CornerDownRight,
     Flag,
     Layers,
@@ -35,6 +36,7 @@ import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { store } from '@/routes/tasks';
 import type { Option } from '@/types/members';
+import type { RequesterOption } from '@/types/requesters';
 import { TASK_PRIORITY_CLASSES } from '@/types/tasks';
 import type {
     ProjectSummary,
@@ -45,6 +47,9 @@ import type {
 } from '@/types/tasks';
 
 const UNASSIGNED = 'none';
+
+/** No requester chosen. Most internal work has none, so this is the default. */
+const NO_REQUESTER = 'none';
 
 /** Jira's "Automatic": the task goes to whoever is filing it. */
 const AUTOMATIC = 'auto';
@@ -77,6 +82,7 @@ export function TaskCreateDialog({
     parent,
     status = 'todo',
     assignees,
+    requesters,
     statuses,
     priorities,
     onClose,
@@ -87,6 +93,8 @@ export function TaskCreateDialog({
     /** Column the task should land in when opened from a board column. */
     status?: TaskStatus;
     assignees: TaskAssignee[];
+    /** The workspace's requester list, active rows only. */
+    requesters: RequesterOption[];
     statuses: Option[];
     priorities: Option[];
     onClose: () => void;
@@ -115,6 +123,7 @@ export function TaskCreateDialog({
         priority: 'medium' as TaskPriority,
         start_date: null as string | null,
         due_date: null as string | null,
+        requester_id: null as number | null,
     });
 
     const blank = () => ({
@@ -126,6 +135,7 @@ export function TaskCreateDialog({
         priority: 'medium' as TaskPriority,
         start_date: null as string | null,
         due_date: null as string | null,
+        requester_id: null as number | null,
     });
 
     // `useForm` keeps its defaults in state, so `setDefaults` followed by
@@ -171,6 +181,9 @@ export function TaskCreateDialog({
     const priority = priorities.find(
         (option) => option.value === form.data.priority,
     );
+    const requester =
+        requesters.find((option) => option.id === form.data.requester_id) ??
+        null;
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -492,6 +505,65 @@ export function TaskCreateDialog({
                                     form.setData('due_date', value)
                                 }
                             />
+
+                            {/* Who asked for the work, as opposed to who is
+                                filing it. Picked off the workspace list and
+                                never typed, so a name means one person. */}
+                            <CreateField
+                                label="Pemohon"
+                                htmlFor="new-task-requester"
+                                error={form.errors.requester_id}
+                                filled={form.data.requester_id !== null}
+                            >
+                                <Select
+                                    value={
+                                        form.data.requester_id === null
+                                            ? NO_REQUESTER
+                                            : String(form.data.requester_id)
+                                    }
+                                    onValueChange={(value) =>
+                                        form.setData(
+                                            'requester_id',
+                                            value === NO_REQUESTER
+                                                ? null
+                                                : Number(value),
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="new-task-requester"
+                                        className={cn(
+                                            GHOST_CONTROL,
+                                            GHOST_CHEVRON,
+                                        )}
+                                    >
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            <ContactRound className="size-4 text-muted-foreground" />
+                                            <span className="truncate">
+                                                {requester?.name ?? 'Pemohon'}
+                                            </span>
+                                        </span>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={NO_REQUESTER}>
+                                            Tanpa pemohon
+                                        </SelectItem>
+                                        {requesters.map((option) => (
+                                            <SelectItem
+                                                key={option.id}
+                                                value={String(option.id)}
+                                            >
+                                                {option.name}
+                                                {option.organization && (
+                                                    <span className="text-muted-foreground">
+                                                        {option.organization}
+                                                    </span>
+                                                )}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </CreateField>
 
                             {/* Jira's Reporter: who is filing the task. The
                                 backend stamps it from the session, so it is

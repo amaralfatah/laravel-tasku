@@ -1,4 +1,5 @@
 import type { OrgUnitLocation, ProjectStatus } from '@/types/projects';
+import type { RequesterOption } from '@/types/requesters';
 
 export type ProjectSummary = {
     id: number;
@@ -45,6 +46,8 @@ export type TaskNode = {
     title: string;
     description: string | null;
     assignee: TaskAssignee | null;
+    /** Who asked for the work, off the workspace's managed list. */
+    requester: RequesterOption | null;
     status: TaskStatus;
     progress: number;
     /** Average progress of the direct children, null when there are none (TSK-17). */

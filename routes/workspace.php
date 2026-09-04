@@ -12,6 +12,7 @@ use App\Http\Controllers\OrgUnitController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectMemberController;
+use App\Http\Controllers\RequesterController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
@@ -55,6 +56,13 @@ Route::middleware(['auth', 'workspace'])->group(function () {
 
     Route::post('projects/{project}/members', [ProjectMemberController::class, 'store'])->name('project-members.store');
     Route::delete('projects/{project}/members/{user}', [ProjectMemberController::class, 'destroy'])->name('project-members.destroy');
+
+    // Who work is requested for: master data a leader maintains, chosen from
+    // everywhere else (see RequesterPolicy).
+    Route::get('requesters', [RequesterController::class, 'index'])->name('requesters.index');
+    Route::post('requesters', [RequesterController::class, 'store'])->name('requesters.store');
+    Route::patch('requesters/{requester}', [RequesterController::class, 'update'])->name('requesters.update');
+    Route::delete('requesters/{requester}', [RequesterController::class, 'destroy'])->name('requesters.destroy');
 
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');

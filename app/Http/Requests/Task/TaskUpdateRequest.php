@@ -28,6 +28,9 @@ class TaskUpdateRequest extends FormRequest
             'description' => ['sometimes', 'nullable', 'string', 'max:10000'],
             // TSK-4: only people on this project may carry its tasks.
             'assignee_id' => ['sometimes', 'nullable', 'integer', $this->existsAsProjectMember($projectId)],
+            // Chosen from the workspace's list, never typed: a retired
+            // requester is not offered, so it may not be assigned either.
+            'requester_id' => ['sometimes', 'nullable', 'integer', $this->existsAsActiveRequester()],
             'status' => ['sometimes', Rule::enum(TaskStatus::class)],
             'priority' => ['sometimes', Rule::enum(TaskPriority::class)],
             'progress' => ['sometimes', 'integer', 'min:0', 'max:100'],
@@ -78,6 +81,7 @@ class TaskUpdateRequest extends FormRequest
         return [
             'title' => 'judul task',
             'assignee_id' => 'penanggung jawab',
+            'requester_id' => 'pemohon',
             'progress' => 'progress',
             'start_date' => 'tanggal mulai',
             'due_date' => 'tanggal selesai',

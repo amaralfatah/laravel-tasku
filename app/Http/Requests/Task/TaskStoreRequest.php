@@ -34,6 +34,9 @@ class TaskStoreRequest extends FormRequest
             ],
             // TSK-4: only people on this project may carry its tasks.
             'assignee_id' => ['nullable', 'integer', $this->existsAsProjectMember($projectId)],
+            // Chosen from the workspace's list, never typed: a retired
+            // requester is not offered, so it may not be assigned either.
+            'requester_id' => ['nullable', 'integer', $this->existsAsActiveRequester()],
             'status' => ['sometimes', Rule::enum(TaskStatus::class)],
             'priority' => ['sometimes', Rule::enum(TaskPriority::class)],
             'progress' => ['sometimes', 'integer', 'min:0', 'max:100'],
@@ -53,6 +56,7 @@ class TaskStoreRequest extends FormRequest
             'description' => 'deskripsi',
             'parent_task_id' => 'task induk',
             'assignee_id' => 'penanggung jawab',
+            'requester_id' => 'pemohon',
             'status' => 'status',
             'priority' => 'prioritas',
             'progress' => 'progress',

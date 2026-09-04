@@ -67,6 +67,7 @@ class PersonController extends Controller
             'tasks' => $this->groupByProject($tasks, $request),
             'statuses' => TaskPresenter::statusOptions(),
             'priorities' => TaskPresenter::priorityOptions(),
+            'requesters' => TaskPresenter::requesterOptions(),
             'filters' => ['from' => $from, 'to' => $to],
             'isSelf' => $member->user_id === $request->user()->id,
         ]);

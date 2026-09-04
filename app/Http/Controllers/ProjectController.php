@@ -223,8 +223,13 @@ class ProjectController extends Controller
 
         $query = Task::query()
             ->where('project_id', $project->id)
-            // The review check reads the parent's assignee, once per task.
-            ->with(['assignee:id,name,avatar_path', 'parent:id,assignee_id']);
+            // The review check reads the parent's assignee, once per task, and
+            // the requester is rendered on every one of them.
+            ->with([
+                'assignee:id,name,avatar_path',
+                'parent:id,assignee_id',
+                'requester:id,name,organization',
+            ]);
 
         $filters->apply($query);
         $filters->applySort($query);
@@ -251,6 +256,7 @@ class ProjectController extends Controller
             'statuses' => TaskPresenter::statusOptions(),
             'priorities' => TaskPresenter::priorityOptions(),
             'assignees' => $this->assigneeOptions($project),
+            'requesters' => TaskPresenter::requesterOptions(),
             'maxDepth' => Task::MAX_DEPTH,
             // Deep link from a notification: the view opens this task's panel.
             'focusTaskId' => $request->integer('task') ?: null,

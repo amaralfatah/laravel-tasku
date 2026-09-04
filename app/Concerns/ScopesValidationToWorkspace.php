@@ -63,6 +63,18 @@ trait ScopesValidationToWorkspace
     }
 
     /**
+     * A requester on the active workspace's list who is still being offered.
+     *
+     * Retired rows are excluded on purpose: they stay on the tasks that
+     * already name them, but a form that hands one out again would undo the
+     * retiring.
+     */
+    protected function existsAsActiveRequester(): Exists
+    {
+        return $this->existsInWorkspace('requesters')->where('is_active', true);
+    }
+
+    /**
      * A user who is a member of the given project (TSK-4).
      */
     protected function existsAsProjectMember(int $projectId): Exists

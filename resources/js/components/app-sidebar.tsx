@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import {
     Building2,
+    ContactRound,
     Gauge,
     ListChecks,
     Network,
@@ -24,6 +25,7 @@ import { index as groupIndex } from '@/routes/group';
 import { index as membersIndex } from '@/routes/members';
 import { divisions, me, people } from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
+import { index as requestersIndex } from '@/routes/requesters';
 import { index as workspacesIndex } from '@/routes/workspaces';
 import type { NavEntry, NavItem } from '@/types';
 
@@ -93,6 +95,18 @@ export function AppSidebar() {
                 title: 'Anggota',
                 href: membersIndex(),
                 icon: Users,
+            });
+        }
+
+        // Master data a leader keeps so everyone else can pick from it. Not
+        // behind the scale gate, for the same reason the roster is not: a solo
+        // freelancer's requesters are their clients, which is exactly who the
+        // list is most useful for.
+        if (membership?.can_manage) {
+            mainNavItems.push({
+                title: 'Pemohon',
+                href: requestersIndex(),
+                icon: ContactRound,
             });
         }
 

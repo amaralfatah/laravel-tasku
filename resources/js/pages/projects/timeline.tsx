@@ -24,6 +24,7 @@ import { formatDay } from '@/lib/week';
 import { timeline } from '@/routes/projects';
 import { exportMethod as exportTimeline } from '@/routes/projects/timeline';
 import type { Option } from '@/types/members';
+import type { RequesterOption } from '@/types/requesters';
 import type {
     ProjectSummary,
     TaskAssignee,
@@ -50,6 +51,7 @@ type PageProps = {
     statuses: Option[];
     priorities: Option[];
     assignees: TaskAssignee[];
+    requesters: RequesterOption[];
     maxDepth: number;
     /** Task to open on arrival, e.g. when following a notification (NTF-3). */
     focusTaskId: number | null;
@@ -103,6 +105,7 @@ export default function ProjectTimeline({
     statuses,
     priorities,
     assignees,
+    requesters,
     focusTaskId,
 }: PageProps) {
     const [zoom, setZoom] = useState<Zoom>('week');
@@ -429,7 +432,13 @@ export default function ProjectTimeline({
                 subtasks={tasks.filter(
                     (item) => item.parent_task_id === openTaskId,
                 )}
+                parent={
+                    tasks.find(
+                        (item) => item.id === openTask?.parent_task_id,
+                    ) ?? null
+                }
                 assignees={assignees}
+                requesters={requesters}
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}

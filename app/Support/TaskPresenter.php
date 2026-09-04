@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
+use App\Models\Requester;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -66,6 +67,14 @@ class TaskPresenter
                 'name' => $task->assignee->name,
                 'avatar' => $task->assignee->avatar,
             ],
+            // Who asked for the work. Kept apart from the assignee and the
+            // creator: the requester is usually neither, and often not a user
+            // of the application at all.
+            'requester' => $task->requester === null ? null : [
+                'id' => $task->requester->id,
+                'name' => $task->requester->name,
+                'organization' => $task->requester->organization,
+            ],
             'status' => $task->status->value,
             'progress' => $task->progress,
             'rollup_progress' => $childCount === 0
@@ -106,6 +115,26 @@ class TaskPresenter
             fn (TaskStatus $status): array => ['value' => $status->value, 'label' => $status->label()],
             TaskStatus::cases(),
         );
+    }
+
+    /**
+     * The workspace's requester list, as a task form offers it: active rows
+     * only, by name. Retired ones stay on the tasks that already name them.
+     *
+     * @return array<int, array{id: int, name: string, organization: string|null}>
+     */
+    public static function requesterOptions(): array
+    {
+        return Requester::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'organization'])
+            ->map(fn (Requester $requester): array => [
+                'id' => $requester->id,
+                'name' => $requester->name,
+                'organization' => $requester->organization,
+            ])
+            ->all();
     }
 
     /**
