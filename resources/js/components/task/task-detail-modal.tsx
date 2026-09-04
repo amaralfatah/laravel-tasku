@@ -688,6 +688,7 @@ function TaskDetail({
                                             </div>
 
                                             <DndContext
+                                                id="task-subtasks"
                                                 sensors={sensors}
                                                 collisionDetection={
                                                     closestCenter

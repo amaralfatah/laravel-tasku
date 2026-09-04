@@ -313,6 +313,10 @@ export default function ProjectBoard({
                 />
 
                 <DndContext
+                    // Without a fixed id, dnd-kit numbers its aria-describedby
+                    // from a counter that restarts on the client, so the SSR
+                    // markup and the hydrated markup disagree.
+                    id="project-board"
                     sensors={sensors}
                     collisionDetection={closestCorners}
                     // Columns change height while dragging, so their rects have
