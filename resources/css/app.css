@@ -269,7 +269,7 @@
      * Dark mode is where the single surface failed: a card painted the page
      * colour disappears into it, and the hairline alone cannot carry a board
      * of them. So dark keeps Jira's ladder — sunken panel, page, raised card,
-     * hover, overlay — while light mode still runs on one surface plus
+     * overlay, hover — while light mode still runs on one surface plus
      * hairlines, because white already separates a card from a grey column.
      *
      * The steps are deliberately small (roughly 4% lightness apiece); they
@@ -280,8 +280,9 @@
     --foreground: #ffffff;
     --card: #2b2b30;
     --card-foreground: #ffffff;
-    /* Overlays sit one step above a card, so a menu opened over one reads. */
-    --popover: #35353a;
+    /* Overlays sit one step above a card so a menu opened over one reads, and
+     * one step below hover, or a hovered menu row would not read. */
+    --popover: #2f2f34;
     --popover-foreground: #ffffff;
 
     /* Action Blue survives on a near-black tile; links switch to Sky Link Blue. */
@@ -290,12 +291,12 @@
     --link: #2997ff;
     --ring: #2997ff;
 
-    --secondary: #37373c;
+    --secondary: #3d3d44;
     --secondary-foreground: #ffffff;
     /* Below the page: board columns, table headers, progress tracks. */
     --muted: #161618;
     --muted-foreground: #a1a1a6;
-    --accent: #37373c;
+    --accent: #3d3d44;
     --accent-foreground: #ffffff;
 
     --destructive: #ff453a;
@@ -316,7 +317,7 @@
     --sidebar-foreground: #ffffff;
     --sidebar-primary: #0071e3;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #37373c;
+    --sidebar-accent: #3d3d44;
     --sidebar-accent-foreground: #ffffff;
     --sidebar-border: #3f3f43;
     --sidebar-ring: #2997ff;
