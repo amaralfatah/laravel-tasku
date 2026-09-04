@@ -288,7 +288,7 @@ export function TimelineHeader({ scale }: { scale: TimelineScale }) {
                                 ? ''
                                 : column.topLabel
                                   ? 'border-l-2 border-border'
-                                  : 'border-l border-border',
+                                  : 'border-l border-border/30',
                         )}
                         style={{ width: `${column.days * scale.dayWidth}px` }}
                     >
@@ -386,9 +386,9 @@ export function TimelineBar({
  * Laying the columns out the same way makes the browser round them the same
  * way, so the line runs unbroken from the label down.
  *
- * Every line is the full `border` colour. A lighter weight for the weeks read
- * as a different colour rather than a softer one, since the header band sits
- * on `muted` and the rows on the page.
+ * Month boundaries carry the full `border` colour, week boundaries a third of
+ * it, so the weeks read as the finer grid behind them. The header band uses the
+ * same pair, so a line keeps one weight from the label all the way down.
  */
 export function TimelineGridLines({ scale }: { scale: TimelineScale }) {
     return (
@@ -405,7 +405,7 @@ export function TimelineGridLines({ scale }: { scale: TimelineScale }) {
                             ? ''
                             : column.topLabel
                               ? 'border-l-2 border-border'
-                              : 'border-l border-border',
+                              : 'border-l border-border/30',
                     )}
                     style={{ width: `${column.days * scale.dayWidth}px` }}
                 />
