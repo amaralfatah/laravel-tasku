@@ -13,4 +13,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | vercel.json, package.json | .ai/rules/general.md |
 | app/Models/Requester.php | .ai/rules/models.md |
 | scripts/vercel-install.sh | .ai/rules/scripts.md |
-| app/Services/TaskHierarchy.php | .ai/rules/services.md |
+| app/Services/TaskHierarchy.php, app/Observers/TaskObserver.php | .ai/rules/services.md |

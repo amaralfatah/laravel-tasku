@@ -1,15 +1,25 @@
 ---
 paths:
   - app/Services/TaskHierarchy.php
+  - app/Observers/TaskObserver.php
 ---
 
 # Services
 
-## Parent status rolls up from sub task status, not only the average
-`syncParentProgress()` still overrules a status typed by hand on a task that has sub tasks (TSK-17), but "started" is now read from the children's status, not from the percentage alone: `$average > 0 || anyChildStarted($parent)`.
+## A parent's percentage comes from its sub tasks; its status never does
+The two halves of a task with sub tasks have different owners, and conflating them is the trap.
 
-The average alone missed the case people hit most. `TaskStatus::InProgress::forcedProgress()` is null, so a sub task moved to Dikerjakan without a number keeps `progress = 0`. The average stayed 0, the parent was pushed back to To Do on every save, and the board looked stuck — a real task (GRO-26) sat in To Do with an in-progress sub task under it.
+`syncParentProgress()` writes **`progress` only**. It is called from `TaskObserver::saved()` and `deleted()` for `$task->parent` — never for the task itself — and from `TaskHierarchy::delete()`, where a mass delete fires no model events. Saving the parent fires its own `saved`, which is what carries the figure up to the grandparent.
 
-Done is unchanged and still stricter: it needs `$average >= 100` AND `allChildrenDone()`, so a child at 100% awaiting review does not close the task above it. Review on the parent still wins over everything.
+The **status is never derived**. It used to be, and it broke the board: `TaskController::move()` wrote the status a card was dropped on, the observer recomputed it from the children on `saved`, and the card snapped back with no error and no message. GRO-25 (`Optimasi #1`, three finished sub tasks) is the report it was found on. So a parent may sit at 100% and still be dragged to To Do, and one whose sub tasks are all done is not closed until somebody closes it — the full bar is the prompt, not the act.
 
-Rows written before this need one pass of `php artisan task:sync-progress`.
+Do not re-derive the status from `allChildrenDone()` or `anyChildStarted()`, in any guarded form. Every variant — only for Done, only on drag, only until a child changes — puts the same silent revert back somewhere else.
+
+Two consequences worth knowing:
+
+- `syncProgress()` returns early for a task that has children, dropping `progress` from the attributes. TSK-15's forced percentages (`TaskStatus::forcedProgress()`: Todo 0, Review/Done 100) would otherwise be written and then overwritten by the rollup a moment later, flashing the wrong figure — and forcing 100 on a Done parent is exactly what would pin it to that column again. TSK-15 and TSK-16 still govern a **leaf**, whose percentage really is its own.
+- `php artisan task:sync-progress` backfills percentages for rows written before the rule. It moves no statuses; keep it that way.
+
+There is no control anywhere for typing a percentage on a task that has sub tasks, which is the whole reason the rollup exists. A leaf's percentage is driven by its status alone, so it is effectively 0 or 100 — `TaskStatus::InProgress::forcedProgress()` is null and leaves the number where it was.
+
+Covered by tests/Feature/TaskParentIndependenceTest.php.

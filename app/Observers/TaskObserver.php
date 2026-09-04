@@ -51,14 +51,14 @@ class TaskObserver
     }
 
     /**
-     * Every save re-derives the parent's progress, so a sub task turning done
-     * is what moves the task above it (TSK-17).
+     * Every save re-derives the percentage of the task above, so finishing a
+     * sub task is what moves the bar on its parent (TSK-17).
+     *
+     * The task itself is deliberately not re-derived: its own status is
+     * whatever a person set, and only its percentage is owned by its children.
      */
     public function saved(Task $task): void
     {
-        // The task itself first: one that has sub tasks may have just been
-        // handed a status by hand, and its sub tasks outrank that.
-        $this->hierarchy->syncParentProgress($task);
         $this->hierarchy->syncParentProgress($task->parent);
     }
 

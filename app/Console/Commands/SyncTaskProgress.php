@@ -9,8 +9,11 @@ use App\Services\TaskHierarchy;
 use Illuminate\Console\Command;
 
 /**
- * Backfill for TSK-17: a task's progress now comes from its sub tasks, so rows
+ * Backfill for TSK-17: a task's percentage comes from its sub tasks, so rows
  * written before that rule — seeded or typed by hand — need one pass.
+ *
+ * Percentages only. Statuses are left exactly as they are: a task's status is
+ * a person's statement, and this command must never move one.
  */
 class SyncTaskProgress extends Command
 {
@@ -37,11 +40,11 @@ class SyncTaskProgress extends Command
                 ->get();
 
             foreach ($tasks as $task) {
-                $before = [$task->progress, $task->status];
+                $before = $task->progress;
 
                 $hierarchy->syncParentProgress($task);
 
-                if ($before !== [$task->refresh()->progress, $task->status]) {
+                if ($before !== $task->refresh()->progress) {
                     $total++;
                 }
             }

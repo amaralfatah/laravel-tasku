@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\TaskStatus;
 use App\Models\Project;
 use App\Models\Task;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -122,20 +121,27 @@ class TaskHierarchy
 
             $this->renumber($project, $parent);
 
-            // A mass delete fires no model events, so the parent's roll-up has
-            // to be asked for here.
+            // A mass delete fires no model events, so the parent's percentage
+            // has to be asked for here.
             $this->syncParentProgress($parent?->refresh());
         });
     }
 
     /**
-     * Recompute a task's progress from its direct sub tasks (TSK-17).
+     * Recompute a task's percentage from its direct sub tasks (TSK-17).
      *
-     * Nobody types a percentage for a task that has sub tasks: finishing a sub
-     * task is what moves the task above it, and a status set by hand on such a
-     * task is overruled here. A task without sub tasks is left alone — its own
-     * status is what drives its progress. Saving fires the observer, which
-     * calls this again for the level above; an unchanged task stops the climb.
+     * Progress only. A task's *status* is never derived: it is whatever a
+     * person last set, so a parent sitting at 100% can still be dragged back to
+     * To Do, and one whose sub tasks are all finished is not closed until
+     * somebody says so. Deriving the status made the board silently undo every
+     * drag on a parent — see .ai/rules/services.md.
+     *
+     * Nobody types a percentage for a task that has sub tasks; there is no
+     * control for it, and finishing a sub task is what moves the bar above it.
+     * A task without sub tasks is left alone — its own status drives its
+     * percentage through {@see TaskStatus::forcedProgress()}. Saving fires the
+     * observer, which asks again for the level above; an unchanged task stops
+     * the climb.
      */
     public function syncParentProgress(?Task $parent): void
     {
@@ -147,59 +153,17 @@ class TaskHierarchy
 
         $average = (int) round((float) $average);
 
-        // Progress and status must not contradict each other (TSK-16).
-        $status = match (true) {
-            // A task waiting on somebody's decision is not finished by its sub
-            // tasks reaching 100: accepting the work is a person's act, and
-            // rolling it up would skip the approval entirely.
-            $parent->status === TaskStatus::Review => TaskStatus::Review,
-            $average >= 100 && $this->allChildrenDone($parent) => TaskStatus::Done,
-            $average > 0 || $this->anyChildStarted($parent) => TaskStatus::InProgress,
-            default => TaskStatus::Todo,
-        };
-
-        if ($parent->progress === $average && $parent->status === $status) {
+        if ($parent->progress === $average) {
             return;
         }
 
         // The observer calls this from `saved`, which Eloquent fires before it
-        // syncs the originals. Without this the rollup would be compared
-        // against the values the task held *before* the request and dropped as
-        // "not dirty" — a parent marked done by hand then kept its 100%.
+        // syncs the originals. Without this the new percentage would be
+        // compared against the value the task held *before* the request and
+        // dropped as "not dirty".
         $parent->syncOriginal();
 
-        $parent->forceFill([
-            'progress' => $average,
-            'status' => $status,
-        ])->save();
-    }
-
-    /**
-     * Whether anybody has picked up a sub task, whatever its percentage says.
-     *
-     * The average alone missed the case people hit most: a sub task moved to
-     * Dikerjakan without a number typed yet leaves the average at 0, which
-     * used to drag the task above it back to To Do and made the column look
-     * stuck. Status is the statement a person made, so it counts on its own.
-     */
-    protected function anyChildStarted(Task $parent): bool
-    {
-        return $parent->children()
-            ->where('status', '!=', TaskStatus::Todo->value)
-            ->exists();
-    }
-
-    /**
-     * Whether every sub task has actually been accepted, not merely finished.
-     *
-     * A child sitting at 100% in review is finished work that nobody has
-     * signed off yet, so the task above it stays in progress.
-     */
-    protected function allChildrenDone(Task $parent): bool
-    {
-        return $parent->children()
-            ->where('status', '!=', TaskStatus::Done->value)
-            ->doesntExist();
+        $parent->forceFill(['progress' => $average])->save();
     }
 
     /**
@@ -213,6 +177,17 @@ class TaskHierarchy
      */
     public function syncProgress(array $attributes, Task $task): array
     {
+        // A task with sub tasks does not own its percentage — the rollup writes
+        // it from the children — so a status change must not force a number
+        // onto it. Forcing one would be overwritten a moment later, after
+        // flashing the wrong figure, and it is what would stop a parent at 100%
+        // from being moved anywhere else.
+        if ($task->exists && $task->children()->exists()) {
+            unset($attributes['progress']);
+
+            return $attributes;
+        }
+
         $status = isset($attributes['status'])
             ? TaskStatus::from($attributes['status'])
             : $task->status;
@@ -249,27 +224,6 @@ class TaskHierarchy
         }
 
         return $attributes;
-    }
-
-    /**
-     * Average progress of a task's direct children (TSK-17).
-     *
-     * Reported alongside the manual value rather than replacing it, so a parent
-     * that is out of step with its children is visible instead of silently
-     * overwritten.
-     *
-     * @param  Collection<int, Task>  $tasks
-     * @return array<int, int> keyed by task id
-     */
-    public function rollupProgress(Collection $tasks): array
-    {
-        $byParent = $tasks
-            ->whereNotNull('parent_task_id')
-            ->groupBy('parent_task_id');
-
-        return $byParent
-            ->map(fn (Collection $children): int => (int) round($children->avg('progress')))
-            ->all();
     }
 
     /**

@@ -171,16 +171,17 @@ test('a project leader closes their own leaf task directly', function () {
     expect($leaf->refresh()->status)->toBe(TaskStatus::Done);
 });
 
-test('a parent does not roll up to Done while a child sits in review, only finished', function () {
+test('a child moving through review never moves the task above it', function () {
+    // Nothing rolls up any more, so the review states of a sub task are its
+    // own business: the parent is whatever a person last set it to. See
+    // tests/Feature/TaskParentIndependenceTest.php.
     ['parent' => $parent, 'child' => $child] = reviewProject();
 
-    $child->update(['status' => 'review', 'progress' => 100]);
-    app(TaskHierarchy::class)->syncParentProgress($child->parent);
+    $before = $parent->status;
 
-    expect($parent->refresh()->status)->toBe(TaskStatus::InProgress);
+    $child->update(['status' => 'review', 'progress' => 100]);
+    expect($parent->refresh()->status)->toBe($before);
 
     $child->update(['status' => 'done', 'progress' => 100]);
-    app(TaskHierarchy::class)->syncParentProgress($child->parent);
-
-    expect($parent->refresh()->status)->toBe(TaskStatus::Done);
+    expect($parent->refresh()->status)->toBe($before);
 });
