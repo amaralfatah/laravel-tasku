@@ -53,6 +53,9 @@ export type TaskNode = {
     position: number;
     /** ISO 8601, stamped when the status turned done. */
     completed_at: string | null;
+    /** ISO 8601. Closes the detail modal's Details panel, as Jira's does. */
+    created_at: string | null;
+    updated_at: string | null;
     children_count: number;
     done_children_count: number;
     is_overdue: boolean;

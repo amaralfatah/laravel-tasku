@@ -76,6 +76,10 @@ class TaskPresenter
             'due_date' => $task->due_date?->toDateString(),
             'position' => $task->position,
             'completed_at' => $task->completed_at?->toIso8601String(),
+            // Jira closes its Details panel with these two, and they cost no
+            // query: the columns are already on the row.
+            'created_at' => $task->created_at?->toIso8601String(),
+            'updated_at' => $task->updated_at?->toIso8601String(),
             'children_count' => $childCount,
             'done_children_count' => $children === null
                 ? 0

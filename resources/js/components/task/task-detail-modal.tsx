@@ -15,7 +15,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { router, useForm } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import {
     ChevronDown,
     ChevronRight,
@@ -38,7 +38,6 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -60,6 +59,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/week';
 import { destroy, move, review, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import {
@@ -69,14 +69,19 @@ import {
     TASK_STATUS_LABELS,
     TASK_STATUS_VARIANT,
 } from '@/types/tasks';
-import type {
-    TaskAssignee,
-    TaskNode,
-    TaskPriority,
-    TaskStatus,
-} from '@/types/tasks';
+import type { TaskAssignee, TaskNode, TaskPriority } from '@/types/tasks';
 
 const UNASSIGNED = 'none';
+
+/**
+ * Jira's Details panel and sub task table read as a list of facts, not as a
+ * form: a control draws neither a box nor a raised surface of its own until it
+ * is hovered. `bg-card` is what the base trigger and input paint, and in dark
+ * mode that is a visible step up the surface ladder — so it has to go, not just
+ * the border.
+ */
+const QUIET_CONTROL =
+    'border-transparent bg-transparent shadow-none hover:border-input hover:bg-accent';
 
 /**
  * The one place a task is edited (BRD-6, TML-10). Board, list, timeline and the
@@ -85,8 +90,8 @@ const UNASSIGNED = 'none';
  *
  * Laid out the way Jira lays out an issue: a wide centred dialog with the work
  * itself on the left — title, description, sub tasks, activity — and a Details
- * panel pinned to the right. Each column scrolls on its own so the footer
- * actions never drift off screen.
+ * panel pinned to the right, each column scrolling on its own. There is no
+ * footer and no save button, again as in Jira: every field writes itself.
  */
 export function TaskDetailModal({
     task,
@@ -96,11 +101,10 @@ export function TaskDetailModal({
         return null;
     }
 
-    // Keyed on the task: opening another one — a sub task, say — mounts a fresh
-    // form instead of trying to re-seed the current one. `useForm` keeps its
-    // defaults in state, so `setDefaults` followed by `reset` in an effect
-    // resets to the *previous* task's values, which left the panel showing the
-    // task the user came from.
+    // Keyed on the task: opening another one — a sub task, say — mounts fresh
+    // drafts instead of trying to re-seed the current ones. Re-seeding from an
+    // effect ran a render late and left the panel showing the task the user
+    // came from.
     return <TaskDetail key={task.id} task={task} {...props} />;
 }
 
@@ -131,26 +135,79 @@ function TaskDetail({
     onAddSubtask,
 }: TaskDetailModalProps & { task: TaskNode }) {
     const getInitials = useInitials();
-    const form = useForm({
-        title: task.title,
-        description: task.description ?? '',
-        assignee_id: task.assignee?.id ?? null,
-        status: task.status,
-        priority: task.priority,
-
-        start_date: task.start_date,
-        due_date: task.due_date,
-    });
-
     const readOnly = !task.can_edit;
+
     /**
-     * The picked person, for the avatar in the trigger. A task can carry an
+     * Jira has no save button: a field is written the moment it is decided, and
+     * the task on the page props is the only copy of the truth. So there is no
+     * form here either — a picker saves on change, the two text fields save on
+     * blur, and `errors` is whatever the last write answered with.
+     */
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [saving, setSaving] = useState(false);
+
+    const save = (payload: Record<string, string | number | null>) => {
+        router.patch(update(task.id).url, payload, {
+            preserveScroll: true,
+            // Without this the page remounts and the modal closes on every
+            // change.
+            preserveState: true,
+            onStart: () => setSaving(true),
+            onSuccess: () => setErrors({}),
+            onError: (answered) => setErrors(answered),
+            onFinish: () => setSaving(false),
+        });
+    };
+
+    /**
+     * Drafts for the two fields that are typed into. Everything else is a
+     * picker and needs none: its value is read straight off the task.
+     */
+    const [title, setTitle] = useState(task.title);
+    const [description, setDescription] = useState(task.description ?? '');
+
+    /** Writes a typed field, if it was actually changed. A title may not be emptied. */
+    const commitTitle = () => {
+        const next = title.trim();
+
+        if (next === '' || next === task.title) {
+            setTitle(task.title);
+
+            return;
+        }
+
+        save({ title: next });
+    };
+
+    const commitDescription = () => {
+        if (description === (task.description ?? '')) {
+            return;
+        }
+
+        save({ description });
+    };
+
+    /**
+     * Closing is the last chance to keep what is in the two drafts: a click on
+     * the X does not always blur the field under it first.
+     */
+    const closeAfterSaving = () => {
+        if (!readOnly) {
+            commitTitle();
+            commitDescription();
+        }
+
+        onClose();
+    };
+
+    /**
+     * The person on the task, for the avatar in the trigger. A task can carry an
      * assignee who is no longer in the project's member list, so the task's own
      * one is the fallback.
      */
     const assignee =
-        assignees.find((member) => member.id === form.data.assignee_id) ??
-        (task.assignee?.id === form.data.assignee_id ? task.assignee : null);
+        assignees.find((member) => member.id === task.assignee?.id) ??
+        task.assignee;
     /** Depth is capped, so a task at the bottom level takes no children (TSK-9). */
     const canAddSubtask = Boolean(
         onAddSubtask && !readOnly && task.can_have_children,
@@ -158,7 +215,7 @@ function TaskDetail({
     /**
      * Inline rename of a sub task, the way Jira lets a row be edited from the
      * parent. The row is PATCHed on its own, so the parent's unsaved edits stay
-     * untouched and the draft lives here rather than in `form`.
+     * untouched and the draft lives here rather than on the row.
      */
     const [editingSubtaskId, setEditingSubtaskId] = useState<number | null>(
         null,
@@ -166,8 +223,8 @@ function TaskDetail({
     const [subtaskDraft, setSubtaskDraft] = useState('');
     /**
      * The description reads as text until it is clicked, the way Jira's does.
-     * The draft still lives in `form`, so this only decides which of the two the
-     * section is showing.
+     * The draft lives in `description` either way, so this only decides which of
+     * the two the section is showing.
      */
     const [editingDescription, setEditingDescription] = useState(false);
     /** Jira's Details panel folds away; it opens with the modal. */
@@ -291,7 +348,7 @@ function TaskDetail({
             : 0;
 
     return (
-        <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <Dialog open onOpenChange={(open) => !open && closeAfterSaving()}>
             <DialogContent
                 className="flex h-[92vh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[84rem]"
                 // Radix focuses the first field on open, which selects the
@@ -320,6 +377,15 @@ function TaskDetail({
                         the destructive ones tucked into the "..." menu rather
                         than sitting under the cursor. */}
                     <div className="flex shrink-0 items-center gap-2">
+                        {/* With no save button, this is the only sign a change
+                            reached the server. */}
+                        <span
+                            aria-live="polite"
+                            className="text-xs text-muted-foreground"
+                        >
+                            {saving ? 'Menyimpan…' : ''}
+                        </span>
+
                         {task.can_delete && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -373,23 +439,14 @@ function TaskDetail({
                             variant="outline"
                             size="icon"
                             aria-label="Tutup"
-                            onClick={onClose}
+                            onClick={closeAfterSaving}
                         >
                             <X className="size-4" aria-hidden="true" />
                         </Button>
                     </div>
                 </DialogHeader>
 
-                <form
-                    className="flex min-h-0 flex-1 flex-col"
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        form.patch(update(task.id).url, {
-                            preserveScroll: true,
-                            onSuccess: onClose,
-                        });
-                    }}
-                >
+                <div className="flex min-h-0 flex-1 flex-col">
                     <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_26rem]">
                         {/* `min-w-0` plus `overflow-x-hidden`: the work column
                             never scrolls sideways, so a long sub task title
@@ -403,16 +460,24 @@ function TaskDetail({
                                     id="task-title"
                                     required
                                     disabled={readOnly}
-                                    value={form.data.title}
+                                    value={title}
                                     onChange={(event) =>
-                                        form.setData(
-                                            'title',
-                                            event.target.value,
-                                        )
+                                        setTitle(event.target.value)
                                     }
+                                    onBlur={commitTitle}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            event.currentTarget.blur();
+                                        }
+
+                                        if (event.key === 'Escape') {
+                                            setTitle(task.title);
+                                        }
+                                    }}
                                     className="h-auto border-transparent bg-transparent px-2 py-1 text-2xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-2xl"
                                 />
-                                <InputError message={form.errors.title} />
+                                <InputError message={errors.title} />
                             </div>
 
                             <section className="grid gap-2">
@@ -436,23 +501,23 @@ function TaskDetail({
                                             id="task-description"
                                             autoFocus
                                             rows={5}
-                                            value={form.data.description}
+                                            value={description}
                                             onChange={(event) =>
-                                                form.setData(
-                                                    'description',
+                                                setDescription(
                                                     event.target.value,
                                                 )
                                             }
-                                            onBlur={() =>
-                                                setEditingDescription(false)
-                                            }
+                                            onBlur={() => {
+                                                commitDescription();
+                                                setEditingDescription(false);
+                                            }}
                                             placeholder="Tambahkan deskripsi…"
                                             className="min-h-28 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                         />
                                     </>
                                 ) : readOnly ? (
                                     <p className="px-2 py-1.5 text-sm whitespace-pre-wrap">
-                                        {form.data.description.trim() || (
+                                        {description.trim() || (
                                             <span className="text-muted-foreground">
                                                 Tidak ada deskripsi.
                                             </span>
@@ -466,7 +531,7 @@ function TaskDetail({
                                         }
                                         className="-mx-2 rounded-md px-2 py-1.5 text-left text-sm whitespace-pre-wrap hover:bg-accent"
                                     >
-                                        {form.data.description.trim() || (
+                                        {description.trim() || (
                                             <span className="text-muted-foreground">
                                                 Tambahkan deskripsi…
                                             </span>
@@ -474,7 +539,7 @@ function TaskDetail({
                                     </button>
                                 )}
 
-                                <InputError message={form.errors.description} />
+                                <InputError message={errors.description} />
                             </section>
 
                             {(task.children_count > 0 || canAddSubtask) && (
@@ -646,13 +711,10 @@ function TaskDetail({
                                     Status
                                 </Label>
                                 <Select
-                                    value={form.data.status}
+                                    value={task.status}
                                     disabled={readOnly}
                                     onValueChange={(value) =>
-                                        form.setData(
-                                            'status',
-                                            value as TaskStatus,
-                                        )
+                                        save({ status: value })
                                     }
                                 >
                                     {/* No colour override here: the trigger
@@ -676,7 +738,7 @@ function TaskDetail({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <InputError message={form.errors.status} />
+                                <InputError message={errors.status} />
                             </div>
 
                             {/*
@@ -796,48 +858,30 @@ function TaskDetail({
                                     <div className="min-w-0">
                                         <Select
                                             value={String(
-                                                form.data.assignee_id ??
-                                                    UNASSIGNED,
+                                                task.assignee?.id ?? UNASSIGNED,
                                             )}
                                             disabled={readOnly}
                                             onValueChange={(value) =>
-                                                form.setData(
-                                                    'assignee_id',
-                                                    value === UNASSIGNED
-                                                        ? null
-                                                        : Number(value),
-                                                )
+                                                save({
+                                                    assignee_id:
+                                                        value === UNASSIGNED
+                                                            ? null
+                                                            : Number(value),
+                                                })
                                             }
                                         >
                                             <SelectTrigger
                                                 id="task-assignee"
-
-                                                className="w-full border-transparent shadow-none hover:border-input"
+                                                className={cn(
+                                                    'w-full',
+                                                    QUIET_CONTROL,
+                                                )}
                                                 title="Hanya anggota project yang bisa ditugaskan."
                                             >
-                                                {assignee ? (
-                                                    <span className="flex min-w-0 items-center gap-2">
-                                                        <Avatar className="size-5">
-                                                            <AvatarImage
-                                                                src={
-                                                                    assignee.avatar ??
-                                                                    undefined
-                                                                }
-                                                                alt=""
-                                                            />
-                                                            <AvatarFallback className="text-[10px]">
-                                                                {getInitials(
-                                                                    assignee.name,
-                                                                )}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <span className="truncate">
-                                                            {assignee.name}
-                                                        </span>
-                                                    </span>
-                                                ) : (
-                                                    <SelectValue placeholder="Belum ditugaskan" />
-                                                )}
+                                                <AssigneeLabel
+                                                    assignee={assignee}
+                                                    getInitials={getInitials}
+                                                />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value={UNASSIGNED}>
@@ -856,7 +900,7 @@ function TaskDetail({
                                             </SelectContent>
                                         </Select>
                                         <InputError
-                                            message={form.errors.assignee_id}
+                                            message={errors.assignee_id}
                                         />
                                     </div>
 
@@ -868,19 +912,18 @@ function TaskDetail({
                                     </Label>
                                     <div className="min-w-0">
                                         <Select
-                                            value={form.data.priority}
+                                            value={task.priority}
                                             disabled={readOnly}
                                             onValueChange={(value) =>
-                                                form.setData(
-                                                    'priority',
-                                                    value as TaskPriority,
-                                                )
+                                                save({ priority: value })
                                             }
                                         >
                                             <SelectTrigger
                                                 id="task-priority"
-
-                                                className="w-full border-transparent shadow-none hover:border-input"
+                                                className={cn(
+                                                    'w-full',
+                                                    QUIET_CONTROL,
+                                                )}
                                             >
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -899,9 +942,7 @@ function TaskDetail({
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        <InputError
-                                            message={form.errors.priority}
-                                        />
+                                        <InputError message={errors.priority} />
                                     </div>
 
                                     <Label
@@ -915,17 +956,21 @@ function TaskDetail({
                                             id="task-start"
                                             type="date"
                                             disabled={readOnly}
-                                            value={form.data.start_date ?? ''}
+                                            value={task.start_date ?? ''}
                                             onChange={(event) =>
-                                                form.setData(
-                                                    'start_date',
-                                                    event.target.value || null,
-                                                )
+                                                save({
+                                                    start_date:
+                                                        event.target.value ||
+                                                        null,
+                                                })
                                             }
-                                            className="h-9 border-transparent px-2 text-sm shadow-none hover:border-input"
+                                            className={cn(
+                                                'h-9 px-2 text-sm',
+                                                QUIET_CONTROL,
+                                            )}
                                         />
                                         <InputError
-                                            message={form.errors.start_date}
+                                            message={errors.start_date}
                                         />
                                     </div>
 
@@ -943,20 +988,22 @@ function TaskDetail({
                                             id="task-due"
                                             type="date"
                                             disabled={readOnly}
-                                            value={form.data.due_date ?? ''}
+                                            value={task.due_date ?? ''}
                                             title={
                                                 task.is_overdue
                                                     ? 'Tanggal selesai sudah terlewat'
                                                     : undefined
                                             }
                                             onChange={(event) =>
-                                                form.setData(
-                                                    'due_date',
-                                                    event.target.value || null,
-                                                )
+                                                save({
+                                                    due_date:
+                                                        event.target.value ||
+                                                        null,
+                                                })
                                             }
                                             className={cn(
-                                                'h-9 border-transparent px-2 text-sm shadow-none hover:border-input',
+                                                'h-9 px-2 text-sm',
+                                                QUIET_CONTROL,
                                                 task.is_overdue &&
                                                     'border-destructive/50 font-medium text-destructive',
                                             )}
@@ -966,9 +1013,7 @@ function TaskDetail({
                                                 Tanggal selesai sudah terlewat.
                                             </span>
                                         )}
-                                        <InputError
-                                            message={form.errors.due_date}
-                                        />
+                                        <InputError message={errors.due_date} />
                                     </div>
 
                                     {/* Read-only: progress is derived from the
@@ -992,24 +1037,24 @@ function TaskDetail({
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Jira closes the panel with these two lines, and
+                                nothing else: there is no save button under
+                                them, so the timestamps are what tells somebody
+                                the task was written. */}
+                            <dl className="px-1 text-xs text-muted-foreground">
+                                <div className="flex gap-1">
+                                    <dt>Dibuat</dt>
+                                    <dd>{formatDateTime(task.created_at)}</dd>
+                                </div>
+                                <div className="flex gap-1">
+                                    <dt>Diperbarui</dt>
+                                    <dd>{formatDateTime(task.updated_at)}</dd>
+                                </div>
+                            </dl>
                         </aside>
                     </div>
-
-                    <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t px-6 py-3">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onClose}
-                        >
-                            Tutup
-                        </Button>
-                        {!readOnly && (
-                            <Button type="submit" disabled={form.processing}>
-                                {form.processing ? 'Menyimpan…' : 'Simpan'}
-                            </Button>
-                        )}
-                    </DialogFooter>
-                </form>
+                </div>
             </DialogContent>
         </Dialog>
     );
@@ -1025,8 +1070,8 @@ const SUBTASK_COLUMNS =
 
 /**
  * A sub task row edits itself. Every picker on the row PATCHes that row alone,
- * so the parent's unsaved edits in the modal's own form are never carried along
- * or thrown away, and the modal keeps its state while the page props refresh.
+ * so a row and its parent never overwrite each other, and the modal keeps its
+ * state while the page props refresh.
  */
 const patchSubtask = (
     id: number,
@@ -1186,7 +1231,7 @@ function SubtaskRow({
                     >
                         <SelectTrigger
                             size="sm"
-                            className="w-full border-transparent shadow-none hover:border-input"
+                            className={cn('w-full', QUIET_CONTROL)}
                             aria-label={`Prioritas ${child.title}`}
                         >
                             <SelectValue />
@@ -1232,10 +1277,10 @@ function SubtaskRow({
                     >
                         <SelectTrigger
                             size="sm"
-                            className="w-full border-transparent shadow-none hover:border-input"
+                            className={cn('w-full', QUIET_CONTROL)}
                             aria-label={`Penanggung jawab ${child.title}`}
                         >
-                            <SubtaskAssignee
+                            <AssigneeLabel
                                 assignee={child.assignee}
                                 getInitials={getInitials}
                             />
@@ -1256,7 +1301,7 @@ function SubtaskRow({
                     </Select>
                 ) : (
                     <div className="px-2">
-                        <SubtaskAssignee
+                        <AssigneeLabel
                             assignee={child.assignee}
                             getInitials={getInitials}
                         />
@@ -1275,7 +1320,7 @@ function SubtaskRow({
                 >
                     <SelectTrigger
                         size="sm"
-                        className="w-full border-transparent shadow-none hover:border-input"
+                        className={cn('w-full', QUIET_CONTROL)}
                         aria-label={`Status ${child.title}`}
                     >
                         <SelectValue />
@@ -1349,7 +1394,7 @@ function SubtaskRow({
 }
 
 /** Avatar and name, shared by the row's picker trigger and its read-only cell. */
-function SubtaskAssignee({
+function AssigneeLabel({
     assignee,
     getInitials,
 }: {

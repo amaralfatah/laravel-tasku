@@ -63,6 +63,24 @@ test('the board reports the creator as able to contribute', function () {
         );
 });
 
+test('a task carries the stamps the detail panel closes with', function () {
+    [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
+    $project = Project::factory()->in($unit)->create();
+    $project->members()->attach($member->user_id);
+    Task::factory()->for($project)->create(['title' => 'Rancang skema']);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.show', $project))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('projects/board')
+            ->where('tasks.0.created_at', fn (?string $stamp) => $stamp !== null)
+            ->where('tasks.0.updated_at', fn (?string $stamp) => $stamp !== null)
+            ->etc()
+        );
+});
+
 test('an ODS outside the project cannot add tasks to it', function () {
     [$member, $unit] = projectWorkspace(WorkspaceRole::Member);
     $project = Project::factory()->in($unit)->create();
