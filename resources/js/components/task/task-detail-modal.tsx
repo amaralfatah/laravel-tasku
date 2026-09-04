@@ -17,6 +17,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { router, useForm } from '@inertiajs/react';
 import {
+    ChevronDown,
+    ChevronRight,
     GripVertical,
     MoreHorizontal,
     Pencil,
@@ -25,7 +27,6 @@ import {
     X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 
 import InputError from '@/components/input-error';
 import { CommentBox } from '@/components/task/comment-box';
@@ -62,7 +63,9 @@ import { cn } from '@/lib/utils';
 import { destroy, move, review, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import {
+    TASK_PRIORITY_BADGE,
     TASK_PRIORITY_CLASSES,
+    TASK_PRIORITY_LABELS,
     TASK_STATUS_LABELS,
     TASK_STATUS_VARIANT,
 } from '@/types/tasks';
@@ -161,6 +164,14 @@ function TaskDetail({
         null,
     );
     const [subtaskDraft, setSubtaskDraft] = useState('');
+    /**
+     * The description reads as text until it is clicked, the way Jira's does.
+     * The draft still lives in `form`, so this only decides which of the two the
+     * section is showing.
+     */
+    const [editingDescription, setEditingDescription] = useState(false);
+    /** Jira's Details panel folds away; it opens with the modal. */
+    const [detailsOpen, setDetailsOpen] = useState(true);
     /**
      * Optimistic sibling order while a drop is in flight. Only the ids are kept
      * here — the rows themselves still come from the page props, so a title or
@@ -405,23 +416,64 @@ function TaskDetail({
                             </div>
 
                             <section className="grid gap-2">
-                                <Label htmlFor="task-description">
+                                <h3 className="text-sm font-semibold">
                                     Deskripsi
-                                </Label>
-                                <textarea
-                                    id="task-description"
-                                    rows={5}
-                                    disabled={readOnly}
-                                    value={form.data.description}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'description',
-                                            event.target.value,
-                                        )
-                                    }
-                                    placeholder="Tambahkan deskripsi…"
-                                    className="min-h-28 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
-                                />
+                                </h3>
+
+                                {/* Jira never parks an open textarea on the
+                                    page: the description reads as text until it
+                                    is clicked, so the modal opens as something
+                                    to read rather than a form to fill. */}
+                                {editingDescription ? (
+                                    <>
+                                        <Label
+                                            htmlFor="task-description"
+                                            className="sr-only"
+                                        >
+                                            Deskripsi
+                                        </Label>
+                                        <textarea
+                                            id="task-description"
+                                            autoFocus
+                                            rows={5}
+                                            value={form.data.description}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'description',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            onBlur={() =>
+                                                setEditingDescription(false)
+                                            }
+                                            placeholder="Tambahkan deskripsi…"
+                                            className="min-h-28 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                        />
+                                    </>
+                                ) : readOnly ? (
+                                    <p className="px-2 py-1.5 text-sm whitespace-pre-wrap">
+                                        {form.data.description.trim() || (
+                                            <span className="text-muted-foreground">
+                                                Tidak ada deskripsi.
+                                            </span>
+                                        )}
+                                    </p>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setEditingDescription(true)
+                                        }
+                                        className="-mx-2 rounded-md px-2 py-1.5 text-left text-sm whitespace-pre-wrap hover:bg-accent"
+                                    >
+                                        {form.data.description.trim() || (
+                                            <span className="text-muted-foreground">
+                                                Tambahkan deskripsi…
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
+
                                 <InputError message={form.errors.description} />
                             </section>
 
@@ -465,286 +517,107 @@ function TaskDetail({
                                     </div>
 
                                     {orderedSubtasks.length > 0 && (
-                                        <DndContext
-                                            sensors={sensors}
-                                            collisionDetection={closestCenter}
-                                            onDragEnd={handleSubtaskDragEnd}
-                                        >
-                                            <SortableContext
-                                                items={orderedSubtasks.map(
-                                                    (child) => child.id,
+                                        <div className="overflow-hidden rounded-md border">
+                                            {/* Jira's sub task table names its
+                                                columns, so a row carries the
+                                                same facts as a row on the list
+                                                view. The two middle columns
+                                                fold away when the modal is too
+                                                narrow to hold them. */}
+                                            <div
+                                                className={cn(
+                                                    SUBTASK_COLUMNS,
+                                                    'border-b bg-muted px-3 py-2 text-xs font-medium text-muted-foreground',
                                                 )}
-                                                strategy={
-                                                    verticalListSortingStrategy
-                                                }
                                             >
-                                                <ul className="divide-y rounded-md border">
-                                                    {orderedSubtasks.map(
-                                                        (child) => (
-                                                            <SortableSubtaskRow
-                                                                key={child.id}
-                                                                child={child}
-                                                            >
-                                                                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                                                                    {
-                                                                        child.reference
-                                                                    }
-                                                                </span>
+                                                <span aria-hidden="true" />
+                                                <span>Sub task</span>
+                                                <span className="hidden md:block">
+                                                    Prioritas
+                                                </span>
+                                                <span className="hidden md:block">
+                                                    Penanggung jawab
+                                                </span>
+                                                <span>Status</span>
+                                                <span aria-hidden="true" />
+                                            </div>
 
-                                                                {editingSubtaskId ===
-                                                                child.id ? (
-                                                                    <Input
-                                                                        autoFocus
-                                                                        value={
-                                                                            subtaskDraft
-                                                                        }
-                                                                        aria-label={`Judul ${child.reference}`}
-                                                                        className="h-8 min-w-0 flex-1"
-                                                                        onChange={(
-                                                                            event,
-                                                                        ) =>
-                                                                            setSubtaskDraft(
-                                                                                event
-                                                                                    .target
-                                                                                    .value,
-                                                                            )
-                                                                        }
-                                                                        onBlur={() =>
-                                                                            saveSubtaskTitle(
-                                                                                child,
-                                                                            )
-                                                                        }
-                                                                        onKeyDown={(
-                                                                            event,
-                                                                        ) => {
-                                                                            if (
-                                                                                event.key ===
-                                                                                'Enter'
-                                                                            ) {
-                                                                                event.preventDefault();
-                                                                                saveSubtaskTitle(
-                                                                                    child,
-                                                                                );
-                                                                            }
-
-                                                                            if (
-                                                                                event.key ===
-                                                                                'Escape'
-                                                                            ) {
-                                                                                event.preventDefault();
-                                                                                // Put the stored title back
-                                                                                // first: the blur that follows
-                                                                                // then has nothing to save.
-                                                                                setSubtaskDraft(
-                                                                                    child.title,
-                                                                                );
-                                                                                setEditingSubtaskId(
-                                                                                    null,
-                                                                                );
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                    <>
-                                                                        {onOpenTask ? (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() =>
-                                                                                    onOpenTask(
-                                                                                        child.id,
-                                                                                    )
-                                                                                }
-                                                                                className="line-clamp-2 min-w-0 flex-1 text-left break-words hover:underline"
-                                                                            >
-                                                                                {
-                                                                                    child.title
-                                                                                }
-                                                                            </button>
-                                                                        ) : (
-                                                                            <span className="line-clamp-2 min-w-0 flex-1 break-words">
-                                                                                {
-                                                                                    child.title
-                                                                                }
-                                                                            </span>
-                                                                        )}
-
-                                                                        {/* Jira's pencil:
-                                                                out of the way
-                                                                until the row is
-                                                                hovered or the
-                                                                button takes
-                                                                focus. */}
-                                                                        {child.can_edit && (
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                                                                                aria-label={`Ubah judul ${child.reference}`}
-                                                                                title="Ubah judul"
-                                                                                onClick={() =>
-                                                                                    startSubtaskRename(
-                                                                                        child,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <Pencil
-                                                                                    className="size-4"
-                                                                                    aria-hidden="true"
-                                                                                />
-                                                                            </Button>
-                                                                        )}
-                                                                    </>
-                                                                )}
-
-                                                                {/* Jira lets a sub task's
-                                                        status be changed from
-                                                        the parent, without
-                                                        opening it. The parent's
-                                                        own unsaved edits are
-                                                        untouched: this PATCHes
-                                                        the child on its own. */}
-                                                                {child.can_edit ? (
-                                                                    <Select
-                                                                        value={
-                                                                            child.status
-                                                                        }
-                                                                        onValueChange={(
-                                                                            value,
-                                                                        ) =>
-                                                                            router.patch(
-                                                                                update(
-                                                                                    child.id,
-                                                                                )
-                                                                                    .url,
-                                                                                {
-                                                                                    status: value,
-                                                                                },
-                                                                                {
-                                                                                    preserveScroll: true,
-                                                                                    // Without this the page
-                                                                                    // remounts and the modal
-                                                                                    // closes on every change.
-                                                                                    preserveState: true,
-                                                                                },
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <SelectTrigger
-                                                                            size="sm"
-                                                                            className="w-32 shrink-0 border-transparent shadow-none hover:border-input"
-                                                                            aria-label={`Status ${child.title}`}
-                                                                        >
-                                                                            <SelectValue />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            {statuses.map(
-                                                                                (
-                                                                                    status,
-                                                                                ) => (
-                                                                                    <SelectItem
-                                                                                        key={
-                                                                                            status.value
-                                                                                        }
-                                                                                        value={
-                                                                                            status.value
-                                                                                        }
-                                                                                    >
-                                                                                        {
-                                                                                            status.label
-                                                                                        }
-                                                                                    </SelectItem>
-                                                                                ),
-                                                                            )}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                ) : (
-                                                                    <Badge
-                                                                        variant={
-                                                                            TASK_STATUS_VARIANT[
-                                                                                child
-                                                                                    .status
-                                                                            ]
-                                                                        }
-                                                                        className="shrink-0 font-normal"
-                                                                    >
-                                                                        {
-                                                                            TASK_STATUS_LABELS[
-                                                                                child
-                                                                                    .status
-                                                                            ]
-                                                                        }
-                                                                    </Badge>
-                                                                )}
-
-                                                                {/* Same "..." menu Jira
-                                                        gives a sub task row.
-                                                        Deleting never closes
-                                                        the parent: the row goes
-                                                        on its own request, and
-                                                        the modal keeps its
-                                                        state while the page
-                                                        props refresh. */}
-                                                                {child.can_delete && (
-                                                                    <DropdownMenu>
-                                                                        <DropdownMenuTrigger
-                                                                            asChild
-                                                                        >
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="size-8 shrink-0 text-muted-foreground"
-                                                                                aria-label={`Tindakan ${child.title}`}
-                                                                            >
-                                                                                <MoreHorizontal
-                                                                                    className="size-4"
-                                                                                    aria-hidden="true"
-                                                                                />
-                                                                            </Button>
-                                                                        </DropdownMenuTrigger>
-                                                                        <DropdownMenuContent align="end">
-                                                                            <DropdownMenuItem
-                                                                                variant="destructive"
-                                                                                onSelect={() => {
-                                                                                    if (
-                                                                                        !confirm(
-                                                                                            child.children_count >
-                                                                                                0
-                                                                                                ? `Hapus sub task "${child.title}" beserta ${child.children_count} sub task-nya?`
-                                                                                                : `Hapus sub task "${child.title}"?`,
-                                                                                        )
-                                                                                    ) {
-                                                                                        return;
-                                                                                    }
-
-                                                                                    router.delete(
-                                                                                        destroy(
-                                                                                            child.id,
-                                                                                        )
-                                                                                            .url,
-                                                                                        {
-                                                                                            preserveScroll: true,
-                                                                                            preserveState: true,
-                                                                                        },
-                                                                                    );
-                                                                                }}
-                                                                            >
-                                                                                <Trash2
-                                                                                    className="size-4"
-                                                                                    aria-hidden="true"
-                                                                                />
-                                                                                Hapus
-                                                                            </DropdownMenuItem>
-                                                                        </DropdownMenuContent>
-                                                                    </DropdownMenu>
-                                                                )}
-                                                            </SortableSubtaskRow>
-                                                        ),
+                                            <DndContext
+                                                sensors={sensors}
+                                                collisionDetection={
+                                                    closestCenter
+                                                }
+                                                onDragEnd={handleSubtaskDragEnd}
+                                            >
+                                                <SortableContext
+                                                    items={orderedSubtasks.map(
+                                                        (child) => child.id,
                                                     )}
-                                                </ul>
-                                            </SortableContext>
-                                        </DndContext>
+                                                    strategy={
+                                                        verticalListSortingStrategy
+                                                    }
+                                                >
+                                                    <ul className="divide-y">
+                                                        {orderedSubtasks.map(
+                                                            (child) => (
+                                                                <SubtaskRow
+                                                                    key={
+                                                                        child.id
+                                                                    }
+                                                                    child={
+                                                                        child
+                                                                    }
+                                                                    assignees={
+                                                                        assignees
+                                                                    }
+                                                                    statuses={
+                                                                        statuses
+                                                                    }
+                                                                    priorities={
+                                                                        priorities
+                                                                    }
+                                                                    isEditing={
+                                                                        editingSubtaskId ===
+                                                                        child.id
+                                                                    }
+                                                                    draft={
+                                                                        subtaskDraft
+                                                                    }
+                                                                    onDraftChange={
+                                                                        setSubtaskDraft
+                                                                    }
+                                                                    onStartRename={() =>
+                                                                        startSubtaskRename(
+                                                                            child,
+                                                                        )
+                                                                    }
+                                                                    onSaveRename={() =>
+                                                                        saveSubtaskTitle(
+                                                                            child,
+                                                                        )
+                                                                    }
+                                                                    onCancelRename={() => {
+                                                                        // Put the stored title
+                                                                        // back first: the blur
+                                                                        // that follows then has
+                                                                        // nothing to save.
+                                                                        setSubtaskDraft(
+                                                                            child.title,
+                                                                        );
+                                                                        setEditingSubtaskId(
+                                                                            null,
+                                                                        );
+                                                                    }}
+                                                                    onOpenTask={
+                                                                        onOpenTask
+                                                                    }
+                                                                />
+                                                            ),
+                                                        )}
+                                                    </ul>
+                                                </SortableContext>
+                                            </DndContext>
+                                        </div>
                                     )}
                                 </section>
                             )}
@@ -855,9 +728,10 @@ function TaskDetail({
                                                 </Button>
                                             </div>
                                             <p className="text-xs text-muted-foreground">
-                                                Menyetujui menandai task selesai.
-                                                Mengembalikan mengubahnya kembali
-                                                jadi dikerjakan, dan catatan Anda
+                                                Menyetujui menandai task
+                                                selesai. Mengembalikan
+                                                mengubahnya kembali jadi
+                                                dikerjakan, dan catatan Anda
                                                 dikirim sebagai komentar.
                                             </p>
                                         </>
@@ -872,8 +746,34 @@ function TaskDetail({
                             )}
 
                             <div className="rounded-md border bg-background">
-                                <h3 className="border-b px-3 py-2 text-sm font-semibold">
-                                    Detail
+                                {/* Jira folds the panel from its heading, so a
+                                    long sub task list can have the whole modal
+                                    to itself. */}
+                                <h3>
+                                    <button
+                                        type="button"
+                                        aria-expanded={detailsOpen}
+                                        onClick={() =>
+                                            setDetailsOpen((open) => !open)
+                                        }
+                                        className={cn(
+                                            'flex w-full items-center gap-1.5 px-3 py-2 text-sm font-semibold',
+                                            detailsOpen && 'border-b',
+                                        )}
+                                    >
+                                        {detailsOpen ? (
+                                            <ChevronDown
+                                                className="size-4 text-muted-foreground"
+                                                aria-hidden="true"
+                                            />
+                                        ) : (
+                                            <ChevronRight
+                                                className="size-4 text-muted-foreground"
+                                                aria-hidden="true"
+                                            />
+                                        )}
+                                        Detail
+                                    </button>
                                 </h3>
 
                                 {/* Jira's Details panel: a muted label in a
@@ -881,7 +781,12 @@ function TaskDetail({
                                     controls that only draw a border on hover so
                                     the panel reads as a list of facts rather
                                     than a form. */}
-                                <div className="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-4">
+                                <div
+                                    className={cn(
+                                        'grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-4',
+                                        !detailsOpen && 'hidden',
+                                    )}
+                                >
                                     <Label
                                         htmlFor="task-assignee"
                                         className="text-sm font-normal text-muted-foreground"
@@ -1031,19 +936,36 @@ function TaskDetail({
                                         Selesai
                                     </Label>
                                     <div className="min-w-0">
+                                        {/* Jira paints a passed due date red in
+                                            this panel, and it is the one fact
+                                            here somebody must not miss. */}
                                         <Input
                                             id="task-due"
                                             type="date"
                                             disabled={readOnly}
                                             value={form.data.due_date ?? ''}
+                                            title={
+                                                task.is_overdue
+                                                    ? 'Tanggal selesai sudah terlewat'
+                                                    : undefined
+                                            }
                                             onChange={(event) =>
                                                 form.setData(
                                                     'due_date',
                                                     event.target.value || null,
                                                 )
                                             }
-                                            className="h-9 border-transparent px-2 text-sm shadow-none hover:border-input"
+                                            className={cn(
+                                                'h-9 border-transparent px-2 text-sm shadow-none hover:border-input',
+                                                task.is_overdue &&
+                                                    'border-destructive/50 font-medium text-destructive',
+                                            )}
                                         />
+                                        {task.is_overdue && (
+                                            <span className="sr-only">
+                                                Tanggal selesai sudah terlewat.
+                                            </span>
+                                        )}
                                         <InputError
                                             message={form.errors.due_date}
                                         />
@@ -1094,20 +1016,64 @@ function TaskDetail({
 }
 
 /**
- * One sub task row, dragged by its grip the way Jira sorts a sub task table.
+ * The sub task table's column track, shared by the header and every row so the
+ * two line up. Priority and assignee are dropped below `md`, where the modal is
+ * one column and there is no room for five fields beside a title.
+ */
+const SUBTASK_COLUMNS =
+    'grid grid-cols-[1rem_minmax(0,1fr)_9rem_2rem] items-center gap-3 md:grid-cols-[1rem_minmax(0,1fr)_7.5rem_9rem_9rem_2rem]';
+
+/**
+ * A sub task row edits itself. Every picker on the row PATCHes that row alone,
+ * so the parent's unsaved edits in the modal's own form are never carried along
+ * or thrown away, and the modal keeps its state while the page props refresh.
+ */
+const patchSubtask = (
+    id: number,
+    payload: Record<string, string | number | null>,
+) => {
+    router.patch(update(id).url, payload, {
+        preserveScroll: true,
+        // Without this the page remounts and the modal closes on every change.
+        preserveState: true,
+    });
+};
+
+/**
+ * One row of the sub task table, dragged by its grip the way Jira sorts a sub
+ * task list.
  *
- * The row already carries a rename input, a status select and a menu, so unlike
- * a board card it cannot be the drag handle itself: only the grip takes the
+ * The row already carries a rename input, three pickers and a menu, so unlike a
+ * board card it cannot be the drag handle itself: only the grip takes the
  * listeners, and it stays out of sight until the row is hovered or the grip
  * takes focus.
  */
-function SortableSubtaskRow({
+function SubtaskRow({
     child,
-    children,
+    assignees,
+    statuses,
+    priorities,
+    isEditing,
+    draft,
+    onDraftChange,
+    onStartRename,
+    onSaveRename,
+    onCancelRename,
+    onOpenTask,
 }: {
     child: TaskNode;
-    children: ReactNode;
+    assignees: TaskAssignee[];
+    statuses: Option[];
+    priorities: Option[];
+    isEditing: boolean;
+    draft: string;
+    onDraftChange: (value: string) => void;
+    onStartRename: () => void;
+    onSaveRename: () => void;
+    onCancelRename: () => void;
+    onOpenTask?: (id: number) => void;
 }) {
+    const getInitials = useInitials();
     const {
         attributes,
         listeners,
@@ -1126,10 +1092,11 @@ function SortableSubtaskRow({
                 transition,
             }}
             className={cn(
-                'group flex items-center gap-3 px-3 py-2 text-sm',
+                SUBTASK_COLUMNS,
+                'group px-3 py-2 text-sm',
                 // Lifted over its neighbours so the moving row stays readable
                 // while the rest of the list slides under it.
-                isDragging && 'relative z-10 bg-accent shadow-sm',
+                isDragging && 'relative z-10 bg-accent',
             )}
         >
             {child.can_edit ? (
@@ -1149,7 +1116,262 @@ function SortableSubtaskRow({
                 <span className="size-4 shrink-0" aria-hidden="true" />
             )}
 
-            {children}
+            <div className="flex min-w-0 items-center gap-2">
+                {isEditing ? (
+                    <Input
+                        autoFocus
+                        value={draft}
+                        aria-label={`Judul ${child.reference}`}
+                        className="h-8 min-w-0 flex-1"
+                        onChange={(event) => onDraftChange(event.target.value)}
+                        onBlur={onSaveRename}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                onSaveRename();
+                            }
+
+                            if (event.key === 'Escape') {
+                                event.preventDefault();
+                                onCancelRename();
+                            }
+                        }}
+                    />
+                ) : (
+                    <>
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                            {child.reference}
+                        </span>
+
+                        {onOpenTask ? (
+                            <button
+                                type="button"
+                                onClick={() => onOpenTask(child.id)}
+                                className="line-clamp-2 min-w-0 flex-1 text-left break-words hover:underline"
+                            >
+                                {child.title}
+                            </button>
+                        ) : (
+                            <span className="line-clamp-2 min-w-0 flex-1 break-words">
+                                {child.title}
+                            </span>
+                        )}
+
+                        {/* Jira's pencil: out of the way until the row is
+                            hovered or the button takes focus. */}
+                        {child.can_edit && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                aria-label={`Ubah judul ${child.reference}`}
+                                title="Ubah judul"
+                                onClick={onStartRename}
+                            >
+                                <Pencil className="size-4" aria-hidden="true" />
+                            </Button>
+                        )}
+                    </>
+                )}
+            </div>
+
+            <div className="hidden min-w-0 md:block">
+                {child.can_edit ? (
+                    <Select
+                        value={child.priority}
+                        onValueChange={(value) =>
+                            patchSubtask(child.id, { priority: value })
+                        }
+                    >
+                        <SelectTrigger
+                            size="sm"
+                            className="w-full border-transparent shadow-none hover:border-input"
+                            aria-label={`Prioritas ${child.title}`}
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {priorities.map((priority) => (
+                                <SelectItem
+                                    key={priority.value}
+                                    value={priority.value}
+                                >
+                                    <span
+                                        className={`rounded border px-1.5 py-0.5 text-xs ${TASK_PRIORITY_CLASSES[priority.value as TaskPriority]}`}
+                                    >
+                                        {priority.label}
+                                    </span>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                ) : (
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            'font-normal',
+                            TASK_PRIORITY_BADGE[child.priority],
+                        )}
+                    >
+                        {TASK_PRIORITY_LABELS[child.priority]}
+                    </Badge>
+                )}
+            </div>
+
+            <div className="hidden min-w-0 md:block">
+                {child.can_edit ? (
+                    <Select
+                        value={String(child.assignee?.id ?? UNASSIGNED)}
+                        onValueChange={(value) =>
+                            patchSubtask(child.id, {
+                                assignee_id:
+                                    value === UNASSIGNED ? null : Number(value),
+                            })
+                        }
+                    >
+                        <SelectTrigger
+                            size="sm"
+                            className="w-full border-transparent shadow-none hover:border-input"
+                            aria-label={`Penanggung jawab ${child.title}`}
+                        >
+                            <SubtaskAssignee
+                                assignee={child.assignee}
+                                getInitials={getInitials}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={UNASSIGNED}>
+                                Belum ditugaskan
+                            </SelectItem>
+                            {assignees.map((member) => (
+                                <SelectItem
+                                    key={member.id}
+                                    value={String(member.id)}
+                                >
+                                    {member.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                ) : (
+                    <div className="px-2">
+                        <SubtaskAssignee
+                            assignee={child.assignee}
+                            getInitials={getInitials}
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Jira lets a sub task's status be changed from the parent,
+                without opening it. */}
+            {child.can_edit ? (
+                <Select
+                    value={child.status}
+                    onValueChange={(value) =>
+                        patchSubtask(child.id, { status: value })
+                    }
+                >
+                    <SelectTrigger
+                        size="sm"
+                        className="w-full border-transparent shadow-none hover:border-input"
+                        aria-label={`Status ${child.title}`}
+                    >
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {statuses.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                                {status.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            ) : (
+                <Badge
+                    variant={TASK_STATUS_VARIANT[child.status]}
+                    className="justify-self-start font-normal"
+                >
+                    {TASK_STATUS_LABELS[child.status]}
+                </Badge>
+            )}
+
+            {/* Same "..." menu Jira gives a sub task row. Deleting never closes
+                the parent: the row goes on its own request, and the modal keeps
+                its state while the page props refresh. */}
+            {child.can_delete ? (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 shrink-0 text-muted-foreground"
+                            aria-label={`Tindakan ${child.title}`}
+                        >
+                            <MoreHorizontal
+                                className="size-4"
+                                aria-hidden="true"
+                            />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() => {
+                                if (
+                                    !confirm(
+                                        child.children_count > 0
+                                            ? `Hapus sub task "${child.title}" beserta ${child.children_count} sub task-nya?`
+                                            : `Hapus sub task "${child.title}"?`,
+                                    )
+                                ) {
+                                    return;
+                                }
+
+                                router.delete(destroy(child.id).url, {
+                                    preserveScroll: true,
+                                    preserveState: true,
+                                });
+                            }}
+                        >
+                            <Trash2 className="size-4" aria-hidden="true" />
+                            Hapus
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ) : (
+                <span aria-hidden="true" />
+            )}
         </li>
+    );
+}
+
+/** Avatar and name, shared by the row's picker trigger and its read-only cell. */
+function SubtaskAssignee({
+    assignee,
+    getInitials,
+}: {
+    assignee: TaskAssignee | null;
+    getInitials: (name: string) => string;
+}) {
+    return (
+        <span className="flex min-w-0 items-center gap-2">
+            <Avatar className="size-5">
+                <AvatarImage src={assignee?.avatar ?? undefined} alt="" />
+                <AvatarFallback className="text-[10px]">
+                    {assignee ? getInitials(assignee.name) : '—'}
+                </AvatarFallback>
+            </Avatar>
+            <span
+                className={cn(
+                    'truncate',
+                    assignee === null && 'text-muted-foreground',
+                )}
+            >
+                {assignee?.name ?? 'Belum ditugaskan'}
+            </span>
+        </span>
     );
 }
