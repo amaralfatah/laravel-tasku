@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Hash;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the platform operator plus one worked example workspace.
+     * Seed the platform operator plus the worked example workspaces: one
+     * person working alone, and one small team sharing the work.
      *
      * The operator is deliberately not a member of any workspace: SA-4 says a
      * super admin must not be able to read project or task content.
@@ -26,6 +27,9 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        $this->call(AmarWorkloadSeeder::class);
+        $this->call([
+            AmarWorkloadSeeder::class,
+            KarsaTeamSeeder::class,
+        ]);
     }
 }
