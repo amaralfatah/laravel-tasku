@@ -25,6 +25,7 @@ use Illuminate\Support\Str;
  * @property string $key
  * @property string|null $description
  * @property ProjectStatus $status
+ * @property Carbon|null $completed_at when the status last became completed
  * @property int|null $created_by
  * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
@@ -40,6 +41,27 @@ class Project extends Model
      * Longest key a project may carry, mirrored by the column and the rules.
      */
     public const KEY_MAX_LENGTH = 10;
+
+    /**
+     * Keep `completed_at` in step with the status.
+     *
+     * Stamped on the way into `completed` and cleared on the way back out, so
+     * a project reopened and finished again carries the later date rather than
+     * the first one. Nothing else writes the column — it is not fillable, and
+     * a status that has not changed leaves the stamp alone.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Project $project): void {
+            if (! $project->isDirty('status')) {
+                return;
+            }
+
+            $project->completed_at = $project->status === ProjectStatus::Completed
+                ? now()
+                : null;
+        });
+    }
 
     /**
      * A free key for a project of this name, the way Jira prefills one.
@@ -189,6 +211,7 @@ class Project extends Model
     {
         return [
             'status' => ProjectStatus::class,
+            'completed_at' => 'datetime',
         ];
     }
 }

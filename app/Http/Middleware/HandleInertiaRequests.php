@@ -7,6 +7,7 @@ use App\Enums\WorkspaceScale;
 use App\Models\Project;
 use App\Support\Tenancy;
 use App\Support\WorkspaceAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -119,6 +120,13 @@ class HandleInertiaRequests extends Middleware
      * The project being viewed is appended when the limit left it out, so the
      * sidebar never goes blank on a page that clearly belongs to a project.
      *
+     * Archived projects never appear, and a finished one drops off once it has
+     * been finished for a month: by then it is history somebody looks up on
+     * `/projects`, not a place they return to daily, and it was pushing live
+     * work off a list that only holds six. A project finished more recently
+     * stays, because the days right after closing are when people still open
+     * it. Nothing is hidden that the current page points at.
+     *
      * @return array<int, array{id: int, name: string}>
      */
     protected function sidebarProjects(Request $request): array
@@ -132,6 +140,13 @@ class HandleInertiaRequests extends Middleware
         $projects = Project::query()
             ->visibleTo($user)
             ->where('status', '!=', ProjectStatus::Archived->value)
+            ->where(fn (Builder $query) => $query
+                ->where('status', '!=', ProjectStatus::Completed->value)
+                // A finished project with no stamp predates the column and its
+                // backfill, so it is treated as freshly closed rather than
+                // silently dropped.
+                ->orWhereNull('completed_at')
+                ->orWhere('completed_at', '>=', now()->subMonth()))
             ->orderBy('name')
             ->limit(self::SIDEBAR_PROJECT_LIMIT)
             ->get(['id', 'name']);

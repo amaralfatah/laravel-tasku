@@ -52,6 +52,81 @@ test('the sidebar lists the projects a manager may open, by name', function () {
         );
 });
 
+test('the sidebar drops a project finished a month ago and keeps a fresh one', function () {
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Owner);
+
+    Project::factory()->in($unit)->create(['name' => 'Berjalan']);
+
+    $lastWeek = Project::factory()->in($unit)->create([
+        'name' => 'Baru Selesai',
+        'status' => ProjectStatus::Completed,
+    ]);
+    $lastYear = Project::factory()->in($unit)->create([
+        'name' => 'Lama Selesai',
+        'status' => ProjectStatus::Completed,
+    ]);
+
+    // The stamp is the model's to write, so the ages are backdated onto it
+    // rather than passed in — a completed project is stamped `now()` on save.
+    $lastWeek->forceFill(['completed_at' => now()->subWeek()])->saveQuietly();
+    $lastYear->forceFill(['completed_at' => now()->subYear()])->saveQuietly();
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('members.index'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('tenancy.projects', 2)
+            ->where('tenancy.projects.0.name', 'Baru Selesai')
+            ->where('tenancy.projects.1.name', 'Berjalan')
+        );
+});
+
+test('the sidebar still carries a long finished project while it is open', function () {
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Owner);
+
+    $project = Project::factory()->in($unit)->create([
+        'name' => 'Lama Selesai',
+        'status' => ProjectStatus::Completed,
+    ]);
+    $project->forceFill(['completed_at' => now()->subYear()])->saveQuietly();
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->get(route('projects.show', $project))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('tenancy.projects', 1)
+            ->where('tenancy.projects.0.id', $project->id)
+        );
+});
+
+test('finishing a project stamps it, and reopening clears the stamp', function () {
+    [$member, $unit] = sidebarWorkspace(WorkspaceRole::Owner);
+
+    $project = Project::factory()->in($unit)->create(['name' => 'Panen']);
+
+    expect($project->completed_at)->toBeNull();
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('projects.update', $project), [
+            'status' => ProjectStatus::Completed->value,
+        ])
+        ->assertRedirect();
+
+    expect($project->refresh()->completed_at)->not->toBeNull();
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $member->workspace_id])
+        ->patch(route('projects.update', $project), [
+            'status' => ProjectStatus::Active->value,
+        ])
+        ->assertRedirect();
+
+    expect($project->refresh()->completed_at)->toBeNull();
+});
+
 test('the sidebar carries the open project even when the limit left it out', function () {
     [$member, $unit] = sidebarWorkspace(WorkspaceRole::Owner);
 
