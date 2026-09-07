@@ -9,9 +9,9 @@ use Carbon\CarbonInterface;
  * The Gantt grid of an exported workbook: what its columns are, and which one
  * a date lands in.
  *
- * `ExportZoom::Week` is the reference layout — four columns a month, so a
- * month whose calendar reaches a fifth week folds it into W4 rather than
- * opening a fifth column. That grid is
+ * `ExportZoom::Week` is the reference layout — four columns a month, so
+ * whatever a month has left over at the end folds into W4 rather than opening
+ * a fifth column. That grid is
  * what people diff against older copies of the report, so it is the default
  * and its output must not drift; the coarser zooms exist so a plan running
  * over several years fits on a page.

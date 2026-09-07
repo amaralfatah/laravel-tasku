@@ -49,8 +49,8 @@ const DAY_WIDTH: Record<Zoom, number> = {
 
 /**
  * Width of one week column. The four columns of a month are drawn the same
- * width even though W1 can be a single day and W4 thirteen — a header that
- * reads W1 W2 W3 W4 in even steps is the point of the fixed grid.
+ * width even though W1 and W4 can each run longer than seven days — a header
+ * that reads W1 W2 W3 W4 in even steps is the point of the fixed grid.
  */
 const WEEK_COLUMN_WIDTH = 7 * DAY_WIDTH.week;
 

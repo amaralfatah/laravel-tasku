@@ -6,14 +6,17 @@ use Carbon\CarbonInterface;
 
 /**
  * Weeks counted inside their month, the way the team reads a calendar: weeks
- * run Monday to Sunday, and the days before the month's first Monday are its
- * week 1. `W3 08-26` is the third such week of August 2026.
+ * run Monday to Sunday. `W3 08-26` is the third such week of August 2026.
  *
- * The per-programmer spreadsheets draw four columns a month, so a month whose
- * calendar reaches a fifth week folds that week into the fourth column rather
- * than opening a fifth one. The frontend timeline
- * (`resources/js/lib/week.ts`) counts the same way but is free to show a fifth
- * week, because it lays out real weeks instead of a fixed grid.
+ * A month rarely opens on a Monday, so it starts with a few days left over
+ * from the week before. Those days join W1 when there are fewer than four of
+ * them — the ISO 8601 rule, which keeps a two day sliver from taking a whole
+ * column of its own — and stand as W1 themselves when there are four or more.
+ *
+ * The per-programmer spreadsheets draw four columns a month, so whatever is
+ * left over at the end folds into W4 rather than opening a fifth column. The
+ * frontend timeline (`resources/js/lib/week.ts`) counts exactly the same way,
+ * so a label means the same thing in the workbook and on screen.
  */
 class MonthWeek
 {
@@ -23,9 +26,25 @@ class MonthWeek
     /** Week within the month, 1 through 4, counted Monday to Sunday. */
     public static function of(CarbonInterface $date): int
     {
-        $offset = $date->copy()->startOfMonth()->dayOfWeekIso - 1;
+        $second = self::secondWeekOpens($date);
 
-        return min(self::PER_MONTH, intdiv($date->day + $offset - 1, 7) + 1);
+        if ($date->day < $second) {
+            return 1;
+        }
+
+        return min(self::PER_MONTH, intdiv($date->day - $second, 7) + 2);
+    }
+
+    /**
+     * The day W2 opens on: the month's first Monday, unless the days before it
+     * are too few to stand as a week of their own, in which case W1 swallows
+     * that Monday's week and W2 opens a week later.
+     */
+    protected static function secondWeekOpens(CarbonInterface $date): int
+    {
+        $lead = (8 - $date->copy()->startOfMonth()->dayOfWeekIso) % 7;
+
+        return $lead < 4 ? $lead + 8 : $lead + 1;
     }
 
     /** Label as `W3 08-26`, or an em dash when the date is missing. */

@@ -116,9 +116,9 @@ test('the tree is numbered in the order the board holds it', function () {
 
     expect($task->wbs_number)->toBe('3.1')
         ->and($task->depth)->toBe(1)
-        // The seeder widens `W3 06-25` back to a day; reading it as a week has
+        // The seeder widens `W2 06-25` back to a day; reading it as a week has
         // to give the label it started from.
-        ->and(MonthWeek::label($task->start_date))->toBe('W3 06-25')
+        ->and(MonthWeek::label($task->start_date))->toBe('W2 06-25')
         ->and(MonthWeek::label($task->due_date))->toBe('W4 12-25');
 });
 
@@ -177,10 +177,10 @@ test('the exported sheet reads like the workbook it came from', function () {
 
     expect($rows)->toHaveKey('1. GrowMate')
         ->and($rows['1.1 Auth & Hak Akses'])->toBe(['100%', 'W1 06-25', 'W4 06-25'])
-        ->and($rows['1.3.1 Sinkronisasi Data IPS'])->toBe(['100%', 'W3 06-25', 'W4 12-25'])
+        ->and($rows['1.3.1 Sinkronisasi Data IPS'])->toBe(['100%', 'W2 06-25', 'W4 12-25'])
         ->and($rows['1.7.3 Implementasi Modul Pre Reservasi dan Pemupukan pada Komoditi Sawit'])
-        ->toBe(['100%', 'W2 02-26', 'W3 02-26'])
-        ->and($rows['1.21 Offline Mode'])->toBe(['100%', 'W4 07-26', 'W4 08-26'])
+        ->toBe(['100%', 'W1 02-26', 'W2 02-26'])
+        ->and($rows['1.21 Offline Mode'])->toBe(['100%', 'W4 07-26', 'W3 08-26'])
         ->and($rows['2. RUP (Rencana Umum Pengadaan)'][1])->toBe('W2 01-26')
         ->and($rows['4.5.9 IHCMIS Core - Filebrowser & Permission Volume'])
         ->toBe(['100%', 'W2 07-26', 'W4 07-26'])

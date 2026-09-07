@@ -33,34 +33,30 @@ export function toDateString(date: Date): string {
     return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** Week columns drawn per month, matching `MonthWeek::PER_MONTH` on the server. */
-export const WEEKS_PER_MONTH = 4;
-
 /**
  * Week within the month, 1 through 4, counted the way a calendar reads: weeks
- * run Monday to Sunday, and the days before the month's first Monday are its
- * week 1. A month whose calendar reaches a fifth week folds it into W4, so
- * every month reads W1 through W4.
+ * run Monday to Sunday. Mirrors `MonthWeek::of()` on the server.
  * Only the timeline header speaks this; task dates are picked by the day.
  */
 export function weekOfMonth(date: Date): number {
-    const first = new Date(date.getFullYear(), date.getMonth(), 1);
-    const offset = (first.getDay() + 6) % 7;
+    const starts = weekStarts(date.getFullYear(), date.getMonth());
 
-    return Math.min(
-        WEEKS_PER_MONTH,
-        Math.floor((date.getDate() + offset - 1) / 7) + 1,
-    );
+    return starts.filter((start) => start.getDate() <= date.getDate()).length;
 }
 
 /**
- * First day of each of a month's four week columns. W1 closes on the month's
- * first Sunday, W2 and W3 are whole weeks, and W4 carries whatever is left —
- * which is how a month with a fifth calendar week still fits four columns.
+ * First day of each of a month's four week columns.
+ *
+ * A month rarely opens on a Monday, so it starts with a few days left over
+ * from the week before. Those days join W1 when there are fewer than four of
+ * them — the ISO 8601 rule, which keeps a two day sliver from taking a whole
+ * column of its own — and stand as W1 themselves when there are four or more.
+ * W4 then carries whatever is left at the end of the month.
  */
 export function weekStarts(year: number, month: number): Date[] {
-    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
-    const second = 8 - offset;
+    const monday = ((new Date(year, month, 1).getDay() + 6) % 7) + 1;
+    const lead = (8 - monday) % 7;
+    const second = lead < 4 ? lead + 8 : lead + 1;
 
     return [1, second, second + 7, second + 14].map(
         (day) => new Date(year, month, day),

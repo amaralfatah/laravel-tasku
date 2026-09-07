@@ -41,7 +41,7 @@ test('a person export carries their tasks with a week based timeline', function 
         // start and end columns speak weeks-of-month, not raw dates.
         ->and($flat)->toContain('1.1 Auth dan hak akses')
         ->and($flat)->toContain('W1 06-26')
-        ->and($flat)->toContain('W4 08-26');
+        ->and($flat)->toContain('W3 08-26');
 });
 
 test('the sheet is painted the way the reference workbook is', function () {
@@ -87,11 +87,11 @@ test('the sheet is painted the way the reference workbook is', function () {
         ->and($fill('E5'))->toBe('FF00B050')
         // The project line above the task carries the shaded band.
         ->and($fill('B'.($taskRow - 1)))->toBe('FFE8E8E8')
-        // Pale bar from W1 Juni, solid cap on W4 Agustus because it is done,
+        // Pale bar from W1 Juni, solid cap on W3 Agustus because it is done,
         // then the grey tail over every week that has not happened yet — this
         // week itself stays clear.
         ->and($fill('F'.$taskRow))->toBe('FFDAF2D0')
-        ->and($fill('Q'.$taskRow))->toBe('FF4EA72E')
+        ->and($fill('P'.$taskRow))->toBe('FF4EA72E')
         ->and($fill('S'.$taskRow))->not->toBe('FFD0D0D0')
         ->and($fill('T'.$taskRow))->toBe('FFD0D0D0')
         ->and($fill('AG'.$taskRow))->toBe('FFD0D0D0');
@@ -147,15 +147,17 @@ test('someone outside the viewer scope cannot be exported', function () {
 });
 
 test('weeks are counted inside their month and capped at four', function () {
-    // Juni 2026 opens on a Monday, Agustus 2026 on a Saturday — so the 1st of
-    // Agustus is already W1 and the 20th, a Thursday, lands in W4.
+    // Juni 2026 opens on a Monday, so its weeks are the plain ones. Agustus
+    // 2026 opens on a Saturday: those two days are too few to stand as a week,
+    // so they join W1 and the 20th lands in W3.
     expect(MonthWeek::of(Carbon::parse('2026-06-01')))->toBe(1)
         ->and(MonthWeek::of(Carbon::parse('2026-06-22')))->toBe(4)
         // A fifth week would need a fifth column the grid does not draw.
         ->and(MonthWeek::of(Carbon::parse('2026-06-30')))->toBe(4)
         ->and(MonthWeek::of(Carbon::parse('2026-08-01')))->toBe(1)
-        ->and(MonthWeek::label(Carbon::parse('2026-08-20')))->toBe('W4 08-26')
-        ->and(MonthWeek::slot(Carbon::parse('2026-08-20'), Carbon::parse('2026-06-01')))->toBe(11);
+        ->and(MonthWeek::of(Carbon::parse('2026-08-09')))->toBe(1)
+        ->and(MonthWeek::label(Carbon::parse('2026-08-20')))->toBe('W3 08-26')
+        ->and(MonthWeek::slot(Carbon::parse('2026-08-20'), Carbon::parse('2026-06-01')))->toBe(10);
 });
 
 test('the export follows the timeline zoom it was asked for', function (string $zoom, string $start, string $end, string $band) {
@@ -186,7 +188,7 @@ test('the export follows the timeline zoom it was asked for', function (string $
         // The middle header row speaks the zoom's own period.
         ->and($flat)->toContain($band);
 })->with([
-    'week' => ['week', 'W1 06-26', 'W4 08-26', 'Agustus'],
+    'week' => ['week', 'W1 06-26', 'W3 08-26', 'Agustus'],
     'month' => ['month', 'Jun 26', 'Agu 26', 'Q3'],
     'quarter' => ['quarter', 'Q2 26', 'Q3 26', 'Q3'],
 ]);
