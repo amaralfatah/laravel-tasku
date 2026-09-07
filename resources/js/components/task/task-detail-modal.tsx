@@ -17,6 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { router } from '@inertiajs/react';
 import {
+    CalendarSync,
     ChevronDown,
     ChevronRight,
     GripVertical,
@@ -45,6 +46,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -60,7 +62,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/week';
-import { destroy, move, review, update } from '@/routes/tasks';
+import { destroy, move, review, syncDates, update } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import {
@@ -295,6 +297,48 @@ function TaskDetail({
         );
     };
 
+    const [syncingDates, setSyncingDates] = useState(false);
+
+    /**
+     * Hand this task's two dates to everything below it in one write. Planning
+     * a phase and then retyping the same dates on each sub task is the tedious
+     * half of scheduling, and an undated sub task draws no bar on the timeline
+     * at all. Nothing to copy means nothing to offer, so the button is only
+     * here once the task itself carries a date.
+     */
+    const canSyncDates =
+        !readOnly &&
+        task.children_count > 0 &&
+        Boolean(task.start_date || task.due_date);
+
+    const syncSubtaskDates = () => {
+        // Named dates rather than a bare "are you sure": the one thing to
+        // check before saying yes is which two dates are about to be copied.
+        const range = [task.start_date ?? '—', task.due_date ?? '—'].join(
+            ' → ',
+        );
+
+        if (
+            !confirm(
+                `Samakan tanggal seluruh sub task di bawah "${task.title}" menjadi ${range}? Tanggal yang sudah terisi akan ditimpa.`,
+            )
+        ) {
+            return;
+        }
+
+        router.post(
+            syncDates(task.id).url,
+            {},
+            {
+                preserveScroll: true,
+                // Without this the page remounts and the modal closes.
+                preserveState: true,
+                onStart: () => setSyncingDates(true),
+                onFinish: () => setSyncingDates(false),
+            },
+        );
+    };
+
     const orderedSubtasks = useMemo(() => {
         const byPosition = [...subtasks].sort(
             (a, b) => a.position - b.position,
@@ -446,9 +490,10 @@ function TaskDetail({
                             className="text-xs text-muted-foreground"
                         >
                             {saving ? 'Menyimpan…' : ''}
+                            {!saving && syncingDates ? 'Menyamakan…' : ''}
                         </span>
 
-                        {task.can_delete && (
+                        {(task.can_delete || canSyncDates) && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
@@ -464,34 +509,56 @@ function TaskDetail({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                        variant="destructive"
-                                        onSelect={() => {
-                                            if (
-                                                !confirm(
-                                                    task.children_count > 0
-                                                        ? `Hapus task "${task.title}" beserta ${task.children_count} sub task-nya?`
-                                                        : `Hapus task "${task.title}"?`,
-                                                )
-                                            ) {
-                                                return;
-                                            }
+                                    {/* Both items here act on the whole
+                                        subtree, which is what puts them
+                                        together and one level down. */}
+                                    {canSyncDates && (
+                                        <DropdownMenuItem
+                                            disabled={syncingDates}
+                                            onSelect={syncSubtaskDates}
+                                        >
+                                            <CalendarSync
+                                                className="size-4"
+                                                aria-hidden="true"
+                                            />
+                                            Samakan tanggal sub task
+                                        </DropdownMenuItem>
+                                    )}
 
-                                            router.delete(
-                                                destroy(task.id).url,
-                                                {
-                                                    preserveScroll: true,
-                                                    onSuccess: onClose,
-                                                },
-                                            );
-                                        }}
-                                    >
-                                        <Trash2
-                                            className="size-4"
-                                            aria-hidden="true"
-                                        />
-                                        Hapus
-                                    </DropdownMenuItem>
+                                    {canSyncDates && task.can_delete && (
+                                        <DropdownMenuSeparator />
+                                    )}
+
+                                    {task.can_delete && (
+                                        <DropdownMenuItem
+                                            variant="destructive"
+                                            onSelect={() => {
+                                                if (
+                                                    !confirm(
+                                                        task.children_count > 0
+                                                            ? `Hapus task "${task.title}" beserta ${task.children_count} sub task-nya?`
+                                                            : `Hapus task "${task.title}"?`,
+                                                    )
+                                                ) {
+                                                    return;
+                                                }
+
+                                                router.delete(
+                                                    destroy(task.id).url,
+                                                    {
+                                                        preserveScroll: true,
+                                                        onSuccess: onClose,
+                                                    },
+                                                );
+                                            }}
+                                        >
+                                            <Trash2
+                                                className="size-4"
+                                                aria-hidden="true"
+                                            />
+                                            Hapus
+                                        </DropdownMenuItem>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
@@ -644,6 +711,12 @@ function TaskDetail({
                                             </>
                                         )}
 
+                                        {/* One action in this header, and it is
+                                            the frequent, additive one. Syncing
+                                            dates is rare and overwrites what is
+                                            already there, so it sits a level
+                                            deeper in the "..." menu with the
+                                            other whole-subtree action. */}
                                         {canAddSubtask && (
                                             <Button
                                                 type="button"

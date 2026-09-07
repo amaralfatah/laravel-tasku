@@ -148,6 +148,47 @@ class TaskController extends Controller
     }
 
     /**
+     * Copy this task's start and due date onto every task below it.
+     *
+     * Scheduling a phase and then retyping the same two dates on each of its
+     * sub tasks is the tedious half of planning, and the timeline reads badly
+     * until it is done — an undated sub task draws no bar at all. So the dates
+     * are pushed down the whole subtree, not just to the direct children: a
+     * three level plan is one click rather than one per branch.
+     *
+     * A task with neither date is refused. Syncing would silently wipe the
+     * dates the sub tasks already carry, which is the opposite of what the
+     * button is for.
+     */
+    public function syncDates(Task $task): RedirectResponse
+    {
+        $this->authorize('update', $task);
+
+        abort_if(
+            $task->start_date === null && $task->due_date === null,
+            422,
+            'Task ini belum punya tanggal untuk disalin.',
+        );
+
+        // `path` carries the task's own id — `/12/45/` — so the subtree is a
+        // prefix match, and the task itself is the one row excluded from it.
+        $synced = Task::query()
+            ->where('project_id', $task->project_id)
+            ->where('path', 'like', $task->path.'%')
+            ->whereKeyNot($task->id)
+            ->update([
+                'start_date' => $task->start_date,
+                'due_date' => $task->due_date,
+            ]);
+
+        Inertia::flash('toast', $synced === 0
+            ? ['type' => 'info', 'message' => 'Task ini belum punya sub task.']
+            : ['type' => 'success', 'message' => "Tanggal {$synced} sub task disamakan."]);
+
+        return back();
+    }
+
+    /**
      * Soft delete the task and everything below it (TSK-3).
      */
     public function destroy(Task $task): RedirectResponse

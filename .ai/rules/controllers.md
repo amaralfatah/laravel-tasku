@@ -32,3 +32,10 @@ Slug is set on `creating` only, so renaming never moves the workspace's URL.
 Anyone who may edit a task may set it to Done directly — assignee included. `TaskController::update()` and `move()` used to run a `guardApproval()` that refused Done unless the caller could `review` the task, which turned a two-tier flow into a toll gate on every task; it was removed on purpose, so do not reintroduce it.
 
 The `review` status and `tasks.review` still exist for teams that want a second pair of eyes: submitting stamps `submitted_at`, and `TaskPolicy::review()` still keeps a worker from approving their own submission. Covered by tests/Feature/TaskReviewTest.php.
+
+## Date sync writes the subtree in one statement, and refuses an undated task
+`syncDates()` copies a task's `start_date`/`due_date` onto its whole subtree — every descendant, not just the direct children — with a single `update()` matched on the `path` prefix. That skips model events on purpose: dates feed no rollup, unlike `progress`, which the observer owns.
+
+A task carrying neither date is a 422. Syncing would blank the dates its sub tasks already have, which is the opposite of the button's job. The modal hides the button in that state; keep the server check anyway.
+
+Covered by tests/Feature/TaskDateSyncTest.php.
