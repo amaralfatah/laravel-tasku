@@ -6,6 +6,7 @@ use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Models\Task;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 
 /**
@@ -48,7 +49,7 @@ class TaskFilters
             ->when($this->assigneeId, fn (Builder $q, int $id) => $q->where('assignee_id', $id))
             ->when($this->status, fn (Builder $q, TaskStatus $status) => $q->where('status', $status))
             ->when($this->priority, fn (Builder $q, TaskPriority $priority) => $q->where('priority', $priority))
-            ->when($this->search, fn (Builder $q, string $term) => $q->where('title', 'ilike', "%{$term}%"))
+            ->when($this->search, fn (Builder $q, string $term) => $this->applySearch($q, $term))
             // Work that has run past its date and is not finished: the one
             // filter a leader reaches for, since a healthy task needs no
             // attention and an overdue one always does.
@@ -56,6 +57,39 @@ class TaskFilters
                 ->whereNotNull('due_date')
                 ->whereDate('due_date', '<', now()->toDateString())
                 ->where('status', '!=', TaskStatus::Done));
+    }
+
+    /**
+     * Keep every task on a branch a match sits on: the task whose own title
+     * matches, the ancestors above a matching sub task, and the sub tasks
+     * under a matching parent.
+     *
+     * Matching the title alone loses the hit whenever it is not a root task.
+     * The board only draws depth 0, so searching for a sub task emptied it,
+     * and the list drew the row with nothing above it. Searching the branch is
+     * what makes the box reach sub tasks as well as tasks.
+     *
+     * `path` carries the task's own id — `/12/45/78/` — so one path being a
+     * prefix of the other is exactly "same branch". `lower(...) like` rather
+     * than `ilike`, since the test suite runs on SQLite, which has no `ilike`.
+     *
+     * @param  Builder<Task>  $query
+     */
+    protected function applySearch(Builder $query, string $term): void
+    {
+        $needle = '%'.mb_strtolower($term).'%';
+
+        $query->whereExists(function (QueryBuilder $matches) use ($needle): void {
+            $matches
+                ->selectRaw('1')
+                ->from('tasks as matched')
+                ->whereColumn('matched.project_id', 'tasks.project_id')
+                ->whereNull('matched.deleted_at')
+                ->whereRaw('lower(matched.title) like ?', [$needle])
+                ->where(fn (QueryBuilder $branch) => $branch
+                    ->whereRaw("tasks.path like matched.path || '%'")
+                    ->orWhereRaw("matched.path like tasks.path || '%'"));
+        });
     }
 
     /**

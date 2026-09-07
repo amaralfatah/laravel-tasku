@@ -103,8 +103,8 @@ export function TaskFilterBar({
                 <Input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Cari judul task"
-                    aria-label="Cari judul task"
+                    placeholder="Cari task & sub task"
+                    aria-label="Cari task dan sub task"
                     className="pl-9"
                 />
             </div>
