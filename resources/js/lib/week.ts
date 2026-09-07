@@ -33,12 +33,45 @@ export function toDateString(date: Date): string {
     return `${date.getFullYear()}-${month}-${day}`;
 }
 
+/** Week columns drawn per month, matching `MonthWeek::PER_MONTH` on the server. */
+export const WEEKS_PER_MONTH = 4;
+
 /**
- * Week within the month, 1 through 5 — how the team numbers its weeks.
+ * Week within the month, 1 through 4, counted the way a calendar reads: weeks
+ * run Monday to Sunday, and the days before the month's first Monday are its
+ * week 1. A month whose calendar reaches a fifth week folds it into W4, so
+ * every month reads W1 through W4.
  * Only the timeline header speaks this; task dates are picked by the day.
  */
 export function weekOfMonth(date: Date): number {
-    return Math.ceil(date.getDate() / 7);
+    const first = new Date(date.getFullYear(), date.getMonth(), 1);
+    const offset = (first.getDay() + 6) % 7;
+
+    return Math.min(
+        WEEKS_PER_MONTH,
+        Math.floor((date.getDate() + offset - 1) / 7) + 1,
+    );
+}
+
+/**
+ * First day of each of a month's four week columns. W1 closes on the month's
+ * first Sunday, W2 and W3 are whole weeks, and W4 carries whatever is left —
+ * which is how a month with a fifth calendar week still fits four columns.
+ */
+export function weekStarts(year: number, month: number): Date[] {
+    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
+    const second = 8 - offset;
+
+    return [1, second, second + 7, second + 14].map(
+        (day) => new Date(year, month, day),
+    );
+}
+
+/** Start of the week column a date falls in. */
+export function startOfWeekColumn(date: Date): Date {
+    const starts = weekStarts(date.getFullYear(), date.getMonth());
+
+    return starts[weekOfMonth(date) - 1];
 }
 
 /** Day-level label, e.g. `05 Agu 2026`. */

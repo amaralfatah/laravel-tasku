@@ -7,33 +7,55 @@ import {
     daysBetween,
     parseDate,
     startOfWeek,
+    startOfWeekColumn,
     today,
     weekOfMonth,
+    weekStarts,
 } from '@/lib/week';
 
 export type Zoom = 'week' | 'month' | 'quarter';
 
-export type TimelineColumn = {
+type RawColumn = {
     start: Date;
     days: number;
     topLabel: string | null;
     bottomLabel: string;
 };
 
-export type TimelineScale = {
-    columns: TimelineColumn[];
-    /** Pixels per calendar day; every bar is positioned with this. */
-    dayWidth: number;
-    origin: Date;
+export type TimelineColumn = RawColumn & {
+    /** Drawn width in pixels, and the pixels from the origin to its left edge. */
     width: number;
+    offset: number;
 };
 
-/** Pixels per day at each zoom level (TML-4). */
+export type TimelineScale = {
+    columns: TimelineColumn[];
+    origin: Date;
+    width: number;
+    /**
+     * Pixels from the origin to a date. A week column is drawn a fixed width
+     * however many days it covers, so a date is placed by how far into its own
+     * column it falls — never by counting days off the origin.
+     */
+    offsetOf: (date: Date) => number;
+};
+
+/** Pixels per day for the month and quarter zooms (TML-4). */
 const DAY_WIDTH: Record<Zoom, number> = {
     week: 6.5,
     month: 2.6,
     quarter: 1,
 };
+
+/**
+ * Width of one week column. The four columns of a month are drawn the same
+ * width even though W1 can be a single day and W4 thirteen — a header that
+ * reads W1 W2 W3 W4 in even steps is the point of the fixed grid.
+ */
+const WEEK_COLUMN_WIDTH = 7 * DAY_WIDTH.week;
+
+/** Narrowest a bar may be drawn, so a one day task stays visible. */
+const MIN_BAR_WIDTH = 2;
 
 export const ZOOM_LABELS: Record<Zoom, string> = {
     week: 'Minggu',
@@ -108,8 +130,8 @@ export function useFillWidth<T extends HTMLElement>(
 /**
  * Build the header columns and the day scale covering a set of date ranges.
  *
- * Bars are positioned purely from `dayWidth`, so switching zoom only changes
- * one number and the header grouping — never the bar maths.
+ * Bars are positioned through `offsetOf`, so switching zoom only changes the
+ * columns and their widths — never the bar maths.
  */
 export function useTimelineScale(
     ranges: { start: string | null; end: string | null }[],
@@ -135,60 +157,117 @@ export function useTimelineScale(
             : anchor;
 
         const dayWidth = DAY_WIDTH[zoom];
-        // Start at the week the earliest date falls in, with nothing before it.
-        // A blank week of padding read as work starting a month earlier: a
+        // Start at the column the earliest date falls in, with nothing before
+        // it. A blank week of padding read as work starting a month earlier: a
         // project opening on Sunday 1 June sits in the week of 26 May, and the
         // padding put a second, empty May column in front of that one.
-        const origin = startOfWeek(min);
+        const origin =
+            zoom === 'week' ? startOfWeekColumn(min) : startOfWeek(min);
         const end = addWeeks(startOfWeek(max), 2);
 
-        const columns: TimelineColumn[] =
+        const raw =
             zoom === 'week'
                 ? weekColumns(origin, end)
                 : monthColumns(origin, end, zoom);
 
-        const days = columns.reduce((total, column) => total + column.days, 0);
-        const width = days * dayWidth;
+        const widths = raw.map((column) =>
+            zoom === 'week' ? WEEK_COLUMN_WIDTH : column.days * dayWidth,
+        );
+
+        const natural = widths.reduce(
+            (total, columnWidth) => total + columnWidth,
+            0,
+        );
 
         // Stretch, never shrink: a span wider than the panel keeps its zoom and
         // scrolls, which is what the zoom buttons are for.
-        if (fillWidth > width && days > 0) {
-            return {
-                columns,
-                dayWidth: fillWidth / days,
-                origin,
-                width: fillWidth,
-            };
+        const stretch =
+            natural > 0 && fillWidth > natural ? fillWidth / natural : 1;
+
+        const columns: TimelineColumn[] = [];
+        let placed = 0;
+
+        for (let index = 0; index < raw.length; index++) {
+            const columnWidth = widths[index] * stretch;
+
+            columns.push({ ...raw[index], width: columnWidth, offset: placed });
+            placed += columnWidth;
         }
 
-        return { columns, dayWidth, origin, width };
+        return {
+            columns,
+            origin,
+            width: placed,
+            offsetOf: (date: Date) => offsetIn(columns, date),
+        };
     }, [ranges, zoom, fillWidth]);
 }
 
-function weekColumns(origin: Date, end: Date): TimelineColumn[] {
-    const columns: TimelineColumn[] = [];
+/**
+ * Where a date sits along the drawn columns, interpolated across the column it
+ * falls in. Dates outside the grid are carried on by the width of the column
+ * nearest them, so a bar that runs off an edge still points the right way.
+ */
+function offsetIn(columns: TimelineColumn[], date: Date): number {
+    if (columns.length === 0) {
+        return 0;
+    }
+
+    let low = 0;
+    let high = columns.length - 1;
+
+    while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+
+        if (columns[middle].start <= date) {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+
+    const column = columns[low];
+
+    return (
+        column.offset +
+        (daysBetween(column.start, date) / column.days) * column.width
+    );
+}
+
+/**
+ * Four columns a month, so every month reads W1 through W4 however its days
+ * fall. A column stops at the month boundary rather than running across it,
+ * which is what keeps a month from opening on W2 — the days before its first
+ * Monday are its own W1, not the tail of the month before.
+ */
+function weekColumns(origin: Date, end: Date): RawColumn[] {
+    const columns: RawColumn[] = [];
     let cursor = new Date(origin);
     let previousMonth = -1;
 
     while (cursor <= end && columns.length < 400) {
         const month = cursor.getMonth();
+        const week = weekOfMonth(cursor);
+        const starts = weekStarts(cursor.getFullYear(), month);
+        const next =
+            starts[week] ?? new Date(cursor.getFullYear(), month + 1, 1);
 
         columns.push({
             start: new Date(cursor),
-            days: 7,
+            days: daysBetween(cursor, next),
             topLabel: month === previousMonth ? null : monthLabel(cursor),
-            bottomLabel: `W${weekOfMonth(cursor)}`,
+            bottomLabel: `W${week}`,
         });
 
         previousMonth = month;
-        cursor = addWeeks(cursor, 1);
+        cursor = next;
     }
 
     return columns;
 }
 
-function monthColumns(origin: Date, end: Date, zoom: Zoom): TimelineColumn[] {
-    const columns: TimelineColumn[] = [];
+function monthColumns(origin: Date, end: Date, zoom: Zoom): RawColumn[] {
+    const columns: RawColumn[] = [];
     let cursor = new Date(origin.getFullYear(), origin.getMonth(), 1);
     let previousYear = -1;
 
@@ -219,6 +298,11 @@ function monthColumns(origin: Date, end: Date, zoom: Zoom): TimelineColumn[] {
     return columns;
 }
 
+/** The day after a date, so a bar can be measured to the end of its last day. */
+function dayAfter(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+}
+
 function monthLabel(date: Date): string {
     return `${MONTH_NAMES[date.getMonth()]} ${String(date.getFullYear()).slice(-2)}`;
 }
@@ -231,19 +315,19 @@ export function TimelineHeader({ scale }: { scale: TimelineScale }) {
     // the first of them: a month written into one 45px week column, or a
     // quarter into one 30px month column, is only ever read as `Agu ...`.
     const periods = useMemo(() => {
-        const groups: { label: string; days: number }[] = [];
+        const groups: { label: string; width: number }[] = [];
 
         for (const column of scale.columns) {
             if (column.topLabel !== null || groups.length === 0) {
                 groups.push({
                     label: column.topLabel ?? '',
-                    days: column.days,
+                    width: column.width,
                 });
 
                 continue;
             }
 
-            groups[groups.length - 1].days += column.days;
+            groups[groups.length - 1].width += column.width;
         }
 
         return groups;
@@ -268,7 +352,7 @@ export function TimelineHeader({ scale }: { scale: TimelineScale }) {
                             'shrink-0 truncate px-1 pt-1 font-medium text-foreground/70',
                             index > 0 ? 'border-l-2 border-border' : '',
                         )}
-                        style={{ width: `${period.days * scale.dayWidth}px` }}
+                        style={{ width: `${period.width}px` }}
                     >
                         {period.label}
                     </div>
@@ -290,7 +374,7 @@ export function TimelineHeader({ scale }: { scale: TimelineScale }) {
                                   ? 'border-l-2 border-border'
                                   : 'border-l border-border/30',
                         )}
-                        style={{ width: `${column.days * scale.dayWidth}px` }}
+                        style={{ width: `${column.width}px` }}
                     >
                         {column.bottomLabel}
                     </div>
@@ -330,10 +414,10 @@ export function TimelineBar({
         return null;
     }
 
-    const offset = daysBetween(scale.origin, startDate) * scale.dayWidth;
+    const offset = scale.offsetOf(startDate);
     const span = Math.max(
-        scale.dayWidth,
-        (daysBetween(startDate, endDate) + 1) * scale.dayWidth,
+        MIN_BAR_WIDTH,
+        scale.offsetOf(dayAfter(endDate)) - offset,
     );
 
     const Element = onClick ? 'button' : 'div';
@@ -407,7 +491,7 @@ export function TimelineGridLines({ scale }: { scale: TimelineScale }) {
                               ? 'border-l-2 border-border'
                               : 'border-l border-border/30',
                     )}
-                    style={{ width: `${column.days * scale.dayWidth}px` }}
+                    style={{ width: `${column.width}px` }}
                 />
             ))}
         </div>
@@ -415,7 +499,7 @@ export function TimelineGridLines({ scale }: { scale: TimelineScale }) {
 }
 
 export function TimelineToday({ scale }: { scale: TimelineScale }) {
-    const offset = daysBetween(scale.origin, today()) * scale.dayWidth;
+    const offset = scale.offsetOf(today());
 
     if (offset < 0 || offset > scale.width) {
         return null;

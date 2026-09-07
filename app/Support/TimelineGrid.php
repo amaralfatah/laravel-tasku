@@ -9,8 +9,9 @@ use Carbon\CarbonInterface;
  * The Gantt grid of an exported workbook: what its columns are, and which one
  * a date lands in.
  *
- * `ExportZoom::Week` is the reference layout — four columns a month, so days
- * 29 through 31 fall in W4 rather than opening a fifth column. That grid is
+ * `ExportZoom::Week` is the reference layout — four columns a month, so a
+ * month whose calendar reaches a fifth week folds it into W4 rather than
+ * opening a fifth column. That grid is
  * what people diff against older copies of the report, so it is the default
  * and its output must not drift; the coarser zooms exist so a plan running
  * over several years fits on a page.
@@ -99,31 +100,6 @@ class TimelineGrid
             ExportZoom::Month => self::SHORT_MONTHS[$date->month].' '.$date->format('y'),
             ExportZoom::Quarter => 'Q'.$date->quarter.' '.$date->format('y'),
         };
-    }
-
-    /**
-     * First column after the group holding `$slot` — where the greyed tail of
-     * a person's sheet begins, so their last month or quarter stays whole.
-     */
-    public function groupEnd(int $slot): int
-    {
-        $current = $this->columns[$slot] ?? null;
-
-        if ($current === null) {
-            return $this->count();
-        }
-
-        $index = $slot;
-
-        while (
-            isset($this->columns[$index])
-            && $this->columns[$index]['group'] === $current['group']
-            && $this->columns[$index]['year'] === $current['year']
-        ) {
-            $index++;
-        }
-
-        return $index;
     }
 
     /**

@@ -5,23 +5,27 @@ namespace App\Support;
 use Carbon\CarbonInterface;
 
 /**
- * Weeks counted inside their month, the way the team writes them: `W3 08-26`
- * is the third week of August 2026.
+ * Weeks counted inside their month, the way the team reads a calendar: weeks
+ * run Monday to Sunday, and the days before the month's first Monday are its
+ * week 1. `W3 08-26` is the third such week of August 2026.
  *
- * The old per-programmer spreadsheets drew four such columns per month, so the
- * 29th through the 31st fall in the fourth column rather than opening a fifth
- * one. The frontend timeline (`resources/js/lib/week.ts`) allows a fifth week
- * because it lays out real weeks; this one lays out a fixed grid.
+ * The per-programmer spreadsheets draw four columns a month, so a month whose
+ * calendar reaches a fifth week folds that week into the fourth column rather
+ * than opening a fifth one. The frontend timeline
+ * (`resources/js/lib/week.ts`) counts the same way but is free to show a fifth
+ * week, because it lays out real weeks instead of a fixed grid.
  */
 class MonthWeek
 {
     /** Columns drawn per month. */
     public const PER_MONTH = 4;
 
-    /** Week within the month, 1 through 4. */
+    /** Week within the month, 1 through 4, counted Monday to Sunday. */
     public static function of(CarbonInterface $date): int
     {
-        return min(self::PER_MONTH, (int) ceil($date->day / 7));
+        $offset = $date->copy()->startOfMonth()->dayOfWeekIso - 1;
+
+        return min(self::PER_MONTH, intdiv($date->day + $offset - 1, 7) + 1);
     }
 
     /** Label as `W3 08-26`, or an em dash when the date is missing. */

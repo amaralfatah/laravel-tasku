@@ -113,8 +113,8 @@ class WorkloadExport
     /**
      * The months every sheet spans: from the first scheduled month through the
      * December of the year the last one falls in. The grid deliberately runs
-     * past the work — the empty tail is greyed per person, which is what makes
-     * one sheet's horizon readable next to another's.
+     * past the work — the weeks that have not happened yet are greyed, which is
+     * what makes one sheet's horizon readable next to another's.
      *
      * @param  array<int, array{tasks: Collection<int, Task>}>  $people
      * @return array{0: CarbonInterface, 1: CarbonInterface}
@@ -445,8 +445,6 @@ class WorkloadExport
 
         $sheet->getStyle($this->area(self::COLUMN_TASK, $first, self::COLUMN_TASK, $row - 1))
             ->getAlignment()->setWrapText(true);
-
-        $this->greyPastHorizon($sheet, $groups->flatten(1), $first, $row - 1, $grid, $last);
     }
 
     /**
@@ -471,6 +469,8 @@ class WorkloadExport
             'font' => ['bold' => true],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => self::PROJECT_ROW]],
         ]);
+
+        $this->greyFuture($sheet, $row, $grid, $lastColumn);
 
         if ($start === null || $end === null) {
             return;
@@ -503,6 +503,8 @@ class WorkloadExport
         $sheet->getStyle([self::COLUMN_PROGRESS, $row])->getNumberFormat()->setFormatCode('0%');
         $sheet->setCellValue([self::COLUMN_START, $row], $grid->label($task->start_date));
         $sheet->setCellValue([self::COLUMN_END, $row], $grid->label($task->due_date));
+
+        $this->greyFuture($sheet, $row, $grid, $lastColumn);
 
         $start = $task->start_date ?? $task->due_date;
         $end = $task->due_date ?? $task->start_date;
@@ -542,25 +544,17 @@ class WorkloadExport
     }
 
     /**
-     * Grey out the weeks after the last month this person has any work in. The
-     * grid runs to the end of the year so the sheets share a width; this is
-     * what keeps the unused tail from reading as idle time.
-     *
-     * @param  Collection<int, Task>  $tasks
+     * Grey the weeks that have not happened yet, counted on the grid's own
+     * week rule so the shading lines up with the bars. It is drawn before the
+     * bar of the same row, so work already scheduled into those weeks still
+     * reads through the shading.
      */
-    protected function greyPastHorizon(Worksheet $sheet, Collection $tasks, int $first, int $last, TimelineGrid $grid, int $lastColumn): void
+    protected function greyFuture(Worksheet $sheet, int $row, TimelineGrid $grid, int $lastColumn): void
     {
-        $dates = $this->datesOf($tasks);
-
-        if ($dates->isEmpty()) {
-            return;
-        }
-
-        $horizon = Date::parse($dates->max());
-        $left = self::COLUMN_TIMELINE + $grid->groupEnd($grid->slot($horizon));
+        $left = max(self::COLUMN_TIMELINE, self::COLUMN_TIMELINE + $grid->slot(Date::now()) + 1);
 
         if ($left <= $lastColumn) {
-            $this->fill($sheet, $left, $first, $lastColumn, $last, self::OUTSIDE);
+            $this->fill($sheet, $left, $row, $lastColumn, $row, self::OUTSIDE);
         }
     }
 

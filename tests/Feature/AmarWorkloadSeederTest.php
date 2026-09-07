@@ -127,7 +127,7 @@ test('a sub task keeps its place under its parent', function () {
 
     expect($task->depth)->toBe(1)
         ->and($task->wbs_number)->toBe('7.7')
-        ->and(MonthWeek::label($task->due_date))->toBe('W2 07-26');
+        ->and(MonthWeek::label($task->due_date))->toBe('W3 07-26');
 });
 
 test('the sheet lists every task in tree order, earliest work first', function () {
@@ -179,8 +179,8 @@ test('the exported sheet reads like the workbook it came from', function () {
         ->and($rows['1.1 Auth & Hak Akses'])->toBe(['100%', 'W1 06-25', 'W4 06-25'])
         ->and($rows['1.3.1 Sinkronisasi Data IPS'])->toBe(['100%', 'W3 06-25', 'W4 12-25'])
         ->and($rows['1.7.3 Implementasi Modul Pre Reservasi dan Pemupukan pada Komoditi Sawit'])
-        ->toBe(['100%', 'W2 02-26', 'W2 02-26'])
-        ->and($rows['1.21 Offline Mode'])->toBe(['100%', 'W4 07-26', 'W3 08-26'])
+        ->toBe(['100%', 'W2 02-26', 'W3 02-26'])
+        ->and($rows['1.21 Offline Mode'])->toBe(['100%', 'W4 07-26', 'W4 08-26'])
         ->and($rows['2. RUP (Rencana Umum Pengadaan)'][1])->toBe('W2 01-26')
         ->and($rows['4.5.9 IHCMIS Core - Filebrowser & Permission Volume'])
         ->toBe(['100%', 'W2 07-26', 'W4 07-26'])
