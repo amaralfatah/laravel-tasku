@@ -394,6 +394,7 @@ export function TimelineBar({
     progress,
     overdue = false,
     muted = false,
+    highlight = false,
     label,
     onClick,
 }: {
@@ -404,6 +405,8 @@ export function TimelineBar({
     overdue?: boolean;
     /** Parent bars are drawn lighter, since their span is derived (TML-6). */
     muted?: boolean;
+    /** Ringed while its row is the one the reader picked. */
+    highlight?: boolean;
     label: string;
     onClick?: () => void;
 }) {
@@ -436,6 +439,12 @@ export function TimelineBar({
                       ? 'border-destructive/30 bg-destructive/10'
                       : 'border-primary/30 bg-primary/10',
                 onClick && 'cursor-pointer hover:brightness-95',
+                // A picked row is answered on the chart too: the ring grows in
+                // over one transition, so the click lands somewhere visible
+                // even when the whole span already fits and nothing scrolls.
+                'transition-[box-shadow,scale] duration-200',
+                highlight &&
+                    'scale-y-125 ring-2 ring-ring ring-offset-1 ring-offset-background',
             )}
             style={{ left: `${offset}px`, width: `${span}px` }}
         >

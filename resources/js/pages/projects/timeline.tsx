@@ -472,4 +472,5 @@ export default function ProjectTimeline({
 
 ProjectTimeline.layout = ({ project }: PageProps) => ({
     breadcrumbs: projectCrumbs(project, timeline(project.id)),
+    wide: true,
 });

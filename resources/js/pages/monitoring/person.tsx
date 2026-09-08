@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarOff, ClipboardList, Download } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ProgressBar } from '@/components/task/progress-bar';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
@@ -10,7 +10,6 @@ import {
     TimelineHeader,
     TimelineToday,
     ZOOM_LABELS,
-    fittingZoom,
     useFillWidth,
     useTimelineScale,
 } from '@/components/task/timeline-scale';
@@ -23,7 +22,7 @@ import { Label } from '@/components/ui/label';
 import { useInitials } from '@/hooks/use-initials';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { formatDay } from '@/lib/week';
+import { formatDay, parseDate } from '@/lib/week';
 import { me, people, person as personRoute } from '@/routes/monitoring';
 import { exportMethod as exportPerson } from '@/routes/monitoring/person';
 import { show as showProject } from '@/routes/projects';
@@ -61,6 +60,12 @@ const ZOOMS: Zoom[] = ['week', 'month', 'quarter'];
 const LABEL_WIDTH = 352;
 const LABEL_WIDTH_MOBILE = 176;
 
+/** Breathing room left of a bar scrolled into view, in pixels. */
+const GUTTER = 24;
+
+/** How long the panel takes to slide to a clicked row's bar, in milliseconds. */
+const SLIDE_MS = 420;
+
 /**
  * One person's work across every project (MON-2..MON-5), laid out as a
  * hierarchy on the left and a weekly bar chart on the right — the same shape
@@ -85,6 +90,12 @@ export default function MonitoringPerson({
 }) {
     const getInitials = useInitials();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
+    /** The row last scrolled to, kept tinted so the eye finds it again. */
+    const [focusedTaskId, setFocusedTaskId] = useState<number | null>(null);
+    /** The slide in flight, so a second click takes over the first. */
+    const slideFrame = useRef(0);
+
+    useEffect(() => () => cancelAnimationFrame(slideFrame.current), []);
     const [createParent, setCreateParent] = useState<TaskNode | null>(null);
     const [createGroup, setCreateGroup] = useState<ProjectGroup | null>(null);
     const [createOpen, setCreateOpen] = useState(false);
@@ -105,9 +116,10 @@ export default function MonitoringPerson({
         [allTasks],
     );
 
-    // Someone's tasks run across every project they touch, so the span here is
-    // usually far wider than one project's — it opens at the level that fits.
-    const [zoom, setZoom] = useState<Zoom>(() => fittingZoom(ranges));
+    // Opens at week: a month column packs a fortnight of work into a few
+    // pixels, and reading someone's load means reading which weeks are full.
+    // The wider levels stay one button away.
+    const [zoom, setZoom] = useState<Zoom>('week');
 
     const isMobile = useIsMobile();
     const labelWidth = isMobile ? LABEL_WIDTH_MOBILE : LABEL_WIDTH;
@@ -160,6 +172,66 @@ export default function MonitoringPerson({
             zoom,
         },
     }).url;
+
+    /**
+     * Bring a row's bar into view when its row is clicked.
+     *
+     * Someone's work spans every project they touch, so a bar is often far off
+     * screen from the row that names it. The panel is slid so the bar starts
+     * just past the sticky label column, which is what the reader is looking
+     * for after clicking the row.
+     *
+     * The slide is animated here rather than through `scrollTo({ behavior:
+     * 'smooth' })`, which browsers drop to an instant jump wherever the OS
+     * asks for reduced motion — and a jump across a year of weeks reads as the
+     * chart having been replaced rather than moved.
+     */
+    const scrollToRange = (task: TaskNode) => {
+        const panel = panelRef.current;
+        const start = parseDate(task.start_date);
+
+        if (!panel || !start) {
+            return;
+        }
+
+        setFocusedTaskId(task.id);
+
+        const from = panel.scrollLeft;
+        const to = Math.max(
+            0,
+            Math.min(
+                scale.offsetOf(start) - GUTTER,
+                panel.scrollWidth - panel.clientWidth,
+            ),
+        );
+
+        cancelAnimationFrame(slideFrame.current);
+
+        if (from === to) {
+            return;
+        }
+
+        // Timed from the first animation frame rather than the click, so a
+        // frame the browser was late to deliver does not eat the slide.
+        let startedAt = 0;
+
+        const step = (now: number) => {
+            startedAt = startedAt || now;
+
+            const progress = Math.min(1, (now - startedAt) / SLIDE_MS);
+
+            // Ease out: quick off the mark, settling on the target, so the
+            // distance travelled reads without the wait feeling long.
+            panel.scrollLeft =
+                from + (to - from) * (1 - Math.pow(1 - progress, 3));
+
+            if (progress < 1) {
+                slideFrame.current = requestAnimationFrame(step);
+            }
+        };
+
+        slideFrame.current = requestAnimationFrame(step);
+    };
 
     const applyRange = (patch: { from?: string | null; to?: string | null }) =>
         router.get(
@@ -363,10 +435,22 @@ export default function MonitoringPerson({
                                     {group.tasks.map((task) => (
                                         <div
                                             key={task.id}
-                                            className="group flex border-b last:border-b-0 hover:bg-accent"
+                                            className={cn(
+                                                'group flex cursor-pointer border-b transition-colors duration-150 last:border-b-0 hover:bg-accent',
+                                                focusedTaskId === task.id &&
+                                                    'bg-accent/60',
+                                            )}
+                                            onClick={() => scrollToRange(task)}
                                         >
                                             <div
-                                                className="sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r bg-background px-3 py-1.5 group-hover:bg-accent"
+                                                className={cn(
+                                                    // Opaque, since the week
+                                                    // columns scroll under it.
+                                                    'sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r px-3 py-1.5 transition-colors duration-150 group-hover:bg-accent',
+                                                    focusedTaskId === task.id
+                                                        ? 'bg-accent'
+                                                        : 'bg-background',
+                                                )}
                                                 style={{
                                                     width: `${labelWidth}px`,
                                                     paddingLeft: `${12 + task.depth * 14}px`,
@@ -420,6 +504,10 @@ export default function MonitoringPerson({
                                                     end={task.due_date}
                                                     progress={task.progress}
                                                     overdue={task.is_overdue}
+                                                    highlight={
+                                                        focusedTaskId ===
+                                                        task.id
+                                                    }
                                                     label={`${task.title}: ${formatDay(task.start_date)} sampai ${formatDay(task.due_date)}, progress ${task.progress}%`}
                                                 />
                                             </div>
@@ -525,12 +613,14 @@ MonitoringPerson.layout = ({
 }) =>
     isSelf && !tenancy.membership?.can_monitor
         ? {
+              wide: true,
               breadcrumbs: [
                   { title: 'Task saya', href: me() },
                   { title: 'Timeline', href: personRoute(member.id) },
               ],
           }
         : {
+              wide: true,
               breadcrumbs: [
                   { title: 'Monitoring per anggota', href: people() },
                   { title: member.name, href: personRoute(member.id) },

@@ -4,6 +4,8 @@ import type { BreadcrumbItem } from '@/types/navigation';
 export type AppLayoutProps = {
     children: ReactNode;
     breadcrumbs?: BreadcrumbItem[];
+    /** Drop the reading-width cap, for pages that chart across a wide grid. */
+    wide?: boolean;
 };
 
 export type AppVariant = 'header' | 'sidebar';
