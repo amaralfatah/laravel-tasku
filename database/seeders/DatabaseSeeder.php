@@ -12,6 +12,10 @@ class DatabaseSeeder extends Seeder
      * Seed the platform operator plus the worked example workspaces: one
      * person working alone, and one small team sharing the work.
      *
+     * {@see ArvinoWorkloadSeeder} adds a second programmer's backlog to the
+     * first of those, and skips itself where his account has not been
+     * registered — it looks the person up rather than opening one.
+     *
      * The operator is deliberately not a member of any workspace: SA-4 says a
      * super admin must not be able to read project or task content.
      */
@@ -29,6 +33,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             AmarWorkloadSeeder::class,
+            ArvinoWorkloadSeeder::class,
             KarsaTeamSeeder::class,
         ]);
     }

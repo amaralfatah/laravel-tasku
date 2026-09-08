@@ -25,7 +25,11 @@ use Illuminate\Support\Facades\Hash;
  * The whole worked example: one person, the workspace they run alone, and
  * their real backlog.
  *
- * Perkebunan Nusantara   ← Amar (Owner), the only member, one org unit
+ * Perkebunan Nusantara   ← Amar (Owner), one org unit
+ *
+ * {@see ArvinoWorkloadSeeder} joins a second programmer to the workspace this
+ * one opens, so the pair share a board; run alone, this seeder still stands up
+ * a workspace of one.
  *
  * The backlog is Amar Al Fatah's, taken from the running workspace — which
  * started as the per-programmer workbook the monitoring pages replace and has
@@ -81,7 +85,9 @@ class AmarWorkloadSeeder extends Seeder
      * with no ladder above them and no branch below. A single node of the org
      * tree, which the workspace itself runs, is what {@see WorkspaceScale}
      * reads as `Solo` — the roster, the organisation page and the reporting
-     * pages stay out of the way until there is somebody else to put on them.
+     * pages stay out of the way until there is somebody else to put on them,
+     * which is the step {@see ArvinoWorkloadSeeder} takes when it runs after
+     * this one and tips the same workspace into `Team`.
      *
      * Idempotent, so re-running the seeder adopts what is already there rather
      * than opening a second workspace beside it.
