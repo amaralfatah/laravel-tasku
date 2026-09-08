@@ -2,7 +2,6 @@ import { Form, Head, router } from '@inertiajs/react';
 import {
     Building2,
     CircleSlash,
-    LogIn,
     MailWarning,
     MoreHorizontal,
     Plus,
@@ -53,7 +52,6 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { masterSearch } from '@/routes/org-units';
-import { change as changeWorkspace } from '@/routes/workspace';
 import { index as workspacesIndex } from '@/routes/workspaces';
 
 type WorkspaceRow = {
@@ -445,25 +443,15 @@ export default function Workspaces({
                                             </DropdownMenuTrigger>
 
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
-                                                    disabled={
-                                                        !workspace.is_active
-                                                    }
-                                                    onSelect={() =>
-                                                        router.post(
-                                                            changeWorkspace(
-                                                                workspace.slug,
-                                                            ).url,
-                                                        )
-                                                    }
-                                                >
-                                                    <LogIn
-                                                        className="size-4"
-                                                        aria-hidden="true"
-                                                    />
-                                                    Buka workspace
-                                                </DropdownMenuItem>
-
+                                                {/*
+                                                 * No "open workspace" item: a
+                                                 * super admin is bounced back
+                                                 * here by EnsureWorkspaceAccess
+                                                 * (SA-4), so it could never
+                                                 * land. Reaching into a
+                                                 * workspace's people is what
+                                                 * `users.index` is for.
+                                                 */}
                                                 <DropdownMenuItem
                                                     onSelect={() =>
                                                         setRenaming(workspace)

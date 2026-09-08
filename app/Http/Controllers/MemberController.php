@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ChangeMemberRole;
 use App\Concerns\PicksOrgUnits;
 use App\Enums\WorkspaceRole;
 use App\Http\Requests\Member\MemberUpdateRequest;
@@ -77,15 +78,23 @@ class MemberController extends Controller
     /**
      * Update role and unit assignment (ORG-8, ORG-12).
      */
-    public function update(MemberUpdateRequest $request, WorkspaceMember $member): RedirectResponse
-    {
+    public function update(
+        MemberUpdateRequest $request,
+        WorkspaceMember $member,
+        ChangeMemberRole $changeRole,
+    ): RedirectResponse {
         $this->authorize('update', $member);
 
         $data = $request->validated();
+        $role = null;
 
         if (array_key_exists('role', $data) && $data['role'] !== $member->role->value) {
             $this->authorize('changeRole', $member);
+
+            $role = WorkspaceRole::from($data['role']);
         }
+
+        unset($data['role']);
 
         // Moving someone out of the viewer's subtree would hand them away for
         // good, so the destination has to be covered as well.
@@ -97,6 +106,12 @@ class MemberController extends Controller
         }
 
         $member->update($data);
+
+        // The role goes through the action so the last-Owner rule has one home
+        // shared with the operator console.
+        if ($role !== null) {
+            $changeRole->handle($member, $role);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Anggota diperbarui.']);
 

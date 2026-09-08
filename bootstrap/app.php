@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureWorkspaceAccess;
 use App\Http\Middleware\HandleAppearance;
@@ -25,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
+            // First, so a deactivated account is signed out before any page
+            // props are built for it.
+            EnsureActiveAccount::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

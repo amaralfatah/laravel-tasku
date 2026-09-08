@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\WorkspaceRole;
+use App\Actions\ChangeMemberRole;
 use App\Models\User;
 use App\Models\WorkspaceMember;
 use App\Support\Tenancy;
@@ -86,16 +86,13 @@ class WorkspaceMemberPolicy
 
     /**
      * A workspace must always keep at least one Owner.
+     *
+     * The rule itself lives in {@see ChangeMemberRole}, which the operator
+     * console shares — it has no tenant context, so it cannot lean on the
+     * global scope the way a query here would.
      */
     public function isLastTopRole(WorkspaceMember $member): bool
     {
-        if (! $member->role->isTop()) {
-            return false;
-        }
-
-        return WorkspaceMember::query()
-            ->where('role', WorkspaceRole::Owner)
-            ->where('id', '!=', $member->id)
-            ->doesntExist();
+        return ChangeMemberRole::isLastTopRole($member);
     }
 }

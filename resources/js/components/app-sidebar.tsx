@@ -7,6 +7,7 @@ import {
     ListChecks,
     Network,
     ShieldCheck,
+    UserCog,
     Users,
     UserSearch,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ import {
 } from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
 import { index as requestersIndex } from '@/routes/requesters';
+import { index as usersIndex } from '@/routes/users';
 import { index as workspacesIndex } from '@/routes/workspaces';
 import type { NavEntry, NavItem } from '@/types';
 
@@ -169,6 +171,11 @@ export function AppSidebar() {
                 title: 'Kelola workspace',
                 href: workspacesIndex(),
                 icon: ShieldCheck,
+            },
+            {
+                title: 'Kelola user',
+                href: usersIndex(),
+                icon: UserCog,
             },
             {
                 title: 'Struktur organisasi',

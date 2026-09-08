@@ -3,12 +3,15 @@
 namespace App\Providers;
 
 use App\Actions\Fortify\ResetUserPassword;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
@@ -39,6 +42,31 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureActions(): void
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
+
+        /*
+         * A deactivated account is refused at the door, rather than being told
+         * its password is wrong — the operator switched it off deliberately,
+         * and a misleading error only sends the person to reset a password
+         * that was never the problem.
+         *
+         * `EnsureActiveAccount` covers the other half: sessions that were
+         * already open when the account was switched off.
+         */
+        Fortify::authenticateUsing(function (Request $request): ?User {
+            $user = User::where('email', $request->string(Fortify::username()))->first();
+
+            if ($user === null || ! Hash::check((string) $request->input('password'), $user->password)) {
+                return null;
+            }
+
+            if (! $user->is_active) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => 'Akun Anda dinonaktifkan. Hubungi administrator.',
+                ]);
+            }
+
+            return $user;
+        });
     }
 
     /**

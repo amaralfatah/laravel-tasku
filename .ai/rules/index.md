@@ -4,6 +4,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 
 | Applies to | Rule file |
 | --- | --- |
+| app/Http/Controllers/UserController.php, app/Http/Controllers/UserMembershipController.php, app/Actions/ChangeMemberRole.php, app/Actions/AddUserToWorkspace.php | .ai/rules/actions.md |
 | api/** | .ai/rules/api.md |
 | app/** | .ai/rules/app.md |
 | resources/js/components/app-sidebar.tsx | .ai/rules/components.md |

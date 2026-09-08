@@ -24,6 +24,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string $name
  * @property string $email
  * @property bool $is_super_admin
+ * @property bool $is_active whether the operator still lets this account sign in
  * @property string|null $avatar_path
  * @property-read string|null $avatar public URL derived from avatar_path
  * @property Carbon|null $email_verified_at
@@ -96,6 +97,7 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'is_super_admin' => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 }

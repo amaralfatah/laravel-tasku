@@ -25,6 +25,7 @@ export function OrgUnitSearch({
     autoFocus = false,
     emptyHint,
     endpoint = searchUnits,
+    query,
 }: {
     onSelect: (unit: OrgUnitHit) => void;
     /** Hide the unit at this path and everything under it. */
@@ -38,6 +39,12 @@ export function OrgUnitSearch({
      * search, which covers the whole tree.
      */
     endpoint?: typeof searchUnits;
+    /**
+     * Extra query parameters for the endpoint. The operator's user console
+     * passes `workspace` so the master search comes back narrowed to the
+     * subtree that workspace runs, instead of all fourteen thousand units.
+     */
+    query?: Record<string, string | number>;
 }) {
     const [term, setTerm] = useState('');
 
@@ -51,6 +58,7 @@ export function OrgUnitSearch({
     // Only the newest request may write to state; a slow earlier one is dropped.
     const requestId = useRef(0);
 
+    const queryKey = JSON.stringify(query ?? {});
     const trimmed = term.trim();
     const tooShort = trimmed.length < MIN_TERM;
     const hits = !tooShort && result?.term === trimmed ? result.units : null;
@@ -65,7 +73,7 @@ export function OrgUnitSearch({
         const controller = new AbortController();
 
         const timer = window.setTimeout(() => {
-            fetch(endpoint({ query: { q: trimmed } }).url, {
+            fetch(endpoint({ query: { q: trimmed, ...query } }).url, {
                 headers: { Accept: 'application/json' },
                 credentials: 'same-origin',
                 signal: controller.signal,
@@ -89,7 +97,10 @@ export function OrgUnitSearch({
             window.clearTimeout(timer);
             controller.abort();
         };
-    }, [trimmed, tooShort, endpoint]);
+        // `query` is an object literal at every call site, so a new identity
+        // arrives on each render; the serialized form is what actually changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trimmed, tooShort, endpoint, queryKey]);
 
     const visible = (hits ?? []).filter(
         (hit) => !excludeSubtreeOf || !hit.path.startsWith(excludeSubtreeOf),

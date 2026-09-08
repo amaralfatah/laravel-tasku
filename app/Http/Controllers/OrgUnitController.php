@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\OrgUnit\OrgUnitStoreRequest;
 use App\Http\Requests\OrgUnit\OrgUnitUpdateRequest;
 use App\Models\OrgUnit;
+use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Services\OrgUnitTree;
 use App\Support\Tenancy;
@@ -88,6 +89,7 @@ class OrgUnitController extends Controller
 
         $units = OrgUnit::query()
             ->tap(fn (Builder $query) => $this->withinScope($query, $this->tenancy->member()))
+            ->tap(fn (Builder $query) => $this->withinWorkspace($query, $request))
             // `like` is case sensitive on Postgres, so both sides are lowered.
             ->whereRaw('lower(name) like ?', ['%'.mb_strtolower($term).'%'])
             ->orderBy('depth')
@@ -224,6 +226,29 @@ class OrgUnitController extends Controller
      *
      * @param  Builder<OrgUnit>  $query
      */
+    /**
+     * Narrows a master-tree search to the subtree one workspace runs.
+     *
+     * The operator searches the untrimmed tree, which is nearly fourteen
+     * thousand units. When they are picking a placement inside a named
+     * workspace — the user console does exactly this — anything outside that
+     * workspace's own branch is a wrong answer the form would reject anyway,
+     * so it is better not to offer it. Ignored without a tenant-free context,
+     * because a leader is already narrowed by {@see withinScope()}.
+     */
+    protected function withinWorkspace(Builder $query, Request $request): void
+    {
+        if ($this->tenancy->check() || ! $request->filled('workspace')) {
+            return;
+        }
+
+        $path = Workspace::find($request->integer('workspace'))?->orgUnitRootPath();
+
+        $path === null
+            ? $query->whereRaw('1 = 0')
+            : $query->where('path', 'like', $path.'%');
+    }
+
     protected function withinScope(Builder $query, ?WorkspaceMember $member): void
     {
         $scopePath = $member?->hasFullScope() ? null : $member?->scopePath();
