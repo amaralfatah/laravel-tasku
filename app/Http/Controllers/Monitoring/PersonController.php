@@ -194,6 +194,7 @@ class PersonController extends Controller
                 'project' => [
                     'id' => $project->id,
                     'name' => $project->name,
+                    'key' => $project->key,
                 ],
                 'can_edit' => $canEdit,
                 'assignees' => $this->assigneeOptions($project),

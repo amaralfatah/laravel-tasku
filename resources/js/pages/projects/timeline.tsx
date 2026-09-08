@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { CalendarOff, ChevronRight, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProjectHeader } from '@/components/project/project-header';
+import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
 import {
@@ -111,6 +112,8 @@ export default function ProjectTimeline({
     const [zoom, setZoom] = useState<Zoom>('week');
     const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
     const [openTaskId, setOpenTaskId] = useFocusedTask(focusTaskId);
+    const [createParent, setCreateParent] = useState<TaskNode | null>(null);
+    const [createOpen, setCreateOpen] = useState(false);
 
     const applyFilters = useTaskFilters(filters, timeline(project.id).url);
 
@@ -443,6 +446,25 @@ export default function ProjectTimeline({
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
                 onOpenTask={setOpenTaskId}
+                onAddSubtask={
+                    openTask
+                        ? () => {
+                              setCreateParent(openTask);
+                              setCreateOpen(true);
+                          }
+                        : undefined
+                }
+            />
+
+            <TaskCreateDialog
+                open={createOpen}
+                project={project}
+                parent={createParent}
+                assignees={assignees}
+                requesters={requesters}
+                statuses={statuses}
+                priorities={priorities}
+                onClose={() => setCreateOpen(false)}
             />
         </>
     );

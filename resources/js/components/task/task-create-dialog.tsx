@@ -88,7 +88,8 @@ export function TaskCreateDialog({
     onClose,
 }: {
     open: boolean;
-    project: ProjectSummary;
+    /** Only the id and key are ever read — callers with just a project summary need not build a full one. */
+    project: Pick<ProjectSummary, 'id' | 'key'>;
     parent: TaskNode | null;
     /** Column the task should land in when opened from a board column. */
     status?: TaskStatus;

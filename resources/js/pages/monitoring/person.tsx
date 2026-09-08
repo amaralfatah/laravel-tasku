@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarOff, ClipboardList, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProgressBar } from '@/components/task/progress-bar';
+import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import {
     TimelineBar,
@@ -32,7 +33,7 @@ import type { TaskAssignee, TaskNode } from '@/types/tasks';
 import type { Tenancy } from '@/types/tenancy';
 
 type ProjectGroup = {
-    project: { id: number; name: string };
+    project: { id: number; name: string; key: string };
     /** Whether the viewer may edit tasks of this project (varies per block). */
     can_edit: boolean;
     assignees: TaskAssignee[];
@@ -84,6 +85,9 @@ export default function MonitoringPerson({
 }) {
     const getInitials = useInitials();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
+    const [createParent, setCreateParent] = useState<TaskNode | null>(null);
+    const [createGroup, setCreateGroup] = useState<ProjectGroup | null>(null);
+    const [createOpen, setCreateOpen] = useState(false);
 
     const canMonitor = usePage().props.tenancy.membership?.can_monitor ?? false;
 
@@ -135,6 +139,7 @@ export default function MonitoringPerson({
             ? null
             : {
                   task,
+                  group,
                   assignees: group.assignees,
                   subtasks: group.tasks.filter(
                       (item) => item.parent_task_id === task.id,
@@ -477,7 +482,29 @@ export default function MonitoringPerson({
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
                 onOpenTask={setOpenTaskId}
+                onAddSubtask={
+                    open
+                        ? () => {
+                              setCreateParent(open.task);
+                              setCreateGroup(open.group);
+                              setCreateOpen(true);
+                          }
+                        : undefined
+                }
             />
+
+            {createGroup && (
+                <TaskCreateDialog
+                    open={createOpen}
+                    project={createGroup.project}
+                    parent={createParent}
+                    assignees={createGroup.assignees}
+                    requesters={requesters}
+                    statuses={statuses}
+                    priorities={priorities}
+                    onClose={() => setCreateOpen(false)}
+                />
+            )}
         </>
     );
 }
