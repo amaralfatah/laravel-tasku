@@ -1,6 +1,7 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarOff, ClipboardList, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { MyWorkTabs } from '@/components/monitoring/my-work-tabs';
 import { ProgressBar } from '@/components/task/progress-bar';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import {
@@ -23,12 +24,13 @@ import { useInitials } from '@/hooks/use-initials';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { formatDay } from '@/lib/week';
-import { people, person as personRoute } from '@/routes/monitoring';
+import { me, people, person as personRoute } from '@/routes/monitoring';
 import { exportMethod as exportPerson } from '@/routes/monitoring/person';
 import { show as showProject } from '@/routes/projects';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import type { TaskAssignee, TaskNode } from '@/types/tasks';
+import type { Tenancy } from '@/types/tenancy';
 
 type ProjectGroup = {
     project: { id: number; name: string };
@@ -84,6 +86,8 @@ export default function MonitoringPerson({
     const getInitials = useInitials();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
 
+    const canMonitor = usePage().props.tenancy.membership?.can_monitor ?? false;
+
     const allTasks = useMemo(
         () => tasks.flatMap((group) => group.tasks),
         [tasks],
@@ -113,8 +117,15 @@ export default function MonitoringPerson({
         (task) => !task.start_date || !task.due_date,
     );
 
-    // The sheet needs the assignee list of the project the task belongs to,
-    // so the open task is looked up together with its block.
+    /**
+     * The open task, with the assignee list of the project it belongs to and
+     * the family around it, so the modal shows sub tasks here as it does on a
+     * project page.
+     *
+     * The family is read from the same block, which holds this member's tasks
+     * and no others. That is the hierarchy the chart already indents by, so
+     * the modal agrees with the rows behind it.
+     */
     const open = useMemo(() => {
         const group = tasks.find((item) =>
             item.tasks.some((task) => task.id === openTaskId),
@@ -123,7 +134,17 @@ export default function MonitoringPerson({
 
         return group === undefined || task === undefined
             ? null
-            : { task, assignees: group.assignees };
+            : {
+                  task,
+                  assignees: group.assignees,
+                  subtasks: group.tasks.filter(
+                      (item) => item.parent_task_id === task.id,
+                  ),
+                  parent:
+                      group.tasks.find(
+                          (item) => item.id === task.parent_task_id,
+                      ) ?? null,
+              };
     }, [tasks, openTaskId]);
 
     // The download mirrors what is on screen, so the range filter and the
@@ -187,21 +208,33 @@ export default function MonitoringPerson({
                             </a>
                         </Button>
 
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={people()}>Semua anggota</Link>
-                        </Button>
+                        {/* The roster is not everyone's to open: a member who
+                            leads nobody reaches their own timeline but is
+                            refused `monitoring.people`. Reading yourself, the
+                            tabs below already carry the way back. */}
+                        {canMonitor && (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={people()}>Semua anggota</Link>
+                            </Button>
+                        )}
                     </div>
                 </div>
 
+                {/* Your own two views sit side by side; someone else's timeline
+                    has no agenda beside it to switch to. */}
+                {isSelf && (
+                    <MyWorkTabs memberId={member.id} active="timeline" />
+                )}
+
                 <div className="flex flex-wrap items-end gap-3">
-                    <div className="grid gap-1.5">
+                    <div className="grid min-w-0 flex-1 gap-1.5 sm:flex-none">
                         <Label htmlFor="range-from" className="text-xs">
                             Dari tanggal
                         </Label>
                         <Input
                             id="range-from"
                             type="date"
-                            className="w-36 sm:w-44"
+                            className="w-full sm:w-44"
                             value={filters.from ?? ''}
                             onChange={(event) =>
                                 applyRange({ from: event.target.value || null })
@@ -209,14 +242,14 @@ export default function MonitoringPerson({
                         />
                     </div>
 
-                    <div className="grid gap-1.5">
+                    <div className="grid min-w-0 flex-1 gap-1.5 sm:flex-none">
                         <Label htmlFor="range-to" className="text-xs">
                             Sampai tanggal
                         </Label>
                         <Input
                             id="range-to"
                             type="date"
-                            className="w-36 sm:w-44"
+                            className="w-full sm:w-44"
                             value={filters.to ?? ''}
                             onChange={(event) =>
                                 applyRange({ to: event.target.value || null })
@@ -234,8 +267,12 @@ export default function MonitoringPerson({
                         </Button>
                     )}
 
+                    {/* Full width on a phone, where `ml-auto` left it stranded
+                        against the right edge on a line of its own. Three
+                        equal segments is what a control of a few exclusive
+                        choices looks like at that width. */}
                     <div
-                        className="ml-auto flex rounded-md border p-0.5"
+                        className="flex w-full rounded-md border p-0.5 sm:ml-auto sm:w-auto"
                         role="group"
                         aria-label="Tingkat zoom"
                     >
@@ -243,6 +280,7 @@ export default function MonitoringPerson({
                             <Button
                                 key={level}
                                 size="sm"
+                                className="flex-1 sm:flex-none"
                                 variant={zoom === level ? 'secondary' : 'ghost'}
                                 aria-pressed={zoom === level}
                                 onClick={() => setZoom(level)}
@@ -438,19 +476,43 @@ export default function MonitoringPerson({
 
             <TaskDetailModal
                 task={open?.task ?? null}
+                subtasks={open?.subtasks ?? []}
+                parent={open?.parent ?? null}
                 assignees={open?.assignees ?? []}
                 requesters={requesters}
                 statuses={statuses}
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
+                onOpenTask={setOpenTaskId}
             />
         </>
     );
 }
 
-MonitoringPerson.layout = ({ member }: { member: Member }) => ({
-    breadcrumbs: [
-        { title: 'Monitoring per anggota', href: people() },
-        { title: member.name, href: personRoute(member.id) },
-    ],
-});
+/**
+ * Own timeline or someone else's — the trail differs, because the roster above
+ * it is closed to a member who leads nobody. Reading yourself always starts at
+ * "Task saya", which is a page everybody may open.
+ */
+MonitoringPerson.layout = ({
+    member,
+    isSelf,
+    tenancy,
+}: {
+    member: Member;
+    isSelf: boolean;
+    tenancy: Tenancy;
+}) =>
+    isSelf && !tenancy.membership?.can_monitor
+        ? {
+              breadcrumbs: [
+                  { title: 'Task saya', href: me() },
+                  { title: 'Timeline', href: personRoute(member.id) },
+              ],
+          }
+        : {
+              breadcrumbs: [
+                  { title: 'Monitoring per anggota', href: people() },
+                  { title: member.name, href: personRoute(member.id) },
+              ],
+          };

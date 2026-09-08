@@ -146,3 +146,14 @@ export const TASK_PRIORITY_BADGE: Record<TaskPriority, string> = {
     high: 'border-priority-high-foreground/60 text-priority-high-foreground',
     urgent: 'border-priority-urgent-foreground/70 text-priority-urgent-foreground',
 };
+
+/**
+ * The same hue with no chip around it, for a line of plain meta text where a
+ * row of outlined chips would be louder than the title above them.
+ */
+export const TASK_PRIORITY_TEXT: Record<TaskPriority, string> = {
+    low: 'text-priority-low-foreground',
+    medium: 'text-priority-medium-foreground',
+    high: 'text-priority-high-foreground',
+    urgent: 'text-priority-urgent-foreground',
+};

@@ -95,6 +95,12 @@
     --radius-3xl: 20px;
     --radius-4xl: 24px;
 
+    /*
+     * Height of the sticky app header. Any bar that floats under it offsets by
+     * this, so the two cannot drift apart when the header changes.
+     */
+    --header-height: calc(var(--spacing) * 13);
+
     /* Semantic surfaces. */
     --color-background: var(--background);
     --color-foreground: var(--foreground);

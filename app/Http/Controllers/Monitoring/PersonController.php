@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Monitoring;
 
+use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\Task;
@@ -11,6 +12,7 @@ use App\Queries\MemberWorkloadQuery;
 use App\Support\TaskPresenter;
 use App\Support\Tenancy;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,6 +23,16 @@ use Inertia\Response;
  */
 class PersonController extends Controller
 {
+    /**
+     * How far back the landing page carries finished work.
+     *
+     * Someone who has been here a year has hundreds of done tasks, and sending
+     * every one of them to the browser to sit behind a collapsed toggle costs
+     * a payload that grows for as long as the account lives. The timeline
+     * still shows the lot.
+     */
+    protected const DONE_WINDOW_DAYS = 14;
+
     public function __construct(
         protected Tenancy $tenancy,
         protected MemberWorkloadQuery $workload,
@@ -47,6 +59,42 @@ class PersonController extends Controller
      */
     public function show(Request $request, WorkspaceMember $member): Response
     {
+        return Inertia::render('monitoring/person', $this->personProps($request, $member));
+    }
+
+    /**
+     * Where a signed-in member lands (MON-7).
+     *
+     * The same tasks as the timeline, ordered by when they are due instead of
+     * by project, so the first screen after signing in answers "what do I do
+     * now" rather than "how does the quarter look". The gantt stays one click
+     * away on `monitoring.person`.
+     */
+    public function me(Request $request): Response
+    {
+        $member = $this->tenancy->member();
+
+        abort_if($member === null, 403);
+
+        $props = $this->personProps($request, $member);
+        [$groups, $olderDone] = $this->trimFinishedWork($props['tasks']);
+
+        return Inertia::render('monitoring/focus', [
+            ...$props,
+            'tasks' => $groups,
+            'doneWindowDays' => self::DONE_WINDOW_DAYS,
+            'olderDone' => $olderDone,
+        ]);
+    }
+
+    /**
+     * Props shared by the timeline and the landing page, so the two views
+     * cannot drift apart or cost a different number of queries.
+     *
+     * @return array<string, mixed>
+     */
+    protected function personProps(Request $request, WorkspaceMember $member): array
+    {
         $this->authorize('viewMember', $member);
 
         $from = $request->date('from')?->toDateString();
@@ -55,7 +103,7 @@ class PersonController extends Controller
         $tasks = $this->workload->tasksFor($member->user_id, $from, $to);
         $member->load(['user:id,name,email,avatar_path', 'orgUnit:id,name']);
 
-        return Inertia::render('monitoring/person', [
+        return [
             'member' => [
                 'id' => $member->id,
                 'user_id' => $member->user_id,
@@ -70,19 +118,56 @@ class PersonController extends Controller
             'requesters' => TaskPresenter::requesterOptions(),
             'filters' => ['from' => $from, 'to' => $to],
             'isSelf' => $member->user_id === $request->user()->id,
-        ]);
+        ];
     }
 
     /**
-     * Shortcut to the current user's own page, used as the landing page (MON-7).
+     * Drop finished work older than the window, and count what was dropped.
+     *
+     * The filtering happens after the tasks are serialised, never before: the
+     * rollup percentage of a parent is averaged over the children in the same
+     * collection, so removing a finished child any earlier would quietly move
+     * its parent's number.
+     *
+     * @param  array<int, array<string, mixed>>  $groups
+     * @return array{0: array<int, array<string, mixed>>, 1: int}
      */
-    public function me(Request $request): Response
+    protected function trimFinishedWork(array $groups): array
     {
-        $member = $this->tenancy->member();
+        $cutoff = Carbon::now()->subDays(self::DONE_WINDOW_DAYS);
+        $dropped = 0;
+        $kept = [];
 
-        abort_if($member === null, 403);
+        foreach ($groups as $group) {
+            $tasks = array_values(array_filter(
+                $group['tasks'],
+                function (array $task) use ($cutoff, &$dropped): bool {
+                    if ($task['status'] !== TaskStatus::Done->value) {
+                        return true;
+                    }
 
-        return $this->show($request, $member);
+                    // Work finished before the trail was kept has no date to
+                    // judge by, and it is old by definition.
+                    $finished = $task['completed_at'] === null
+                        ? null
+                        : Carbon::parse($task['completed_at']);
+
+                    if ($finished !== null && $finished->greaterThanOrEqualTo($cutoff)) {
+                        return true;
+                    }
+
+                    $dropped++;
+
+                    return false;
+                },
+            ));
+
+            if ($tasks !== []) {
+                $kept[] = [...$group, 'tasks' => $tasks];
+            }
+        }
+
+        return [$kept, $dropped];
     }
 
     /**

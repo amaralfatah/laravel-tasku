@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskStatus;
 use App\Enums\WorkspaceRole;
 use App\Models\OrgUnit;
 use App\Models\Project;
@@ -26,7 +27,7 @@ test('my own task page lets me edit the tasks of projects i belong to', function
         ->get(route('monitoring.me'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('monitoring/person')
+            ->component('monitoring/focus')
             ->where('isSelf', true)
             ->where('tasks.0.can_edit', true)
             ->where('tasks.0.tasks.0.can_edit', true)
@@ -151,5 +152,72 @@ test('my own task page keeps edit rights on a project i started myself', functio
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->where('tasks.0.can_edit', true)
+        );
+});
+
+test('a member who leads nobody is not sent from their own timeline into a roster they may not open', function () {
+    // The timeline is reachable by everyone for themselves, but the roster
+    // above it is not — so the page must not offer it as the way back.
+    $workspace = Workspace::factory()->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
+
+    $this->actingAs($member->user)->withSession(['workspace_id' => $workspace->id]);
+
+    $this->get(route('monitoring.person', $member))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('monitoring/person')
+            ->where('isSelf', true)
+            ->where('tenancy.membership.can_monitor', false)
+        );
+
+    $this->get(route('monitoring.people'))->assertForbidden();
+});
+
+test('the landing page carries only recent finished work and counts the rest', function () {
+    $workspace = Workspace::factory()->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
+
+    $project = Project::factory()->in($unit)->create();
+    $project->members()->attach($member->user_id);
+
+    Task::factory()->for($project)->create([
+        'assignee_id' => $member->user_id,
+        'status' => TaskStatus::Done,
+        'completed_at' => now()->subDays(3),
+    ]);
+
+    $old = Task::factory()->count(2)->for($project)->create([
+        'assignee_id' => $member->user_id,
+        'status' => TaskStatus::Done,
+    ]);
+
+    // The observer stamps `completed_at` itself the moment a status turns
+    // done, so the age has to be written past it.
+    Task::whereKey($old->modelKeys())->update(['completed_at' => now()->subDays(90)]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('monitoring.me'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('monitoring/focus')
+            ->where('olderDone', 2)
+            ->where('doneWindowDays', 14)
+            ->has('tasks.0.tasks', 1)
+        );
+
+    // The timeline is the full record, so nothing is trimmed there.
+    $this->get(route('monitoring.person', $member))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('monitoring/person')
+            ->has('tasks.0.tasks', 3)
         );
 });
