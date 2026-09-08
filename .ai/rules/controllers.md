@@ -39,3 +39,10 @@ The `review` status and `tasks.review` still exist for teams that want a second 
 A task carrying neither date is a 422. Syncing would blank the dates its sub tasks already have, which is the opposite of the button's job. The modal hides the button in that state; keep the server check anyway.
 
 Covered by tests/Feature/TaskDateSyncTest.php.
+
+## Requester sync mirrors date sync, same shape and same refusal
+`syncRequester()` copies `requester_id` down the whole subtree with one `path`-prefix `update()`, model events skipped — same reasoning as `syncDates()`: the requester feeds no rollup.
+
+A task with a null `requester_id` is a 422, because syncing would blank the requester its sub tasks already carry and knock them out of every report grouped by requester. The modal hides the item in that state; keep the server check.
+
+Covered by tests/Feature/TaskRequesterSyncTest.php. Any further "samakan X ke sub task" action should follow this shape rather than inventing a new one.

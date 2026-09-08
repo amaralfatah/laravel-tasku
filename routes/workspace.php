@@ -81,6 +81,8 @@ Route::middleware(['auth', 'workspace'])->group(function () {
     Route::post('tasks/{task}/move', [TaskController::class, 'move'])->name('tasks.move');
     // Push a task's own dates down its whole subtree in one go.
     Route::post('tasks/{task}/sync-dates', [TaskController::class, 'syncDates'])->name('tasks.sync-dates');
+    // Same, for the person who asked for the work.
+    Route::post('tasks/{task}/sync-requester', [TaskController::class, 'syncRequester'])->name('tasks.sync-requester');
     // Accepting or returning work somebody handed up (TSK-18).
     Route::post('tasks/{task}/review', [TaskController::class, 'review'])->name('tasks.review');
     Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');

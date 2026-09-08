@@ -26,6 +26,8 @@ import {
     Pencil,
     Plus,
     Trash2,
+    TriangleAlert,
+    UserRoundCheck,
     X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -65,8 +67,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
-import { formatDateTime } from '@/lib/week';
-import { destroy, move, review, syncDates, update } from '@/routes/tasks';
+import { formatDateTime, formatDay } from '@/lib/week';
+import {
+    destroy,
+    move,
+    review,
+    syncDates,
+    syncRequester,
+    update,
+} from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import {
@@ -408,6 +417,45 @@ function TaskDetail({
         );
     };
 
+    const [syncingRequester, setSyncingRequester] = useState(false);
+
+    /**
+     * The same idea for the requester: a phase and everything under it answer
+     * to one person, and a sub task without a requester falls out of every
+     * report grouped by one. Offered only once this task names a requester —
+     * there is nothing to copy otherwise.
+     */
+    const canSyncRequester =
+        !readOnly && task.children_count > 0 && task.requester !== null;
+
+    const syncSubtaskRequester = () => {
+        if (task.requester === null) {
+            return;
+        }
+
+        // Name the requester rather than a bare "are you sure": that is the
+        // one thing worth checking before saying yes.
+        if (
+            !confirm(
+                `Samakan pemohon seluruh sub task di bawah "${task.title}" menjadi ${task.requester.name}? Pemohon yang sudah terisi akan ditimpa.`,
+            )
+        ) {
+            return;
+        }
+
+        router.post(
+            syncRequester(task.id).url,
+            {},
+            {
+                preserveScroll: true,
+                // Without this the page remounts and the modal closes.
+                preserveState: true,
+                onStart: () => setSyncingRequester(true),
+                onFinish: () => setSyncingRequester(false),
+            },
+        );
+    };
+
     const orderedSubtasks = useMemo(() => {
         const byPosition = [...subtasks].sort(
             (a, b) => a.position - b.position,
@@ -565,10 +613,14 @@ function TaskDetail({
                             className="text-xs text-muted-foreground"
                         >
                             {saving ? 'Menyimpan…' : ''}
-                            {!saving && syncingDates ? 'Menyamakan…' : ''}
+                            {!saving && (syncingDates || syncingRequester)
+                                ? 'Menyamakan…'
+                                : ''}
                         </span>
 
-                        {(task.can_delete || canSyncDates) && (
+                        {(task.can_delete ||
+                            canSyncDates ||
+                            canSyncRequester) && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
@@ -584,7 +636,7 @@ function TaskDetail({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    {/* Both items here act on the whole
+                                    {/* Every item here acts on the whole
                                         subtree, which is what puts them
                                         together and one level down. */}
                                     {canSyncDates && (
@@ -600,9 +652,23 @@ function TaskDetail({
                                         </DropdownMenuItem>
                                     )}
 
-                                    {canSyncDates && task.can_delete && (
-                                        <DropdownMenuSeparator />
+                                    {canSyncRequester && (
+                                        <DropdownMenuItem
+                                            disabled={syncingRequester}
+                                            onSelect={syncSubtaskRequester}
+                                        >
+                                            <UserRoundCheck
+                                                className="size-4"
+                                                aria-hidden="true"
+                                            />
+                                            Samakan pemohon sub task
+                                        </DropdownMenuItem>
                                     )}
+
+                                    {(canSyncDates || canSyncRequester) &&
+                                        task.can_delete && (
+                                            <DropdownMenuSeparator />
+                                        )}
 
                                     {task.can_delete && (
                                         <DropdownMenuItem
@@ -1259,22 +1325,13 @@ function TaskDetail({
                                         Mulai
                                     </Label>
                                     <div className="min-w-0">
-                                        <Input
+                                        <DateField
                                             id="task-start"
-                                            type="date"
+                                            value={task.start_date}
                                             disabled={readOnly}
-                                            value={task.start_date ?? ''}
-                                            onChange={(event) =>
-                                                save({
-                                                    start_date:
-                                                        event.target.value ||
-                                                        null,
-                                                })
+                                            onCommit={(value) =>
+                                                save({ start_date: value })
                                             }
-                                            className={cn(
-                                                'h-9 px-2 text-sm',
-                                                QUIET_CONTROL,
-                                            )}
                                         />
                                         <InputError
                                             message={errors.start_date}
@@ -1291,35 +1348,15 @@ function TaskDetail({
                                         {/* Jira paints a passed due date red in
                                             this panel, and it is the one fact
                                             here somebody must not miss. */}
-                                        <Input
+                                        <DateField
                                             id="task-due"
-                                            type="date"
+                                            value={task.due_date}
                                             disabled={readOnly}
-                                            value={task.due_date ?? ''}
-                                            title={
-                                                task.is_overdue
-                                                    ? 'Tanggal selesai sudah terlewat'
-                                                    : undefined
+                                            overdue={task.is_overdue}
+                                            onCommit={(value) =>
+                                                save({ due_date: value })
                                             }
-                                            onChange={(event) =>
-                                                save({
-                                                    due_date:
-                                                        event.target.value ||
-                                                        null,
-                                                })
-                                            }
-                                            className={cn(
-                                                'h-9 px-2 text-sm',
-                                                QUIET_CONTROL,
-                                                task.is_overdue &&
-                                                    'border-destructive/50 font-medium text-destructive',
-                                            )}
                                         />
-                                        {task.is_overdue && (
-                                            <span className="sr-only">
-                                                Tanggal selesai sudah terlewat.
-                                            </span>
-                                        )}
                                         <InputError message={errors.due_date} />
                                     </div>
 
@@ -1424,18 +1461,16 @@ function TaskDetail({
                                     <span className="self-start pt-1.5 text-sm text-muted-foreground">
                                         Progress
                                     </span>
-                                    <div className="min-w-0 space-y-1.5 py-1">
+                                    {/* The count that used to sit under this
+                                        bar is the same sentence the sub task
+                                        heading already carries, one column
+                                        over; the panel is a list of facts, not
+                                        a second copy of them. */}
+                                    <div className="min-w-0 py-1">
                                         <ProgressBar
                                             value={task.progress}
                                             showLabel
                                         />
-                                        {task.children_count > 0 && (
-                                            <p className="text-xs text-muted-foreground">
-                                                {task.done_children_count} dari{' '}
-                                                {task.children_count} sub task
-                                                selesai.
-                                            </p>
-                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1482,6 +1517,80 @@ const SUBTASK_COLUMNS =
  * so a row and its parent never overwrite each other, and the modal keeps its
  * state while the page props refresh.
  */
+/**
+ * A date in the Details panel, the way Jira draws one: the formatted day as a
+ * quiet label, which becomes a picker only once it is clicked.
+ *
+ * A bare `<input type="date">` renders in the *browser's* locale, so an
+ * Indonesian task showed "09/25/2026" beside the "25 Sep 2026" every other
+ * surface prints — two orders for the same fact, and the American one first.
+ * The label is formatted by the app, so it reads the same everywhere; editing
+ * still uses the native picker underneath.
+ */
+function DateField({
+    id,
+    value,
+    disabled,
+    overdue = false,
+    onCommit,
+}: {
+    id: string;
+    value: string | null;
+    disabled: boolean;
+    overdue?: boolean;
+    onCommit: (value: string | null) => void;
+}) {
+    const [editing, setEditing] = useState(false);
+
+    if (editing && !disabled) {
+        return (
+            <Input
+                id={id}
+                type="date"
+                autoFocus
+                value={value ?? ''}
+                onChange={(event) => onCommit(event.target.value || null)}
+                onBlur={() => setEditing(false)}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === 'Escape') {
+                        setEditing(false);
+                    }
+                }}
+                className={cn('h-9 px-2 text-sm', QUIET_CONTROL)}
+            />
+        );
+    }
+
+    return (
+        <button
+            id={id}
+            type="button"
+            disabled={disabled}
+            onClick={() => setEditing(true)}
+            title={overdue ? 'Tanggal selesai sudah terlewat' : undefined}
+            className={cn(
+                'flex h-9 w-full items-center gap-1.5 rounded-md border px-2 text-left text-sm',
+                QUIET_CONTROL,
+                disabled && 'pointer-events-none',
+                overdue && 'font-medium text-destructive hover:border-input',
+            )}
+        >
+            {overdue && (
+                <TriangleAlert
+                    className="size-3.5 shrink-0"
+                    aria-hidden="true"
+                />
+            )}
+            <span className={cn('truncate', !value && 'text-muted-foreground')}>
+                {value ? formatDay(value) : 'Tambah tanggal'}
+            </span>
+            {overdue && (
+                <span className="sr-only">Tanggal selesai sudah terlewat.</span>
+            )}
+        </button>
+    );
+}
+
 const patchSubtask = (
     id: number,
     payload: Record<string, string | number | null>,

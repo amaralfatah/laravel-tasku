@@ -189,6 +189,42 @@ class TaskController extends Controller
     }
 
     /**
+     * Copy this task's requester onto every task below it.
+     *
+     * A phase and its sub tasks answer to the same person, so retyping the
+     * requester on each row is busywork, and a sub task carrying none drops
+     * out of every report grouped by requester. Like the date sync this reaches
+     * the whole subtree, not just the direct children.
+     *
+     * A task with no requester is refused: syncing would blank the requester
+     * its sub tasks already carry, which is the opposite of the button's job.
+     */
+    public function syncRequester(Task $task): RedirectResponse
+    {
+        $this->authorize('update', $task);
+
+        abort_if(
+            $task->requester_id === null,
+            422,
+            'Task ini belum punya pemohon untuk disalin.',
+        );
+
+        // `path` carries the task's own id — `/12/45/` — so the subtree is a
+        // prefix match, and the task itself is the one row excluded from it.
+        $synced = Task::query()
+            ->where('project_id', $task->project_id)
+            ->where('path', 'like', $task->path.'%')
+            ->whereKeyNot($task->id)
+            ->update(['requester_id' => $task->requester_id]);
+
+        Inertia::flash('toast', $synced === 0
+            ? ['type' => 'info', 'message' => 'Task ini belum punya sub task.']
+            : ['type' => 'success', 'message' => "Pemohon {$synced} sub task disamakan."]);
+
+        return back();
+    }
+
+    /**
      * Soft delete the task and everything below it (TSK-3).
      */
     public function destroy(Task $task): RedirectResponse
