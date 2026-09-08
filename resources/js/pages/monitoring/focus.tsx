@@ -67,6 +67,16 @@ const BUCKETS: { key: BucketKey; label: string }[] = [
     { key: 'unscheduled', label: 'Tanpa tanggal' },
 ];
 
+/**
+ * How much of the undated backlog stands in the agenda before the rest is
+ * folded away.
+ *
+ * Everything else on this page is a day's work; "tanpa tanggal" is a pile that
+ * only grows, and at ten rows it was longer than the four dated buckets put
+ * together — the page ended up being mostly the part with no claim on today.
+ */
+const UNSCHEDULED_PREVIEW = 5;
+
 const PRIORITY_RANK: Record<TaskPriority, number> = {
     urgent: 0,
     high: 1,
@@ -197,6 +207,7 @@ export default function MonitoringFocus({
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
     const [signal, setSignal] = useState<SignalKey | null>(null);
     const [showDone, setShowDone] = useState(false);
+    const [showAllUnscheduled, setShowAllUnscheduled] = useState(false);
 
     // Read once per visit, not per render: a task must not change heading
     // under the reader while they are looking at it.
@@ -328,12 +339,24 @@ export default function MonitoringFocus({
         };
     }, [rows, openTaskId]);
 
-    const signals: { key: SignalKey; label: string }[] = [
-        { key: 'overdue', label: 'Telat' },
-        { key: 'today', label: 'Hari ini' },
-        { key: 'week', label: 'Minggu ini' },
-        { key: 'review', label: 'Menunggu review' },
-    ];
+    /**
+     * Only the filters that would narrow anything.
+     *
+     * A dead control is worse than a missing one: four of them, three greyed
+     * out reading zero, wrapped onto two rows of a phone and sat directly
+     * under the view tabs, where a band of grey pills reads as navigation that
+     * refuses to work rather than as filters with nothing to filter. What is
+     * left is also the urgency summary, which is why the strip is the part
+     * that sticks: the greeting scrolls away, the counts do not.
+     */
+    const signals = (
+        [
+            { key: 'overdue', label: 'Telat' },
+            { key: 'today', label: 'Hari ini' },
+            { key: 'week', label: 'Minggu ini' },
+            { key: 'review', label: 'Menunggu review' },
+        ] satisfies { key: SignalKey; label: string }[]
+    ).filter((item) => counts[item.key] > 0);
 
     return (
         <>
@@ -341,8 +364,12 @@ export default function MonitoringFocus({
 
             {/* Full width, like every other page: the app layout owns the
                 gutter and the maximum width, and a page that sets its own
-                would sit narrower than the one beside it. */}
-            <div className="space-y-6">
+                would sit narrower than the one beside it.
+
+                A phone stacks three bands before the first task — greeting,
+                view tabs, filters — so the gaps between them are a step
+                tighter there than on a screen that has room to breathe. */}
+            <div className="space-y-4 sm:space-y-6">
                 <header className="min-w-0">
                     {/* Large type takes negative tracking; letters read further
                         apart the bigger they get. A phone holds a step less of
@@ -392,7 +419,12 @@ export default function MonitoringFocus({
                     margins undo the layout's gutter so the frosted strip
                     reaches the edges; without them a sliver of the list slid
                     past unblurred on either side. */}
-                <div className="surface-frosted sticky top-(--header-height) z-20 -mx-4 flex flex-wrap gap-2 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                <div
+                    className={cn(
+                        'surface-frosted sticky top-(--header-height) z-20 -mx-4 flex flex-wrap gap-2 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8',
+                        signals.length === 0 && 'hidden',
+                    )}
+                >
                     {signals.map((item) => {
                         const active = signal === item.key;
 
@@ -400,17 +432,26 @@ export default function MonitoringFocus({
                             <button
                                 key={item.key}
                                 type="button"
-                                disabled={counts[item.key] === 0}
                                 aria-pressed={active}
                                 onClick={() =>
                                     setSignal(active ? null : item.key)
                                 }
+                                /* Off is a raised chip — `card` plus the
+                                   hairline every raised surface carries —
+                                   because a control is something you press,
+                                   and `muted` sits a step *below* the page on
+                                   the dark ladder: a filter painted with it
+                                   read as a hole cut in the strip. On is the
+                                   accent, so the fill still tells the two
+                                   apart, and the border stays on both states
+                                   so the chip does not shift a pixel when it
+                                   is chosen. Full 44px on a phone. */
                                 className={cn(
-                                    'flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm transition-[background-color,color,transform] duration-150',
-                                    'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
+                                    'flex min-h-11 items-center gap-2 rounded-md border px-3 text-xs transition-[background-color,color,transform] duration-150 sm:min-h-9 sm:text-sm',
+                                    'active:scale-[0.98]',
                                     active
                                         ? 'border-primary bg-primary text-primary-foreground'
-                                        : 'border-border hover:bg-accent',
+                                        : 'border-border bg-card text-foreground hover:bg-accent',
                                 )}
                             >
                                 {item.label}
@@ -469,39 +510,50 @@ export default function MonitoringFocus({
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {visible.map((bucket, index) => (
-                            <section
-                                key={bucket.key}
-                                className="animate-in duration-300 fill-mode-backwards fade-in slide-in-from-bottom-2"
-                                style={{ animationDelay: `${index * 40}ms` }}
-                            >
-                                {/* The two headings that carry a warning say
+                        {visible.map((bucket, index) => {
+                            const rowsHere = buckets.get(bucket.key) ?? [];
+                            const folded =
+                                bucket.key === 'unscheduled' &&
+                                !showAllUnscheduled &&
+                                rowsHere.length > UNSCHEDULED_PREVIEW;
+                            const shown = folded
+                                ? rowsHere.slice(0, UNSCHEDULED_PREVIEW)
+                                : rowsHere;
+
+                            return (
+                                <section
+                                    key={bucket.key}
+                                    className="animate-in duration-300 fill-mode-backwards fade-in slide-in-from-bottom-2"
+                                    style={{
+                                        animationDelay: `${index * 40}ms`,
+                                    }}
+                                >
+                                    {/* The two headings that carry a warning say
                                     it in the word itself, so no dot or rail is
                                     needed to mark them apart. */}
-                                <h2
-                                    id={`bucket-${bucket.key}`}
-                                    className="flex items-baseline gap-2"
-                                >
-                                    <span
-                                        className={cn(
-                                            'text-xs font-medium tracking-wide uppercase',
-                                            bucket.key === 'overdue' &&
-                                                'text-destructive',
-                                        )}
+                                    <h2
+                                        id={`bucket-${bucket.key}`}
+                                        className="flex items-baseline gap-2"
                                     >
-                                        {bucket.label}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground tabular-nums">
-                                        {(buckets.get(bucket.key) ?? []).length}
-                                    </span>
-                                </h2>
+                                        <span
+                                            className={cn(
+                                                'text-xs font-medium tracking-wide uppercase',
+                                                bucket.key === 'overdue' &&
+                                                    'text-destructive',
+                                            )}
+                                        >
+                                            {bucket.label}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground tabular-nums">
+                                            {rowsHere.length}
+                                        </span>
+                                    </h2>
 
-                                <ul
-                                    aria-labelledby={`bucket-${bucket.key}`}
-                                    className="mt-1 divide-y divide-border border-t border-border"
-                                >
-                                    {(buckets.get(bucket.key) ?? []).map(
-                                        ({ task, group }) => (
+                                    <ul
+                                        aria-labelledby={`bucket-${bucket.key}`}
+                                        className="mt-1 divide-y divide-border border-t border-border"
+                                    >
+                                        {shown.map(({ task, group }) => (
                                             <TaskRow
                                                 key={task.id}
                                                 task={task}
@@ -512,11 +564,27 @@ export default function MonitoringFocus({
                                                     setOpenTaskId(task.id)
                                                 }
                                             />
-                                        ),
+                                        ))}
+                                    </ul>
+
+                                    {folded && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="mt-1 text-muted-foreground"
+                                            onClick={() =>
+                                                setShowAllUnscheduled(true)
+                                            }
+                                        >
+                                            Tampilkan{' '}
+                                            {rowsHere.length -
+                                                UNSCHEDULED_PREVIEW}{' '}
+                                            lainnya
+                                        </Button>
                                     )}
-                                </ul>
-                            </section>
-                        ))}
+                                </section>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -613,7 +681,8 @@ export default function MonitoringFocus({
  * The columns are a grid rather than a flex row, and every cell is rendered
  * even when it is empty, so the same column lines up down the whole list. On a
  * phone the columns are dropped for a block of two lines: the title on its own,
- * and the identity, status and date beneath it in small type. A 112px select
+ * and beneath it the date, anything out of the ordinary, the project and the
+ * reference, in small type. A 112px select
  * takes a fifth of a phone and still truncates its own label, which is a poor
  * trade for the title it squeezes; on that width the status is read, not set,
  * and setting it happens where the task itself opens.
@@ -658,14 +727,17 @@ function TaskRow({
         // rows do. Taking the row to `accent` — the top of the ladder — put it
         // above the `card` the status control paints, and the control sank out
         // of sight the moment it was pointed at.
-        <li className="grid min-h-11 grid-cols-1 gap-y-0.5 px-2 py-2 hover:bg-muted/40 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0">
+        <li className="relative grid min-h-11 grid-cols-1 gap-y-0.5 px-2 py-2 hover:bg-muted/40 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0">
             {/* On a wide screen the reference has a column of its own, ahead of
                 the title, as it does on the list, the timeline and the member
                 pages. A phone has no width to spare for it there, so it leads
                 the second line instead. */}
             <span
                 title={task.reference}
-                className="hidden truncate text-xs text-muted-foreground tabular-nums sm:block"
+                className={cn(
+                    'hidden truncate text-xs text-muted-foreground tabular-nums sm:block',
+                    finished && 'line-through',
+                )}
             >
                 {task.reference}
             </span>
@@ -675,13 +747,18 @@ function TaskRow({
                 would let one task push the rest of the day off the screen.
                 Rows are consequently not all the same height, so the columns
                 beside it centre on whatever height the title takes. */}
+            {/* The title carries the whole row's tap area with it. Two lines
+                of text inside a 44px row left most of that row dead on a
+                phone, which is exactly the part a thumb lands on. The stretched
+                overlay covers every cell, so the two controls beside it are
+                positioned to sit back on top. */}
             <button
                 type="button"
                 title={task.title}
                 onClick={onOpen}
                 className={cn(
-                    'line-clamp-2 min-w-0 text-left text-sm hover:underline',
-                    finished && 'text-muted-foreground line-through',
+                    'line-clamp-2 min-w-0 text-left text-sm after:absolute after:inset-0 hover:underline',
+                    finished && 'text-muted-foreground',
                 )}
             >
                 {task.title}
@@ -689,7 +766,7 @@ function TaskRow({
 
             <Link
                 href={showProject(project.id)}
-                className="hidden truncate text-xs text-muted-foreground hover:text-foreground hover:underline sm:block"
+                className="relative hidden truncate text-xs text-muted-foreground hover:text-foreground hover:underline sm:block"
             >
                 {project.name}
             </Link>
@@ -711,7 +788,7 @@ function TaskRow({
                 )}
             </span>
 
-            <span className="hidden sm:block">
+            <span className="relative hidden sm:block">
                 <Select
                     value={task.status}
                     disabled={!task.can_edit || saving}
@@ -787,18 +864,23 @@ function TaskRow({
                 carry on a wider screen. The status reads as text here: it is
                 changed by opening the task, not from the list.
 
-                The reference leads it, then what decides the next hour: the
-                date, the priority, and the state the work is in. */}
+                Read in the order the next hour is decided: when it is due
+                first and in the row's own colour, then only what departs from
+                the resting state — a priority above "Sedang", a status past
+                "To Do" — then where the task lives. Four segments in one grey
+                rhythm, three of them saying what every other row said, is a
+                line nobody reads; the defaults are left out so the exceptions
+                can be seen. The reference trails at the end, dimmer: it names
+                the task and its depth, it does not rank it. */}
             <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground sm:hidden">
-                <span className="tabular-nums">{task.reference}</span>
-                <span aria-hidden="true">·</span>
                 {meta !== '' && (
                     <>
                         <span
                             className={cn(
                                 'tabular-nums',
-                                task.is_overdue &&
-                                    'font-medium text-destructive',
+                                task.is_overdue
+                                    ? 'font-medium text-destructive'
+                                    : 'text-foreground',
                             )}
                         >
                             {meta}
@@ -806,15 +888,32 @@ function TaskRow({
                         <span aria-hidden="true">·</span>
                     </>
                 )}
-                {!finished && task.priority !== 'low' && (
+                {!finished &&
+                    (task.priority === 'high' ||
+                        task.priority === 'urgent') && (
+                        <>
+                            <span className={TASK_PRIORITY_TEXT[task.priority]}>
+                                {TASK_PRIORITY_LABELS[task.priority]}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                        </>
+                    )}
+                {!finished && task.status !== 'todo' && (
                     <>
-                        <span className={TASK_PRIORITY_TEXT[task.priority]}>
-                            {TASK_PRIORITY_LABELS[task.priority]}
-                        </span>
+                        <span>{TASK_STATUS_LABELS[task.status]}</span>
                         <span aria-hidden="true">·</span>
                     </>
                 )}
-                <span>{TASK_STATUS_LABELS[task.status]}</span>
+                <span className="truncate">{project.name}</span>
+                <span aria-hidden="true">·</span>
+                <span
+                    className={cn(
+                        'tabular-nums opacity-70',
+                        finished && 'line-through',
+                    )}
+                >
+                    {task.reference}
+                </span>
             </span>
         </li>
     );

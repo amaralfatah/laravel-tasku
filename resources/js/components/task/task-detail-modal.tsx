@@ -1385,6 +1385,9 @@ function SubtaskRow({
         isDragging,
     } = useSortable({ id: child.id, disabled: !child.can_edit });
 
+    /** Struck through once the work is done, the way the agenda's rows read. */
+    const finished = child.status === 'done';
+
     return (
         <li
             ref={setNodeRef}
@@ -1456,7 +1459,12 @@ function SubtaskRow({
                             the pencil only ever appears on hover anyway, which
                             a touch screen has none of — the title opens the sub
                             task, where it can be renamed. */}
-                        <span className="hidden shrink-0 pt-0.5 text-xs text-muted-foreground tabular-nums sm:inline">
+                        <span
+                            className={cn(
+                                'hidden shrink-0 pt-0.5 text-xs text-muted-foreground tabular-nums sm:inline',
+                                finished && 'line-through',
+                            )}
+                        >
                             {child.reference}
                         </span>
 
