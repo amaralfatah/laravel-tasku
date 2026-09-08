@@ -897,7 +897,7 @@ function TaskRow({
         // wherever it is read. Only the left padding moves: the fixed tracks
         // stay where they are, and the title column gives up the width.
         <li
-            className="relative grid min-h-11 grid-cols-1 gap-y-0.5 px-2 py-2 hover:bg-muted/40 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0"
+            className="relative grid min-h-11 grid-cols-1 gap-y-0.5 px-2 py-2 hover:bg-accent sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0"
             style={
                 depth === 0 ? undefined : { paddingLeft: `${8 + depth * 14}px` }
             }

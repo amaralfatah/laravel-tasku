@@ -388,10 +388,10 @@ export default function ProjectBoard({
                 onAddSubtask={
                     openTask
                         ? () =>
-                              setCreating({
-                                  parent: openTask,
-                                  status: 'todo',
-                              })
+                            setCreating({
+                                parent: openTask,
+                                status: 'todo',
+                            })
                         : undefined
                 }
             />
@@ -498,4 +498,5 @@ function BoardColumn({
 
 ProjectBoard.layout = ({ project }: PageProps) => ({
     breadcrumbs: projectCrumbs(project, show(project.id)),
+    wide: true,
 });

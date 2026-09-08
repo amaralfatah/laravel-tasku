@@ -161,6 +161,8 @@
     --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
     --color-sidebar-accent: var(--sidebar-accent);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-selected: var(--sidebar-selected);
+    --color-sidebar-selected-foreground: var(--sidebar-selected-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
 
@@ -212,10 +214,10 @@
     --popover-foreground: #1d1d1f;
 
     /* The one accent */
-    --primary: #0066cc;
+    --primary: #1868db;
     --primary-foreground: #ffffff;
-    --link: #0066cc;
-    --ring: #0071e3;
+    --link: #1868db;
+    --ring: #1868db;
 
     /* The only tinted surfaces left: table headers, hovers, selected rows. */
     --secondary: #f4f4f5;
@@ -237,7 +239,7 @@
      * No second brand colour exists, so the chart ramp is the accent stepped
      * down into neutrals rather than a rainbow.
      */
-    --chart-1: #0066cc;
+    --chart-1: #1868db;
     --chart-2: #2997ff;
     --chart-3: #7a7a7a;
     --chart-4: #1d1d1f;
@@ -246,12 +248,14 @@
     /* Same surface as the canvas; the vertical hairline is the whole divide. */
     --sidebar: #ffffff;
     --sidebar-foreground: #1d1d1f;
-    --sidebar-primary: #0066cc;
+    --sidebar-primary: #1868db;
     --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: #ebebec;
     --sidebar-accent-foreground: #1d1d1f;
+    --sidebar-selected: #e9f2ff;
+    --sidebar-selected-foreground: #1868db;
     --sidebar-border: #e0e0e0;
-    --sidebar-ring: #0071e3;
+    --sidebar-ring: #1868db;
 
     /*
      * Priority is status, not brand: neutral and blue stay inside the accent
@@ -261,7 +265,7 @@
     --priority-low: #f0f0f0;
     --priority-low-foreground: #333333;
     --priority-medium: #e8f2fd;
-    --priority-medium-foreground: #0066cc;
+    --priority-medium-foreground: #1868db;
     --priority-high: #fff2e0;
     --priority-high-foreground: #a04f00;
     --priority-urgent: #ffecea;
@@ -282,56 +286,58 @@
      * order the page, they are not decoration. Depth still comes from tone
      * only, never a shadow.
      */
-    --background: #1d1d1f;
-    --foreground: #ffffff;
-    --card: #2b2b30;
-    --card-foreground: #ffffff;
+    --background: #1f1f21;
+    --foreground: #cecfd2;
+    --card: #242528;
+    --card-foreground: #cecfd2;
     /* Overlays sit one step above a card so a menu opened over one reads, and
      * one step below hover, or a hovered menu row would not read. */
-    --popover: #2f2f34;
-    --popover-foreground: #ffffff;
+    --popover: #2b2c2f;
+    --popover-foreground: #cecfd2;
 
     /* Action Blue survives on a near-black tile; links switch to Sky Link Blue. */
-    --primary: #0071e3;
+    --primary: #1868db;
     --primary-foreground: #ffffff;
-    --link: #2997ff;
-    --ring: #2997ff;
+    --link: #669df6;
+    --ring: #669df6;
 
-    --secondary: #3d3d44;
-    --secondary-foreground: #ffffff;
+    --secondary: #2c2c2e;
+    --secondary-foreground: #cecfd2;
     /* Below the page: board columns, table headers, progress tracks. */
-    --muted: #161618;
+    --muted: #18191a;
     --muted-foreground: #a1a1a6;
-    --accent: #3d3d44;
-    --accent-foreground: #ffffff;
+    --accent: #303134;
+    --accent-foreground: #cecfd2;
 
     --destructive: #ff453a;
     --destructive-foreground: #ffffff;
     --success: #30d158;
     --warning: #ffa726;
 
-    --border: #3f3f43;
-    --input: #3f3f43;
+    --border: #3a3a3e;
+    --input: #3a3a3e;
 
-    --chart-1: #2997ff;
-    --chart-2: #0071e3;
+    --chart-1: #669df6;
+    --chart-2: #1868db;
     --chart-3: #cccccc;
     --chart-4: #7a7a7a;
     --chart-5: #3a3a3c;
 
-    --sidebar: #1d1d1f;
-    --sidebar-foreground: #ffffff;
-    --sidebar-primary: #0071e3;
+    --sidebar: #1f1f21;
+    --sidebar-foreground: #cecfd2;
+    --sidebar-primary: #1868db;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #3d3d44;
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: #3f3f43;
-    --sidebar-ring: #2997ff;
+    --sidebar-accent: #303134;
+    --sidebar-accent-foreground: #cecfd2;
+    --sidebar-selected: #123263;
+    --sidebar-selected-foreground: #669df1;
+    --sidebar-border: #3a3a3e;
+    --sidebar-ring: #669df6;
 
-    --priority-low: #37373c;
+    --priority-low: #303134;
     --priority-low-foreground: #d1d1d6;
     --priority-medium: #10314f;
-    --priority-medium-foreground: #2997ff;
+    --priority-medium-foreground: #669df6;
     --priority-high: #40280a;
     --priority-high-foreground: #ffa726;
     --priority-urgent: #4a1512;

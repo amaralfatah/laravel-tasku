@@ -256,7 +256,7 @@ export default function Workspaces({
                                 type="button"
                                 onClick={() => setSearch('')}
                                 aria-label="Bersihkan pencarian"
-                                className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                                className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-accent"
                             >
                                 <X className="size-3.5" />
                             </button>

@@ -384,12 +384,12 @@ export default function MonitoringPerson({
                                 width: `${labelWidth + scale.width}px`,
                             }}
                         >
-                            <div className="flex border-b bg-muted">
+                            <div className="flex border-b bg-secondary">
                                 {/* Opaque like the project rows below it: the
                                     week columns scroll underneath this cell,
                                     and a tint shows them through. */}
                                 <div
-                                    className="sticky left-0 z-10 shrink-0 border-r bg-muted px-3 py-2 text-xs font-medium text-muted-foreground"
+                                    className="sticky left-0 z-10 shrink-0 border-r bg-secondary px-3 py-2 text-xs font-medium text-muted-foreground"
                                     style={{ width: `${labelWidth}px` }}
                                 >
                                     {isMobile
@@ -409,9 +409,9 @@ export default function MonitoringPerson({
                                         index > 0 && 'border-t-4 border-border',
                                     )}
                                 >
-                                    <div className="flex border-b bg-muted">
+                                    <div className="flex border-b bg-secondary">
                                         <div
-                                            className="sticky left-0 z-10 shrink-0 border-r bg-muted px-3 py-2"
+                                            className="sticky left-0 z-10 shrink-0 border-r bg-secondary px-3 py-2"
                                             style={{
                                                 width: `${labelWidth}px`,
                                             }}

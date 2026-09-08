@@ -276,12 +276,12 @@ export default function ProjectTimeline({
                             className="min-w-max"
                             style={{ width: `${leftWidth + scale.width}px` }}
                         >
-                            <div className="flex border-b bg-muted">
+                            <div className="flex border-b bg-secondary">
                                 <div
                                     // Opaque, not a tint: the month columns
                                     // scroll underneath this cell, and a
                                     // translucent one shows them through.
-                                    className="sticky left-0 z-10 shrink-0 border-r bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
+                                    className="sticky left-0 z-10 shrink-0 border-r bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground"
                                     style={{ width: `${leftWidth}px` }}
                                 >
                                     <div className="pt-1">Task</div>
@@ -328,7 +328,7 @@ export default function ProjectTimeline({
                                                             ? `Buka ${task.title}`
                                                             : `Tutup ${task.title}`
                                                     }
-                                                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                                                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent"
                                                 >
                                                     <ChevronRight
                                                         className={cn(
@@ -405,7 +405,7 @@ export default function ProjectTimeline({
                                     <button
                                         type="button"
                                         onClick={() => setOpenTaskId(task.id)}
-                                        className="flex min-h-11 w-full items-center gap-3 px-3 text-left hover:bg-muted/40"
+                                        className="flex min-h-11 w-full items-center gap-3 px-3 text-left hover:bg-accent"
                                     >
                                         <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                                             {task.reference}

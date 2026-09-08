@@ -130,15 +130,15 @@ export default function ProjectList({
                                         current.size > 0
                                             ? new Set()
                                             : new Set(
-                                                  tasks
-                                                      .filter(
-                                                          (task) =>
-                                                              childCounts.get(
-                                                                  task.id,
-                                                              ) ?? 0,
-                                                      )
-                                                      .map((task) => task.id),
-                                              ),
+                                                tasks
+                                                    .filter(
+                                                        (task) =>
+                                                            childCounts.get(
+                                                                task.id,
+                                                            ) ?? 0,
+                                                    )
+                                                    .map((task) => task.id),
+                                            ),
                                     )
                                 }
                             >
@@ -237,9 +237,9 @@ export default function ProjectList({
                 onAddSubtask={
                     openTask
                         ? () => {
-                              setCreateParent(openTask);
-                              setCreateOpen(true);
-                          }
+                            setCreateParent(openTask);
+                            setCreateOpen(true);
+                        }
                         : undefined
                 }
             />
@@ -260,4 +260,5 @@ export default function ProjectList({
 
 ProjectList.layout = ({ project }: PageProps) => ({
     breadcrumbs: projectCrumbs(project, list(project.id)),
+    wide: true,
 });

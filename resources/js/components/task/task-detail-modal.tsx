@@ -961,7 +961,7 @@ function TaskDetail({
                                             <div
                                                 className={cn(
                                                     SUBTASK_COLUMNS,
-                                                    'border-b bg-muted py-2 text-xs font-medium text-muted-foreground',
+                                                    'border-b bg-secondary py-2 text-xs font-medium text-muted-foreground',
                                                 )}
                                             >
                                                 <span>Sub task</span>
@@ -1072,7 +1072,7 @@ function TaskDetail({
                             </section>
                         </div>
 
-                        <aside className="space-y-4 border-t bg-muted/20 px-4 py-6 sm:px-6 lg:min-h-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
+                        <aside className="space-y-4 border-t px-4 py-6 sm:px-6 lg:min-h-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
                             {/* Jira leads the panel with the status as a
                                 standalone button, unlabelled — the value names
                                 the field well enough. */}
@@ -1122,7 +1122,7 @@ function TaskDetail({
                              * reason.
                              */}
                             {task.status === 'review' && (
-                                <div className="space-y-2 rounded-md border bg-background p-3">
+                                <div className="space-y-2 rounded-md border p-3">
                                     <h3 className="text-sm font-semibold">
                                         Menunggu review
                                     </h3>
@@ -1180,7 +1180,7 @@ function TaskDetail({
                                 </div>
                             )}
 
-                            <div className="rounded-md border bg-background">
+                            <div className="rounded-md border">
                                 {/* Jira folds the panel from its heading, so a
                                     long sub task list can have the whole modal
                                     to itself. */}

@@ -98,7 +98,7 @@ export function Pagination({
                                     'flex h-9 min-w-9 items-center justify-center rounded-md border px-2 text-sm transition-colors',
                                     link.active
                                         ? 'border-foreground bg-foreground font-medium text-background'
-                                        : 'border-transparent hover:bg-muted',
+                                        : 'border-transparent hover:bg-accent',
                                 )}
                             >
                                 {content}

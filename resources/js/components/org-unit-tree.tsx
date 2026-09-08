@@ -245,7 +245,7 @@ export function OrgUnitTree({
                 <div
                     ref={isHighlighted ? highlightRef : undefined}
                     className={cn(
-                        'group flex min-h-11 items-center gap-2 rounded-md px-2 hover:bg-muted/60',
+                        'group flex min-h-11 items-center gap-2 rounded-md px-2 hover:bg-accent',
                         isHighlighted && 'bg-primary/10 ring-1 ring-primary/40',
                     )}
                     style={{
@@ -264,7 +264,7 @@ export function OrgUnitTree({
                                     ? `Tutup ${node.name}`
                                     : `Buka ${node.name}`
                             }
-                            className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                            className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent"
                         >
                             {isLoading ? (
                                 <Loader2 className="size-4 animate-spin" />

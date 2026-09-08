@@ -340,7 +340,7 @@ function CommentEditor({
                                     }
                                     onClick={() => insertMention(person)}
                                     className={cn(
-                                        'flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm hover:bg-muted',
+                                        'flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm hover:bg-accent',
                                     )}
                                 >
                                     <Avatar className="size-6">

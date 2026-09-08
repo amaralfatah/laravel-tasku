@@ -164,7 +164,7 @@ export function OrgUnitSearch({
                                 onClick={() => onSelect(hit)}
                                 className={cn(
                                     'flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left',
-                                    'hover:bg-muted focus-visible:bg-muted focus-visible:outline-none',
+                                    'hover:bg-accent focus-visible:bg-muted focus-visible:outline-none',
                                 )}
                             >
                                 <span className="font-medium">{hit.name}</span>

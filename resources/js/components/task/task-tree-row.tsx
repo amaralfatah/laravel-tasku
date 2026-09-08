@@ -61,7 +61,7 @@ export function TaskTreeRow({
     return (
         <div
             className={cn(
-                'grid min-h-12 grid-cols-[minmax(0,1fr)_repeat(3,auto)] items-center gap-2 border-b px-3 py-1.5 last:border-b-0 hover:bg-muted/40 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_9rem_10rem_7rem_9rem_2rem]',
+                'grid min-h-12 grid-cols-[minmax(0,1fr)_repeat(3,auto)] items-center gap-2 border-b px-3 py-1.5 last:border-b-0 hover:bg-accent sm:gap-3 lg:grid-cols-[minmax(0,1fr)_9rem_10rem_7rem_9rem_2rem]',
             )}
         >
             <div
@@ -82,7 +82,7 @@ export function TaskTreeRow({
                                 ? `Buka sub task ${task.title}`
                                 : `Tutup sub task ${task.title}`
                         }
-                        className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                        className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent"
                     >
                         <ChevronRight
                             className={cn(

@@ -49,7 +49,8 @@ const mainNavItems: NavItem[] = [
 
 const rightNavItems: NavItem[] = [];
 
-const activeItemStyles = 'text-foreground dark:bg-accent';
+const activeItemStyles =
+    'text-foreground dark:bg-sidebar-selected dark:text-sidebar-selected-foreground';
 
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage();
@@ -81,7 +82,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                     Navigation menu
                                 </SheetTitle>
                                 <SheetHeader className="flex justify-start text-left">
-                                    <AppLogoIcon className="h-6 w-6 fill-current text-black dark:text-white" />
+                                    <AppLogoIcon className="h-6 w-6 fill-current text-foreground" />
                                 </SheetHeader>
                                 <div className="flex h-full flex-1 flex-col space-y-4 p-4">
                                     <div className="flex h-full flex-col justify-between text-sm">
@@ -156,7 +157,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                             {item.title}
                                         </Link>
                                         {isCurrentUrl(item.href) && (
-                                            <div className="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-black dark:bg-white"></div>
+                                            <div className="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-foreground"></div>
                                         )}
                                     </NavigationMenuItem>
                                 ))}

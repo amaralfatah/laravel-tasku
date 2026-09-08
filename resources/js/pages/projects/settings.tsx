@@ -354,4 +354,5 @@ export default function ProjectSettings({
 
 ProjectSettings.layout = ({ project }: { project: ProjectDetail }) => ({
     breadcrumbs: projectCrumbs(project, show(project.id)),
+    wide: true,
 });

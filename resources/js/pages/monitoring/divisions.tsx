@@ -56,7 +56,7 @@ export default function MonitoringDivisions({
                     <Link
                         href={divisions()}
                         className={cn(
-                            'rounded px-2 py-1 hover:bg-muted',
+                            'rounded px-2 py-1 hover:bg-accent',
                             current === null
                                 ? 'font-medium'
                                 : 'text-muted-foreground',
@@ -81,7 +81,7 @@ export default function MonitoringDivisions({
                                         : undefined
                                 }
                                 className={cn(
-                                    'rounded px-2 py-1 hover:bg-muted',
+                                    'rounded px-2 py-1 hover:bg-accent',
                                     index === trail.length - 1
                                         ? 'font-medium'
                                         : 'text-muted-foreground',

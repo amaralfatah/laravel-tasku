@@ -1,6 +1,5 @@
 import { Link } from '@inertiajs/react';
 import { MoreHorizontal, Plus } from 'lucide-react';
-import { ACTIVE_RAIL } from '@/components/nav-main';
 import {
     SidebarGroup,
     SidebarGroupAction,
@@ -10,7 +9,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
-import { cn, toUrl } from '@/lib/utils';
+import { toUrl } from '@/lib/utils';
 import { index as projectsIndex, show as projectShow } from '@/routes/projects';
 import type { SidebarProject } from '@/types';
 
@@ -68,7 +67,7 @@ export function NavProjects({ projects }: { projects: SidebarProject[] }) {
                                 asChild
                                 isActive={isActive}
                                 tooltip={{ children: project.name }}
-                                className={ACTIVE_RAIL}
+                                className="group/project"
                             >
                                 <Link
                                     href={projectShow(project.id)}
@@ -77,10 +76,11 @@ export function NavProjects({ projects }: { projects: SidebarProject[] }) {
                                 >
                                     <span
                                         aria-hidden
-                                        // Tinted from the foreground rather
-                                        // than the accent, so the tile stays
-                                        // visible on the active row too.
-                                        className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-sidebar-foreground/10 text-[10px] font-semibold text-sidebar-foreground/80 group-data-[collapsible=icon]:size-4 group-data-[collapsible=icon]:text-[8px]"
+                                        // Tinted from the row's own text
+                                        // colour, so the tile turns blue with
+                                        // the label on the active row instead
+                                        // of staying a grey chip on it.
+                                        className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-sidebar-foreground/15 text-[10px] font-semibold text-sidebar-foreground group-data-[active=true]/project:bg-sidebar-selected-foreground/20 group-data-[active=true]/project:text-sidebar-selected-foreground group-data-[collapsible=icon]:size-4 group-data-[collapsible=icon]:text-[8px]"
                                     >
                                         {initials(project.name)}
                                     </span>
@@ -101,10 +101,7 @@ export function NavProjects({ projects }: { projects: SidebarProject[] }) {
                                     ? 'Semua project'
                                     : 'Buat project pertama',
                         }}
-                        className={cn(
-                            'text-sidebar-foreground/70',
-                            ACTIVE_RAIL,
-                        )}
+                        className="text-sidebar-foreground/70"
                     >
                         {/* With nothing to list, the row has to offer the way
                             out instead of restating that the list is empty. */}

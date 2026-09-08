@@ -22,13 +22,6 @@ import { cn } from '@/lib/utils';
 import type { NavEntry, NavGroupItem, NavItem } from '@/types';
 
 /**
- * Rail on the left that marks the current page in addition to the tint, so the
- * active item is not signalled by colour alone.
- */
-export const ACTIVE_RAIL =
-    'relative data-[active=true]:before:absolute data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:-left-2 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary';
-
-/**
  * Sub rows keep the height of the top-level ones but sit a step quieter, so a
  * child never reads as a sibling of the item it hangs under.
  */
@@ -50,7 +43,6 @@ function NavLeaf({ item }: { item: NavItem }) {
                 asChild
                 isActive={isActive}
                 tooltip={{ children: item.title }}
-                className={ACTIVE_RAIL}
             >
                 <Link
                     href={item.href}
@@ -90,8 +82,7 @@ function NavBranch({ item }: { item: NavGroupItem }) {
                     <SidebarMenuButton
                         isActive={hasActiveChild && childIsHidden}
                         tooltip={{ children: item.title }}
-                        className={ACTIVE_RAIL}
-                    >
+                            >
                         {item.icon && <item.icon />}
                         <span>{item.title}</span>
                         <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 motion-reduce:transition-none" />
@@ -108,11 +99,7 @@ function NavBranch({ item }: { item: NavGroupItem }) {
                                     <SidebarMenuSubButton
                                         asChild
                                         isActive={isActive}
-                                        className={cn(
-                                            SUB_ROW,
-                                            'translate-x-0',
-                                            ACTIVE_RAIL,
-                                        )}
+                                        className={cn(SUB_ROW, 'translate-x-0')}
                                     >
                                         <Link
                                             href={child.href}
