@@ -17,6 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { router } from '@inertiajs/react';
 import {
+    ArrowDownUp,
     CalendarSync,
     ChevronDown,
     ChevronRight,
@@ -46,6 +47,9 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -75,6 +79,65 @@ import {
 import type { TaskAssignee, TaskNode, TaskPriority } from '@/types/tasks';
 
 const UNASSIGNED = 'none';
+
+/**
+ * How the sub task table is ordered. `manual` is the stored `position` — the
+ * order the drag handle writes — and stays the default, because it is the only
+ * one the server keeps and the only one a drop can change. The rest are views
+ * over that same list: they re-arrange what is on screen without writing
+ * anything, so switching back to `manual` restores the saved order untouched.
+ */
+type SubtaskSort = 'manual' | 'open_first' | 'done_first' | 'priority' | 'due';
+
+const SUBTASK_SORT_LABELS: Record<SubtaskSort, string> = {
+    manual: 'Urutan manual',
+    open_first: 'Belum selesai dulu',
+    done_first: 'Selesai dulu',
+    priority: 'Prioritas tertinggi',
+    due: 'Deadline terdekat',
+};
+
+/** Most urgent first, so the rank doubles as the sort key. */
+const PRIORITY_RANK: Record<TaskPriority, number> = {
+    urgent: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+};
+
+/**
+ * Comparators for the sorts that are not `manual`. Each one only decides the
+ * facet it is named for and returns 0 otherwise: the list handed in is already
+ * in `position` order and `Array.prototype.sort` is stable, so the manual order
+ * survives as the tie-breaker inside every group.
+ */
+const SUBTASK_COMPARATORS: Record<
+    Exclude<SubtaskSort, 'manual'>,
+    (a: TaskNode, b: TaskNode) => number
+> = {
+    open_first: (a, b) => doneRank(a) - doneRank(b),
+    done_first: (a, b) => doneRank(b) - doneRank(a),
+    priority: (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority],
+    // An undated sub task has no deadline to be near, so it sinks below every
+    // dated one rather than sorting as the year 0.
+    due: (a, b) => {
+        if (a.due_date === b.due_date) {
+            return 0;
+        }
+
+        if (a.due_date === null) {
+            return 1;
+        }
+
+        if (b.due_date === null) {
+            return -1;
+        }
+
+        return a.due_date < b.due_date ? -1 : 1;
+    },
+};
+
+const doneRank = (task: TaskNode): number => (task.status === 'done' ? 1 : 0);
 
 /** No requester chosen. Most internal work has none. */
 const NO_REQUESTER = 'none';
@@ -274,6 +337,12 @@ function TaskDetail({
      * status that changes underneath is not held back by the drag.
      */
     const [draggedOrder, setDraggedOrder] = useState<number[] | null>(null);
+    /**
+     * Which order the table is read in. It is a view, not a saved field, so it
+     * resets with the modal — the parent's own order is what the drag handle
+     * writes, and nothing here touches it.
+     */
+    const [subtaskSort, setSubtaskSort] = useState<SubtaskSort>('manual');
 
     /**
      * The accept/return decision on a task waiting in review. Kept outside
@@ -344,6 +413,12 @@ function TaskDetail({
             (a, b) => a.position - b.position,
         );
 
+        // Any sort but `manual` is a read-only view, so a drop cannot be in
+        // flight against it and the stored order is only the tie-breaker.
+        if (subtaskSort !== 'manual') {
+            return byPosition.sort(SUBTASK_COMPARATORS[subtaskSort]);
+        }
+
         if (draggedOrder === null) {
             return byPosition;
         }
@@ -356,7 +431,7 @@ function TaskDetail({
         // A sub task added or removed while the drop was in flight makes the
         // remembered order stale; the server order is the truth again.
         return picked.length === byPosition.length ? picked : byPosition;
-    }, [subtasks, draggedOrder]);
+    }, [subtasks, draggedOrder, subtaskSort]);
 
     const sensors = useSensors(
         // A small distance threshold keeps a tap from becoming a drag.
@@ -717,12 +792,74 @@ function TaskDetail({
                                             already there, so it sits a level
                                             deeper in the "..." menu with the
                                             other whole-subtree action. */}
+                                        {/* Sorting is a way of reading the
+                                            table, not an edit, so it sits in a
+                                            menu of its own next to the one
+                                            action rather than as a fifth
+                                            control on every row. */}
+                                        {orderedSubtasks.length > 1 && (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="ml-auto size-8 shrink-0"
+                                                        aria-label={`Urutkan sub task: ${SUBTASK_SORT_LABELS[subtaskSort]}`}
+                                                        title={`Urutkan: ${SUBTASK_SORT_LABELS[subtaskSort]}`}
+                                                    >
+                                                        <ArrowDownUp
+                                                            className="size-4"
+                                                            aria-hidden="true"
+                                                        />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>
+                                                        Urutkan sub task
+                                                    </DropdownMenuLabel>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuRadioGroup
+                                                        value={subtaskSort}
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            setSubtaskSort(
+                                                                value as SubtaskSort,
+                                                            )
+                                                        }
+                                                    >
+                                                        {(
+                                                            Object.keys(
+                                                                SUBTASK_SORT_LABELS,
+                                                            ) as SubtaskSort[]
+                                                        ).map((option) => (
+                                                            <DropdownMenuRadioItem
+                                                                key={option}
+                                                                value={option}
+                                                            >
+                                                                {
+                                                                    SUBTASK_SORT_LABELS[
+                                                                        option
+                                                                    ]
+                                                                }
+                                                            </DropdownMenuRadioItem>
+                                                        ))}
+                                                    </DropdownMenuRadioGroup>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
+
                                         {canAddSubtask && (
                                             <Button
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
-                                                className="ml-auto size-8 shrink-0"
+                                                className={cn(
+                                                    'size-8 shrink-0',
+                                                    orderedSubtasks.length <=
+                                                        1 && 'ml-auto',
+                                                )}
                                                 aria-label="Tambah sub task"
                                                 title="Tambah sub task"
                                                 onClick={onAddSubtask}
@@ -734,6 +871,18 @@ function TaskDetail({
                                             </Button>
                                         )}
                                     </div>
+
+                                    {/* The grip writes `position`, so it only
+                                        means anything while that is what the
+                                        table is showing. */}
+                                    {subtaskSort !== 'manual' && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Urutan tampilan saja — kembali ke
+                                            &ldquo;
+                                            {SUBTASK_SORT_LABELS.manual}
+                                            &rdquo; untuk menggeser sub task.
+                                        </p>
+                                    )}
 
                                     {orderedSubtasks.length > 0 && (
                                         <div className="overflow-hidden rounded-md border">
@@ -829,6 +978,10 @@ function TaskDetail({
                                                                     }}
                                                                     onOpenTask={
                                                                         swapTask
+                                                                    }
+                                                                    sortable={
+                                                                        subtaskSort ===
+                                                                        'manual'
                                                                     }
                                                                 />
                                                             ),
@@ -1361,6 +1514,7 @@ function SubtaskRow({
     onSaveRename,
     onCancelRename,
     onOpenTask,
+    sortable,
 }: {
     child: TaskNode;
     assignees: TaskAssignee[];
@@ -1373,6 +1527,8 @@ function SubtaskRow({
     onSaveRename: () => void;
     onCancelRename: () => void;
     onOpenTask?: (id: number) => void;
+    /** False while the table is showing a sort other than the stored order. */
+    sortable: boolean;
 }) {
     const getInitials = useInitials();
     const {
@@ -1383,7 +1539,14 @@ function SubtaskRow({
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: child.id, disabled: !child.can_edit });
+    } = useSortable({ id: child.id, disabled: !child.can_edit || !sortable });
+
+    /**
+     * A drop writes `position`, which is only what the table is showing while
+     * the manual sort is picked; under any other one the grip would move a row
+     * somewhere the list does not put it, so it is gone rather than inert.
+     */
+    const canDrag = child.can_edit && sortable;
 
     /** Struck through once the work is done, the way the agenda's rows read. */
     const finished = child.status === 'done';
@@ -1408,7 +1571,7 @@ function SubtaskRow({
                 starts it at 12px — and it only ever held something while the
                 row was hovered. Positioned rather than laid out, it costs the
                 key nothing and still nudges down to the summary's first line. */}
-            {child.can_edit && (
+            {canDrag && (
                 <button
                     type="button"
                     ref={setActivatorNodeRef}
