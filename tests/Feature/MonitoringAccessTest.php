@@ -221,3 +221,64 @@ test('the landing page carries only recent finished work and counts the rest', f
             ->has('tasks.0.tasks', 3)
         );
 });
+
+test('the sidebar can address the viewer their own timeline', function () {
+    // The gantt gave up its tab beside the agenda for a sidebar row, and that
+    // row is built from the member id. It sits outside the "Monitoring" group
+    // on purpose: someone who leads nobody is refused the roster and would
+    // never see it there, but their own timeline is theirs to open.
+    $workspace = Workspace::factory()->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('monitoring.me'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('tenancy.membership.id', $member->id)
+            ->where('tenancy.membership.can_monitor', false)
+        );
+
+    $this->get(route('monitoring.person', $member))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('monitoring/person')
+        );
+});
+
+test('the agenda filter rides in the query string without narrowing the page', function () {
+    // The segmented control above the agenda filters in the browser, and the
+    // count beside each of its labels is counted over every open task. So the
+    // server has to keep sending all of them whatever `signal` says — filter
+    // here and the numbers would describe a list nobody can see.
+    $workspace = Workspace::factory()->create();
+    $unit = OrgUnit::factory()->rootOf($workspace)->create();
+    $member = WorkspaceMember::factory()
+        ->for($workspace)
+        ->create(['role' => WorkspaceRole::Member, 'org_unit_id' => $unit->id]);
+
+    $project = Project::factory()->in($unit)->create();
+    $project->members()->attach($member->user_id);
+
+    Task::factory()->for($project)->create([
+        'assignee_id' => $member->user_id,
+        'due_date' => now()->subWeek(),
+    ]);
+
+    Task::factory()->for($project)->create([
+        'assignee_id' => $member->user_id,
+        'due_date' => now()->addMonth(),
+    ]);
+
+    $this->actingAs($member->user)
+        ->withSession(['workspace_id' => $workspace->id])
+        ->get(route('monitoring.me', ['signal' => 'overdue']))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('monitoring/focus')
+            ->has('tasks.0.tasks', 2)
+        );
+});

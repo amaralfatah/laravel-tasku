@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import {
     Building2,
+    ChartGantt,
     ContactRound,
     Gauge,
     ListChecks,
@@ -23,7 +24,12 @@ import {
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { index as groupIndex } from '@/routes/group';
 import { index as membersIndex } from '@/routes/members';
-import { divisions, me, people } from '@/routes/monitoring';
+import {
+    divisions,
+    me,
+    people,
+    person as personTimeline,
+} from '@/routes/monitoring';
 import { index as organizationIndex } from '@/routes/organization';
 import { index as requestersIndex } from '@/routes/requesters';
 import { index as workspacesIndex } from '@/routes/workspaces';
@@ -62,6 +68,25 @@ export function AppSidebar() {
             href: me(),
             icon: ListChecks,
         });
+
+        /*
+         * The gantt of the same tasks, one row below the agenda rather than
+         * a tab on top of it: the two are separate pages, and the sidebar is
+         * where this application puts a way between pages.
+         *
+         * It sits outside the "Monitoring" group on purpose. That group is
+         * behind the scale gate and `can_monitor`, and someone who leads
+         * nobody is refused `monitoring.people` while still reaching their
+         * own timeline — burying it there would hide it from exactly the
+         * people it belongs to.
+         */
+        if (membership !== null) {
+            mainNavItems.push({
+                title: 'Timeline saya',
+                href: personTimeline(membership.id),
+                icon: ChartGantt,
+            });
+        }
 
         /*
          * Progressive disclosure: a solo workspace has nobody to place and

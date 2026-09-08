@@ -31,6 +31,8 @@ export type SwitchableWorkspace = WorkspaceSummary & {
 };
 
 export type Membership = {
+    /** Row id, used to address this person's own monitoring pages. */
+    id: number;
     role: WorkspaceRole;
     role_label: string;
     /** Short tier code, e.g. `OWNER`. */

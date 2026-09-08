@@ -88,6 +88,9 @@ class HandleInertiaRequests extends Middleware
                 'scale' => WorkspaceScale::of($workspace)->value,
             ],
             'membership' => $member === null ? null : [
+                // The sidebar links to this person's own timeline, which is
+                // addressed by member id rather than user id.
+                'id' => $member->id,
                 'role' => $member->role->value,
                 'role_label' => $member->role->label(),
                 'role_code' => $member->role->code(),

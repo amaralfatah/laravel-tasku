@@ -1,7 +1,6 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarClock, ChevronDown, Inbox, Sunrise } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { MyWorkTabs } from '@/components/monitoring/my-work-tabs';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,6 +50,33 @@ type BucketKey = 'overdue' | 'today' | 'week' | 'later' | 'unscheduled';
 
 /** The filters at the top; the first three are buckets, the last is a state. */
 type SignalKey = BucketKey | 'review';
+
+/**
+ * What the segmented control above the agenda offers, beside "Semua".
+ *
+ * Three of them name a heading below; "review" names a state a task can be in
+ * under any heading, which is why it is a filter and not a sixth bucket.
+ */
+const SIGNALS: { key: SignalKey; label: string }[] = [
+    { key: 'overdue', label: 'Telat' },
+    { key: 'today', label: 'Hari ini' },
+    { key: 'week', label: 'Minggu ini' },
+    { key: 'review', label: 'Menunggu review' },
+];
+
+/**
+ * The picked filter as it arrives in the query string.
+ *
+ * Anything unrecognised reads as no filter rather than as an empty agenda, so
+ * a hand-edited or stale link still opens on something.
+ */
+function readSignal(url: string): SignalKey | null {
+    const value = new URLSearchParams(url.split('?')[1] ?? '').get('signal');
+
+    return SIGNALS.some((signal) => signal.key === value)
+        ? (value as SignalKey)
+        : null;
+}
 
 /**
  * The agenda, in the order a working day is lived.
@@ -204,10 +230,35 @@ export default function MonitoringFocus({
     /** Finished work left behind that window, and so not sent to the browser. */
     olderDone: number;
 }) {
+    const page = usePage();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
-    const [signal, setSignal] = useState<SignalKey | null>(null);
+    const [signal, setSignal] = useState<SignalKey | null>(() =>
+        readSignal(page.url),
+    );
     const [showDone, setShowDone] = useState(false);
     const [showAllUnscheduled, setShowAllUnscheduled] = useState(false);
+
+    /**
+     * Filtering itself stays here: the server already sends every open task,
+     * and the count beside each label is counted over all of them, so
+     * narrowing the list on the server would leave the numbers describing a
+     * list nobody can see.
+     *
+     * The choice still lands in the URL, the way every other filter in this
+     * application does and the way Jira carries the tab of its own landing
+     * page — "what is late" becomes a link somebody can send, and it survives
+     * a reload. A client-side visit is enough; there is nothing to fetch.
+     * `mergeQuery` leaves a date range that is already there alone.
+     */
+    const chooseSignal = (next: SignalKey | null): void => {
+        setSignal(next);
+
+        router.replace({
+            url: me({ mergeQuery: { signal: next } }).url,
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     // Read once per visit, not per render: a task must not change heading
     // under the reader while they are looking at it.
@@ -340,23 +391,16 @@ export default function MonitoringFocus({
     }, [rows, openTaskId]);
 
     /**
-     * Only the filters that would narrow anything.
+     * Only the filters that would narrow anything — plus whichever one is on.
      *
-     * A dead control is worse than a missing one: four of them, three greyed
-     * out reading zero, wrapped onto two rows of a phone and sat directly
-     * under the view tabs, where a band of grey pills reads as navigation that
-     * refuses to work rather than as filters with nothing to filter. What is
-     * left is also the urgency summary, which is why the strip is the part
-     * that sticks: the greeting scrolls away, the counts do not.
+     * A dead control is worse than a missing one, which is why the zeroes are
+     * left out. The picked one is the exception: finishing the last late task
+     * would otherwise make its segment disappear and leave the agenda empty
+     * with nothing on screen saying what was filtering it.
      */
-    const signals = (
-        [
-            { key: 'overdue', label: 'Telat' },
-            { key: 'today', label: 'Hari ini' },
-            { key: 'week', label: 'Minggu ini' },
-            { key: 'review', label: 'Menunggu review' },
-        ] satisfies { key: SignalKey; label: string }[]
-    ).filter((item) => counts[item.key] > 0);
+    const signals = SIGNALS.filter(
+        (item) => counts[item.key] > 0 || signal === item.key,
+    );
 
     return (
         <>
@@ -366,26 +410,46 @@ export default function MonitoringFocus({
                 gutter and the maximum width, and a page that sets its own
                 would sit narrower than the one beside it.
 
-                A phone stacks three bands before the first task — greeting,
-                view tabs, filters — so the gaps between them are a step
-                tighter there than on a screen that has room to breathe. */}
+                A phone still stacks the greeting and the filters before the
+                first task, so the gaps between them are a step tighter there
+                than on a screen that has room to breathe. */}
             <div className="space-y-4 sm:space-y-6">
-                <header className="min-w-0">
-                    {/* Large type takes negative tracking; letters read further
-                        apart the bigger they get. A phone holds a step less of
-                        it: at 30px the greeting outweighed the two tasks
-                        underneath it. */}
-                    <h1 className="truncate text-xl font-semibold tracking-tight sm:text-3xl">
-                        {greetingFor(now.getHours())}, {member.name}.
-                    </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {open.length === 0
-                            ? 'Tidak ada task terbuka.'
-                            : summarise(counts, open.length)}
-                    </p>
-                </header>
+                {/* The greeting and the filters share a line, the way Jira
+                    puts the tabs of its own landing page on the line of the
+                    section heading rather than in a band of their own. Three
+                    stacked bands stood here before — greeting, view tabs, a
+                    sticky strip of chips — ahead of the first task. The way to
+                    the gantt left with them; it is a sidebar row now, because
+                    a tab that loads another page is not a tab.
 
-                <MyWorkTabs memberId={member.id} active="agenda" />
+                    A phone has no room for both, so the control wraps under
+                    the greeting and scrolls inside itself. */}
+                <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+                    <div className="min-w-0 flex-1">
+                        {/* Large type takes negative tracking; letters read
+                            further apart the bigger they get. A phone holds a
+                            step less of it: at 30px the greeting outweighed
+                            the two tasks underneath it. */}
+                        <h1 className="truncate text-xl font-semibold tracking-tight sm:text-3xl">
+                            {greetingFor(now.getHours())}, {member.name}.
+                        </h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {open.length === 0
+                                ? 'Tidak ada task terbuka.'
+                                : summarise(counts, open.length)}
+                        </p>
+                    </div>
+
+                    {signals.length > 0 && (
+                        <SignalTabs
+                            signals={signals}
+                            counts={counts}
+                            total={open.length}
+                            active={signal}
+                            onPick={chooseSignal}
+                        />
+                    )}
+                </header>
 
                 {(filters.from || filters.to) && (
                     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
@@ -401,9 +465,15 @@ export default function MonitoringFocus({
                             variant="ghost"
                             size="sm"
                             className="ml-auto"
+                            /* Clears the range and nothing else: the
+                               picked filter is in the same query string and
+                               dropping it here would undo a choice the
+                               button does not name. */
                             onClick={() =>
                                 router.get(
-                                    me().url,
+                                    me({
+                                        mergeQuery: { from: null, to: null },
+                                    }).url,
                                     {},
                                     { preserveState: true, replace: true },
                                 )
@@ -413,62 +483,6 @@ export default function MonitoringFocus({
                         </Button>
                     </div>
                 )}
-
-                {/* The filters float over the agenda as it scrolls, offset by
-                    the height of the app header above them. The negative
-                    margins undo the layout's gutter so the frosted strip
-                    reaches the edges; without them a sliver of the list slid
-                    past unblurred on either side. */}
-                <div
-                    className={cn(
-                        'surface-frosted sticky top-(--header-height) z-20 -mx-4 flex flex-wrap gap-2 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8',
-                        signals.length === 0 && 'hidden',
-                    )}
-                >
-                    {signals.map((item) => {
-                        const active = signal === item.key;
-
-                        return (
-                            <button
-                                key={item.key}
-                                type="button"
-                                aria-pressed={active}
-                                onClick={() =>
-                                    setSignal(active ? null : item.key)
-                                }
-                                /* Off is a raised chip — `card` plus the
-                                   hairline every raised surface carries —
-                                   because a control is something you press,
-                                   and `muted` sits a step *below* the page on
-                                   the dark ladder: a filter painted with it
-                                   read as a hole cut in the strip. On is the
-                                   accent, so the fill still tells the two
-                                   apart, and the border stays on both states
-                                   so the chip does not shift a pixel when it
-                                   is chosen. Full 44px on a phone. */
-                                className={cn(
-                                    'flex min-h-11 items-center gap-2 rounded-md border px-3 text-xs transition-[background-color,color,transform] duration-150 sm:min-h-9 sm:text-sm',
-                                    'active:scale-[0.98]',
-                                    active
-                                        ? 'border-primary bg-primary text-primary-foreground'
-                                        : 'border-border bg-card text-foreground hover:bg-accent',
-                                )}
-                            >
-                                {item.label}
-                                <span
-                                    className={cn(
-                                        'tabular-nums',
-                                        active
-                                            ? 'text-primary-foreground/80'
-                                            : 'text-muted-foreground',
-                                    )}
-                                >
-                                    {counts[item.key]}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
 
                 {open.length === 0 ? (
                     <div className="rounded-lg border border-border p-12 text-center">
@@ -665,6 +679,85 @@ export default function MonitoringFocus({
                 onOpenTask={setOpenTaskId}
             />
         </>
+    );
+}
+
+/**
+ * The filters, as one segmented control rather than a row of loose chips.
+ *
+ * A segmented control says two things a chip cannot: that the choices are
+ * exclusive, and that one of them is always on. Both are true here — "Semua"
+ * is the resting state, not the absence of a filter — and saying them costs
+ * one line beside the greeting instead of a band of its own.
+ *
+ * The track is the sunken step of the surface ladder and the picked segment is
+ * the raised one, so the pair reads in both themes off tokens that already
+ * exist: in dark the tone step carries it, in light a white segment sits on a
+ * grey track. Nothing here is painted with the accent — a solid accent fill
+ * made a filter shout louder than the late work it was filtering for.
+ */
+function SignalTabs({
+    signals,
+    counts,
+    total,
+    active,
+    onPick,
+}: {
+    signals: { key: SignalKey; label: string }[];
+    counts: Record<SignalKey, number>;
+    /** What "Semua" counts: every open task, filtered or not. */
+    total: number;
+    active: SignalKey | null;
+    onPick: (signal: SignalKey | null) => void;
+}) {
+    const segments: { key: SignalKey | null; label: string; count: number }[] =
+        [
+            { key: null, label: 'Semua', count: total },
+            ...signals.map((signal) => ({
+                key: signal.key,
+                label: signal.label,
+                count: counts[signal.key],
+            })),
+        ];
+
+    return (
+        <nav
+            aria-label="Filter agenda"
+            className="flex max-w-full shrink-0 [scrollbar-width:none] gap-1 overflow-x-auto rounded-md bg-muted p-1 [&::-webkit-scrollbar]:hidden"
+        >
+            {segments.map((segment) => {
+                const isActive = active === segment.key;
+
+                return (
+                    <button
+                        key={segment.key ?? 'all'}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => onPick(segment.key)}
+                        /* Full 44px on a phone, and the 36px this design
+                           system gives a control everywhere else. */
+                        className={cn(
+                            'flex min-h-11 shrink-0 items-center gap-1.5 rounded px-3 text-xs whitespace-nowrap transition-colors duration-150 sm:min-h-9 sm:text-sm',
+                            isActive
+                                ? 'bg-card font-medium text-foreground'
+                                : 'text-muted-foreground hover:text-foreground',
+                        )}
+                    >
+                        {segment.label}
+                        <span
+                            className={cn(
+                                'tabular-nums',
+                                isActive
+                                    ? 'text-muted-foreground'
+                                    : 'text-muted-foreground/70',
+                            )}
+                        >
+                            {segment.count}
+                        </span>
+                    </button>
+                );
+            })}
+        </nav>
     );
 }
 

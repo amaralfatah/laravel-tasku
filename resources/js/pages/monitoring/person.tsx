@@ -1,7 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarOff, ClipboardList, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { MyWorkTabs } from '@/components/monitoring/my-work-tabs';
 import { ProgressBar } from '@/components/task/progress-bar';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import {
@@ -211,7 +210,7 @@ export default function MonitoringPerson({
                         {/* The roster is not everyone's to open: a member who
                             leads nobody reaches their own timeline but is
                             refused `monitoring.people`. Reading yourself, the
-                            tabs below already carry the way back. */}
+                            sidebar already carries the way back. */}
                         {canMonitor && (
                             <Button variant="outline" size="sm" asChild>
                                 <Link href={people()}>Semua anggota</Link>
@@ -219,12 +218,6 @@ export default function MonitoringPerson({
                         )}
                     </div>
                 </div>
-
-                {/* Your own two views sit side by side; someone else's timeline
-                    has no agenda beside it to switch to. */}
-                {isSelf && (
-                    <MyWorkTabs memberId={member.id} active="timeline" />
-                )}
 
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="grid min-w-0 flex-1 gap-1.5 sm:flex-none">
