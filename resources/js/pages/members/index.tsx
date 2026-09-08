@@ -208,9 +208,9 @@ export default function Members({
                             {invitations.map((invitation) => (
                                 <li
                                     key={invitation.id}
-                                    className="flex flex-wrap items-center gap-3 p-3"
+                                    className="flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
                                 >
-                                    <div className="min-w-0 flex-1">
+                                    <div className="min-w-0 sm:flex-1">
                                         <p className="truncate font-medium">
                                             {invitation.email}
                                         </p>
@@ -223,12 +223,15 @@ export default function Members({
                                     </div>
 
                                     {invitation.is_expired && (
-                                        <Badge variant="destructive">
+                                        <Badge
+                                            variant="destructive"
+                                            className="self-start"
+                                        >
                                             Kedaluwarsa
                                         </Badge>
                                     )}
 
-                                    <div className="flex gap-1">
+                                    <div className="-ml-2 flex flex-wrap gap-1 sm:ml-0">
                                         <Button
                                             variant="ghost"
                                             size="sm"
