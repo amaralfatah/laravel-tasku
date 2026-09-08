@@ -46,6 +46,12 @@ type Member = {
 /** A task carried together with the project block it came from. */
 type Row = { task: TaskNode; group: ProjectGroup };
 
+/**
+ * A row standing in its family: `depth` is how far it sits under the topmost
+ * ancestor that shares its bucket, and 0 for a row that leads one.
+ */
+type NestedRow = { row: Row; depth: number };
+
 type BucketKey = 'overdue' | 'today' | 'week' | 'later' | 'unscheduled';
 
 /** The filters at the top; the first three are buckets, the last is a state. */
@@ -161,6 +167,81 @@ function dueLabel(task: TaskNode, now: Date): string {
     }
 
     return days <= 7 ? `${days} hari lagi` : formatDay(task.due_date);
+}
+
+/**
+ * Two rows in the order the next hour is decided: due date, then priority,
+ * then reference — soonest first, and among equals the one that costs most to
+ * miss.
+ */
+function byUrgency(a: Row, b: Row): number {
+    const due = (a.task.due_date ?? '').localeCompare(b.task.due_date ?? '');
+
+    if (due !== 0) {
+        return due;
+    }
+
+    const priority =
+        PRIORITY_RANK[a.task.priority] - PRIORITY_RANK[b.task.priority];
+
+    return priority !== 0
+        ? priority
+        : a.task.reference.localeCompare(b.task.reference);
+}
+
+/**
+ * The rows of one bucket, each standing under its parent.
+ *
+ * A parent and its sub tasks are one piece of work, and scattering them down
+ * the list by due date left the page reading as unrelated lines that happen to
+ * share a reference prefix. So a family is ordered as a family, and the
+ * families themselves keep the bucket's own order — the earliest row a family
+ * has is the position the whole family takes.
+ *
+ * Only a parent inside this same bucket counts. Pulling one in from another
+ * heading would file it under a date it does not have, and the count beside
+ * the heading would stop matching what is under it.
+ */
+function nest(rows: Row[]): NestedRow[] {
+    const here = new Set(rows.map((row) => row.task.id));
+    const children = new Map<number, Row[]>();
+    const roots: Row[] = [];
+
+    for (const row of rows) {
+        const parent = row.task.parent_task_id;
+
+        if (parent === null || !here.has(parent)) {
+            roots.push(row);
+
+            continue;
+        }
+
+        children.set(parent, [...(children.get(parent) ?? []), row]);
+    }
+
+    /** The soonest row anywhere in a family, which is what places it. */
+    const leading = (row: Row): Row =>
+        (children.get(row.task.id) ?? [])
+            .map(leading)
+            .reduce(
+                (best, other) => (byUrgency(other, best) < 0 ? other : best),
+                row,
+            );
+
+    const ordered: NestedRow[] = [];
+
+    const walk = (siblings: Row[], depth: number): void => {
+        for (const row of [...siblings].sort((a, b) =>
+            byUrgency(leading(a), leading(b)),
+        )) {
+            ordered.push({ row, depth });
+            walk(children.get(row.task.id) ?? [], depth + 1);
+        }
+    };
+
+    walk(roots, 0);
+
+    return ordered;
 }
 
 function greetingFor(hour: number): string {
@@ -311,8 +392,8 @@ export default function MonitoringFocus({
     }, [open, now]);
 
     /**
-     * Within a bucket the order is due date, then priority, then reference:
-     * soonest first, and among equals the one that costs most to miss.
+     * Within a bucket the order is by family, and a family is placed by its
+     * most urgent member: due date, then priority, then reference.
      */
     const buckets = useMemo(() => {
         const grouped = new Map<BucketKey, Row[]>(
@@ -332,27 +413,9 @@ export default function MonitoringFocus({
             }
         }
 
-        for (const list of grouped.values()) {
-            list.sort((a, b) => {
-                const due = (a.task.due_date ?? '').localeCompare(
-                    b.task.due_date ?? '',
-                );
-
-                if (due !== 0) {
-                    return due;
-                }
-
-                const priority =
-                    PRIORITY_RANK[a.task.priority] -
-                    PRIORITY_RANK[b.task.priority];
-
-                return priority !== 0
-                    ? priority
-                    : a.task.reference.localeCompare(b.task.reference);
-            });
-        }
-
-        return grouped;
+        return new Map<BucketKey, NestedRow[]>(
+            [...grouped].map(([key, list]) => [key, nest(list)]),
+        );
     }, [open, signal, now]);
 
     const visible = BUCKETS.filter(
@@ -567,18 +630,24 @@ export default function MonitoringFocus({
                                         aria-labelledby={`bucket-${bucket.key}`}
                                         className="mt-1 divide-y divide-border border-t border-border"
                                     >
-                                        {shown.map(({ task, group }) => (
-                                            <TaskRow
-                                                key={task.id}
-                                                task={task}
-                                                project={group.project}
-                                                statuses={statuses}
-                                                meta={dueLabel(task, now)}
-                                                onOpen={() =>
-                                                    setOpenTaskId(task.id)
-                                                }
-                                            />
-                                        ))}
+                                        {shown.map(
+                                            ({
+                                                row: { task, group },
+                                                depth,
+                                            }) => (
+                                                <TaskRow
+                                                    key={task.id}
+                                                    task={task}
+                                                    project={group.project}
+                                                    statuses={statuses}
+                                                    depth={depth}
+                                                    meta={dueLabel(task, now)}
+                                                    onOpen={() =>
+                                                        setOpenTaskId(task.id)
+                                                    }
+                                                />
+                                            ),
+                                        )}
                                     </ul>
 
                                     {folded && (
@@ -790,12 +859,15 @@ function TaskRow({
     statuses,
     meta,
     onOpen,
+    depth = 0,
 }: {
     task: TaskNode;
     project: { id: number; name: string };
     statuses: Option[];
     meta: string;
     onOpen: () => void;
+    /** How far under a parent standing in the same list this row sits. */
+    depth?: number;
 }) {
     const [saving, setSaving] = useState(false);
 
@@ -820,7 +892,16 @@ function TaskRow({
         // rows do. Taking the row to `accent` — the top of the ladder — put it
         // above the `card` the status control paints, and the control sank out
         // of sight the moment it was pointed at.
-        <li className="relative grid min-h-11 grid-cols-1 gap-y-0.5 px-2 py-2 hover:bg-muted/40 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0">
+        // A sub task is indented under its parent by the same step the
+        // timeline and the project tree use, so one task means the same shape
+        // wherever it is read. Only the left padding moves: the fixed tracks
+        // stay where they are, and the title column gives up the width.
+        <li
+            className="relative grid min-h-11 grid-cols-1 gap-y-0.5 px-2 py-2 hover:bg-muted/40 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0"
+            style={
+                depth === 0 ? undefined : { paddingLeft: `${8 + depth * 14}px` }
+            }
+        >
             {/* On a wide screen the reference has a column of its own, ahead of
                 the title, as it does on the list, the timeline and the member
                 pages. A phone has no width to spare for it there, so it leads
