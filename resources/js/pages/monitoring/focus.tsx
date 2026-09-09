@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarClock, ChevronDown, Inbox, Sunrise } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { PersonAiChat } from '@/components/task/person-ai-chat';
+import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ import {
 import type { TaskAssignee, TaskNode, TaskPriority } from '@/types/tasks';
 
 type ProjectGroup = {
-    project: { id: number; name: string };
+    project: { id: number; name: string; key: string };
     /** Whether the viewer may edit tasks of this project (varies per block). */
     can_edit: boolean;
     assignees: TaskAssignee[];
@@ -319,6 +320,14 @@ export default function MonitoringFocus({
 }) {
     const page = usePage();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
+    /**
+     * The create dialog behind the modal's sub task panel. The block the parent
+     * came from carries the project and its members, so it is held beside the
+     * parent rather than looked up again.
+     */
+    const [createParent, setCreateParent] = useState<TaskNode | null>(null);
+    const [createGroup, setCreateGroup] = useState<ProjectGroup | null>(null);
+    const [createOpen, setCreateOpen] = useState(false);
     const [signal, setSignal] = useState<SignalKey | null>(() =>
         readSignal(page.url),
     );
@@ -449,6 +458,7 @@ export default function MonitoringFocus({
 
         return {
             task: row.task,
+            group: row.group,
             assignees: row.group.assignees,
             subtasks: family.filter(
                 (item) => item.parent_task_id === row.task.id,
@@ -752,7 +762,29 @@ export default function MonitoringFocus({
                 priorities={priorities}
                 onClose={() => setOpenTaskId(null)}
                 onOpenTask={setOpenTaskId}
+                onAddSubtask={
+                    detail
+                        ? () => {
+                              setCreateParent(detail.task);
+                              setCreateGroup(detail.group);
+                              setCreateOpen(true);
+                          }
+                        : undefined
+                }
             />
+
+            {createGroup && (
+                <TaskCreateDialog
+                    open={createOpen}
+                    project={createGroup.project}
+                    parent={createParent}
+                    assignees={createGroup.assignees}
+                    requesters={requesters}
+                    statuses={statuses}
+                    priorities={priorities}
+                    onClose={() => setCreateOpen(false)}
+                />
+            )}
 
             {aiModels.length > 0 && aiModel !== null && (
                 <PersonAiChat

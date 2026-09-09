@@ -407,10 +407,15 @@ test('a rejected gemini key is reported on the field', function () {
         ->assertJsonValidationErrors('instruction');
 });
 
-test('the assistant is not reachable where it is switched off', function () {
+test('the assistant is not reachable where no model can run', function () {
     [$member, $project] = aiProject();
 
-    config()->set('ai.enabled', false);
+    // A production deployment with no Gemini key: no CLI on the runtime, and
+    // nothing to call over HTTP either.
+    config()->set([
+        'ai.models.claude.enabled' => false,
+        'ai.models.gemini.enabled' => false,
+    ]);
 
     $this->actingAs($member->user)
         ->withSession(['workspace_id' => $member->workspace_id])

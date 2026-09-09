@@ -22,10 +22,6 @@ class TextModels
      */
     public function options(): array
     {
-        if (config('ai.enabled') !== true) {
-            return [];
-        }
-
         $options = [];
 
         foreach ((array) config('ai.models') as $key => $model) {
@@ -38,20 +34,13 @@ class TextModels
     }
 
     /**
-     * The model to preselect: the configured default when it is available, and
-     * otherwise the first one that is.
+     * The model to preselect — the first one on offer, which is the CLI on a
+     * developer machine and Gemini on a deployment. The panel overrides it
+     * with whatever this browser picked last.
      */
     public function default(): ?string
     {
-        $available = array_column($this->options(), 'value');
-
-        if ($available === []) {
-            return null;
-        }
-
-        return in_array(config('ai.default'), $available, true)
-            ? (string) config('ai.default')
-            : $available[0];
+        return $this->options()[0]['value'] ?? null;
     }
 
     public function has(string $key): bool
