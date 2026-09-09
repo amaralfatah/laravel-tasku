@@ -9,6 +9,8 @@ use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkspaceMember;
 use App\Queries\MemberWorkloadQuery;
+use App\Services\Ai\PlanScope;
+use App\Services\Ai\TextModels;
 use App\Support\TaskPresenter;
 use App\Support\Tenancy;
 use Illuminate\Http\Request;
@@ -118,7 +120,30 @@ class PersonController extends Controller
             'requesters' => TaskPresenter::requesterOptions(),
             'filters' => ['from' => $from, 'to' => $to],
             'isSelf' => $member->user_id === $request->user()->id,
+            // The assistant, scoped to this person's work. Offered only where
+            // the viewer may actually change something — every block on this
+            // page carries its own edit permission, because it crosses
+            // projects.
+            'aiModels' => $this->assistantModels($request, $member),
+            'aiModel' => app(TextModels::class)->default(),
         ];
+    }
+
+    /**
+     * Models the viewer may plan this person's work with.
+     *
+     * Empty unless they can contribute to at least one project the work sits
+     * in — a chat that could only ever be refused is worse than no chat.
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    protected function assistantModels(Request $request, WorkspaceMember $member): array
+    {
+        $canEditSomething = PlanScope::forAssignee($member->user_id)
+            ->projects($request->user())
+            ->isNotEmpty();
+
+        return $canEditSomething ? app(TextModels::class)->options() : [];
     }
 
     /**

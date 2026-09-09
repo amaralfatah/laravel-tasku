@@ -24,6 +24,7 @@ import { Head, router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { ProjectHeader } from '@/components/project/project-header';
+import { TaskAiChat } from '@/components/task/task-ai-chat';
 import { TaskCard } from '@/components/task/task-card';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
@@ -34,6 +35,7 @@ import { projectCrumbs } from '@/lib/project-crumbs';
 import { cn } from '@/lib/utils';
 import { show } from '@/routes/projects';
 import { move } from '@/routes/tasks';
+import { apply as aiApply, plan as aiPlan } from '@/routes/tasks/ai';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import { TASK_STATUS_LABELS, TASK_STATUS_ORDER } from '@/types/tasks';
@@ -56,7 +58,15 @@ type PageProps = {
     maxDepth: number;
     /** Task to open on arrival, e.g. when following a notification (NTF-3). */
     focusTaskId: number | null;
-    can: { contribute: boolean; edit_project: boolean };
+    /** AI models this deployment can run; empty when none can. */
+    aiModels: Option[];
+    aiModel: string | null;
+    can: {
+        contribute: boolean;
+        edit_project: boolean;
+        /** False wherever no AI model is available to plan with. */
+        ai: boolean;
+    };
 };
 
 /**
@@ -144,6 +154,8 @@ export default function ProjectBoard({
     assignees,
     requesters,
     focusTaskId,
+    aiModels,
+    aiModel,
     can,
 }: PageProps) {
     const [openTaskId, setOpenTaskId] = useFocusedTask(focusTaskId);
@@ -303,7 +315,10 @@ export default function ProjectBoard({
                 <ProjectHeader project={project} active="board" />
 
                 {/* Creating a task is done from the column it belongs in, so
-                    the board has no second global "new task" button. */}
+                    the board has no second global "new task" button. The
+                    assistant is not in this row either — it floats in the
+                    corner, because a sentence may touch several columns and
+                    the board stays readable behind it. */}
                 <TaskFilterBar
                     filters={filters}
                     assignees={assignees}
@@ -392,10 +407,10 @@ export default function ProjectBoard({
                 onAddSubtask={
                     openTask
                         ? () =>
-                            setCreating({
-                                parent: openTask,
-                                status: 'todo',
-                            })
+                              setCreating({
+                                  parent: openTask,
+                                  status: 'todo',
+                              })
                         : undefined
                 }
             />
@@ -411,6 +426,18 @@ export default function ProjectBoard({
                 priorities={priorities}
                 onClose={() => setCreating(null)}
             />
+
+            {can.ai && aiModel !== null && (
+                <TaskAiChat
+                    planUrl={aiPlan(project).url}
+                    applyUrl={aiApply(project).url}
+                    tasks={tasks}
+                    assignees={assignees}
+                    statuses={statuses}
+                    models={aiModels}
+                    defaultModel={aiModel}
+                />
+            )}
         </>
     );
 }

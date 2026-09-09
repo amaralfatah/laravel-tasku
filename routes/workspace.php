@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AiTaskController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\InvitationController;
@@ -76,7 +77,17 @@ Route::middleware(['auth', 'workspace'])->group(function () {
     Route::get('monitoring/people/{member}/export', [ExportController::class, 'person'])->name('monitoring.person.export');
     Route::get('monitoring/divisions', [DivisionController::class, 'index'])->name('monitoring.divisions');
 
+    // The same assistant as on a project, scoped to one person's work across
+    // every project. Seeing that work is not permission to change it — each
+    // operation is still authorized on its own task (see AiTaskController).
+    Route::post('monitoring/people/{member}/ai/plan', [AiTaskController::class, 'planForMember'])->name('monitoring.ai.plan');
+    Route::post('monitoring/people/{member}/ai/apply', [AiTaskController::class, 'applyForMember'])->name('monitoring.ai.apply');
+
     Route::post('projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
+    // Task CRUD dictated in a sentence. Planning answers JSON for the dialog to
+    // show; nothing is written until the plan is posted back to `apply`.
+    Route::post('projects/{project}/ai/plan', [AiTaskController::class, 'plan'])->name('tasks.ai.plan');
+    Route::post('projects/{project}/ai/apply', [AiTaskController::class, 'apply'])->name('tasks.ai.apply');
     Route::patch('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('tasks/{task}/move', [TaskController::class, 'move'])->name('tasks.move');
     // Push a task's own dates down its whole subtree in one go.

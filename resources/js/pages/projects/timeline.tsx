@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { CalendarOff, ChevronRight, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProjectHeader } from '@/components/project/project-header';
+import { TaskAiChat } from '@/components/task/task-ai-chat';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { formatDay } from '@/lib/week';
 import { timeline } from '@/routes/projects';
 import { exportMethod as exportTimeline } from '@/routes/projects/timeline';
+import { apply as aiApply, plan as aiPlan } from '@/routes/tasks/ai';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import type {
@@ -56,7 +58,10 @@ type PageProps = {
     maxDepth: number;
     /** Task to open on arrival, e.g. when following a notification (NTF-3). */
     focusTaskId: number | null;
-    can: { contribute: boolean; edit_project: boolean };
+    /** AI models this deployment can run; empty when none can. */
+    aiModels: Option[];
+    aiModel: string | null;
+    can: { contribute: boolean; edit_project: boolean; ai: boolean };
 };
 
 /**
@@ -108,6 +113,9 @@ export default function ProjectTimeline({
     assignees,
     requesters,
     focusTaskId,
+    aiModels,
+    aiModel,
+    can,
 }: PageProps) {
     const [zoom, setZoom] = useState<Zoom>('week');
     const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
@@ -466,6 +474,18 @@ export default function ProjectTimeline({
                 priorities={priorities}
                 onClose={() => setCreateOpen(false)}
             />
+
+            {can.ai && aiModel !== null && (
+                <TaskAiChat
+                    planUrl={aiPlan(project).url}
+                    applyUrl={aiApply(project).url}
+                    tasks={tasks}
+                    assignees={assignees}
+                    statuses={statuses}
+                    models={aiModels}
+                    defaultModel={aiModel}
+                />
+            )}
         </>
     );
 }

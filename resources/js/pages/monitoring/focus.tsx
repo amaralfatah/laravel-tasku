@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarClock, ChevronDown, Inbox, Sunrise } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { PersonAiChat } from '@/components/task/person-ai-chat';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -299,6 +300,8 @@ export default function MonitoringFocus({
     filters,
     doneWindowDays,
     olderDone,
+    aiModels,
+    aiModel,
 }: {
     member: Member;
     tasks: ProjectGroup[];
@@ -310,6 +313,9 @@ export default function MonitoringFocus({
     doneWindowDays: number;
     /** Finished work left behind that window, and so not sent to the browser. */
     olderDone: number;
+    /** Empty unless the viewer may contribute to at least one of these projects. */
+    aiModels: Option[];
+    aiModel: string | null;
 }) {
     const page = usePage();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
@@ -747,6 +753,16 @@ export default function MonitoringFocus({
                 onClose={() => setOpenTaskId(null)}
                 onOpenTask={setOpenTaskId}
             />
+
+            {aiModels.length > 0 && aiModel !== null && (
+                <PersonAiChat
+                    memberId={member.id}
+                    groups={tasks}
+                    statuses={statuses}
+                    models={aiModels}
+                    defaultModel={aiModel}
+                />
+            )}
         </>
     );
 }

@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarOff, ClipboardList, Download } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PersonAiChat } from '@/components/task/person-ai-chat';
 import { ProgressBar } from '@/components/task/progress-bar';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
@@ -79,6 +80,8 @@ export default function MonitoringPerson({
     requesters,
     filters,
     isSelf,
+    aiModels,
+    aiModel,
 }: {
     member: Member;
     tasks: ProjectGroup[];
@@ -87,6 +90,9 @@ export default function MonitoringPerson({
     requesters: RequesterOption[];
     filters: { from: string | null; to: string | null };
     isSelf: boolean;
+    /** Empty unless the viewer may contribute to at least one of these projects. */
+    aiModels: Option[];
+    aiModel: string | null;
 }) {
     const getInitials = useInitials();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
@@ -591,6 +597,16 @@ export default function MonitoringPerson({
                     statuses={statuses}
                     priorities={priorities}
                     onClose={() => setCreateOpen(false)}
+                />
+            )}
+
+            {aiModels.length > 0 && aiModel !== null && (
+                <PersonAiChat
+                    memberId={member.id}
+                    groups={tasks}
+                    statuses={statuses}
+                    models={aiModels}
+                    defaultModel={aiModel}
                 />
             )}
         </>

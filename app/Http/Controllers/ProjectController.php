@@ -10,6 +10,7 @@ use App\Models\OrgUnit;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\WorkspaceMember;
+use App\Services\Ai\TextModels;
 use App\Support\TaskFilters;
 use App\Support\TaskOrder;
 use App\Support\TaskPresenter;
@@ -220,6 +221,7 @@ class ProjectController extends Controller
 
         $filters = TaskFilters::fromRequest($request);
         $canEdit = $request->user()->can('contribute', $project);
+        $aiModels = $canEdit ? app(TextModels::class)->options() : [];
 
         $query = Task::query()
             ->where('project_id', $project->id)
@@ -260,9 +262,15 @@ class ProjectController extends Controller
             'maxDepth' => Task::MAX_DEPTH,
             // Deep link from a notification: the view opens this task's panel.
             'focusTaskId' => $request->integer('task') ?: null,
+            // Models the person may plan with, picked in the dialog itself.
+            // Empty wherever none can run — no CLI, no Gemini key — which is
+            // also what hides the button.
+            'aiModels' => $aiModels,
+            'aiModel' => app(TextModels::class)->default(),
             'can' => [
                 'contribute' => $canEdit,
                 'edit_project' => $request->user()->can('update', $project),
+                'ai' => $canEdit && $aiModels !== [],
             ],
         ];
     }

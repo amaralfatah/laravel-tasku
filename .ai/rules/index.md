@@ -5,6 +5,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | Applies to | Rule file |
 | --- | --- |
 | app/Http/Controllers/UserController.php, app/Http/Controllers/UserMembershipController.php, app/Actions/ChangeMemberRole.php, app/Actions/AddUserToWorkspace.php | .ai/rules/actions.md |
+| app/Services/Ai/**, app/Services/Ai/PlanScope.php | .ai/rules/ai.md |
 | api/** | .ai/rules/api.md |
 | app/** | .ai/rules/app.md |
 | resources/js/components/app-sidebar.tsx | .ai/rules/components.md |
@@ -18,3 +19,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | scripts/vercel-install.sh | .ai/rules/scripts.md |
 | app/Services/TaskHierarchy.php, app/Observers/TaskObserver.php | .ai/rules/services.md |
 | app/Support/TaskFilters.php | .ai/rules/support.md |
+| resources/js/components/task/task-ai-chat.tsx | .ai/rules/task.md |
