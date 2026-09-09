@@ -31,6 +31,11 @@ test('my own task page lets me edit the tasks of projects i belong to', function
             ->where('isSelf', true)
             ->where('tasks.0.can_edit', true)
             ->where('tasks.0.tasks.0.can_edit', true)
+            // What the sub task dialog needs to open from the detail modal
+            // here, exactly as it does on a project page.
+            ->where('tasks.0.project.key', $project->key)
+            ->has('tasks.0.assignees')
+            ->has('requesters')
             ->has('statuses')
             ->has('priorities')
         );
