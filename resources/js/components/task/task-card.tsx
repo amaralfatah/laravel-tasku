@@ -1,6 +1,12 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronRight, ListTree, SquareCheckBig, User } from 'lucide-react';
+import {
+    ChevronRight,
+    ListTree,
+    SquareCheckBig,
+    TriangleAlert,
+    User,
+} from 'lucide-react';
 import { useRef } from 'react';
 import type {
     MouseEvent as ReactMouseEvent,
@@ -139,11 +145,13 @@ export function TaskCard({
                     <p className="text-xs text-muted-foreground">
                         Tanggal selesai
                     </p>
+                    {/* A passed deadline is flagged the way Jira flags one: the
+                        date keeps the card's own text colour and a red warning
+                        icon sits after it. Painting the whole line red made the
+                        date the loudest thing on the board, ahead of the titles
+                        the column is read for. */}
                     <p
-                        className={cn(
-                            'text-sm tabular-nums',
-                            task.is_overdue && 'font-medium text-destructive',
-                        )}
+                        className="flex items-center gap-1 text-sm tabular-nums"
                         title={
                             task.is_overdue
                                 ? 'Tanggal selesai sudah terlewat'
@@ -152,7 +160,13 @@ export function TaskCard({
                     >
                         {formatDay(task.due_date)}
                         {task.is_overdue && (
-                            <span className="sr-only"> — terlambat</span>
+                            <>
+                                <TriangleAlert
+                                    className="size-3.5 shrink-0 text-destructive"
+                                    aria-hidden="true"
+                                />
+                                <span className="sr-only">— terlambat</span>
+                            </>
                         )}
                     </p>
                 </div>

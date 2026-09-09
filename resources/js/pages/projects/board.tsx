@@ -332,7 +332,11 @@ export default function ProjectBoard({
                     }}
                     onDragEnd={handleDragEnd}
                 >
-                    <div className="grid items-start gap-3 overflow-x-auto md:grid-cols-4">
+                    {/* Jira's board is a row of fixed-width wells that
+                        scrolls sideways, not a grid that stretches: on a full
+                        width page an equal-share column made a card wider than
+                        the title it carries. */}
+                    <div className="flex items-start gap-3 overflow-x-auto pb-2">
                         {TASK_STATUS_ORDER.map((status) => (
                             <BoardColumn
                                 key={status}
@@ -435,7 +439,7 @@ function BoardColumn({
             className={cn(
                 // The sunken well: a step darker than the page, so the raised
                 // cards inside it read without needing borders.
-                'flex min-w-64 flex-col rounded bg-muted transition-colors',
+                'flex w-72 shrink-0 flex-col rounded bg-muted transition-colors',
                 isOver && 'bg-primary/10',
             )}
             aria-label={TASK_STATUS_LABELS[status]}
