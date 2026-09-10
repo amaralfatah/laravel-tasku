@@ -499,6 +499,96 @@ export function TaskAiChat({
     );
 }
 
+function renderInline(text: string): React.ReactNode {
+    const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+
+    return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return (
+                <strong key={index} className="font-semibold text-foreground">
+                    {part.slice(2, -2)}
+                </strong>
+            );
+        }
+
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return (
+                <code
+                    key={index}
+                    className="rounded bg-background/60 px-1 py-0.5 font-mono text-xs text-foreground"
+                >
+                    {part.slice(1, -1)}
+                </code>
+            );
+        }
+
+        return part;
+    });
+}
+
+/**
+ * Formats AI assistant replies with structured paragraphs, bullet points,
+ * and markdown bold/code elements instead of an unformatted wall of text.
+ */
+function FormattedAiMessage({ text }: { text: string }) {
+    // Normalize inline dashes/bullets (e.g. "Berikut: - Task 1 - Task 2") into line breaks
+    const normalized = text
+        .replace(/\r\n/g, '\n')
+        .replace(/([^\n])\s+[-•*]\s+/g, '$1\n- ')
+        .trim();
+
+    const lines = normalized.split('\n');
+    const elements: React.ReactNode[] = [];
+    let currentBullets: string[] = [];
+
+    const flushBullets = (key: string | number) => {
+        if (currentBullets.length > 0) {
+            elements.push(
+                <ul key={`ul-${key}`} className="my-1.5 space-y-1.5 pl-0.5">
+                    {currentBullets.map((item, index) => (
+                        <li
+                            key={index}
+                            className="flex items-start gap-2 text-xs/relaxed"
+                        >
+                            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/70" />
+                            <span className="min-w-0 flex-1 break-words">
+                                {renderInline(item)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>,
+            );
+            currentBullets = [];
+        }
+    };
+
+    lines.forEach((line, index) => {
+        const trimmed = line.trim();
+
+        if (trimmed === '') {
+            flushBullets(index);
+            return;
+        }
+
+        const bulletMatch = trimmed.match(/^[-•*]\s+(.*)$/);
+
+        if (bulletMatch) {
+            currentBullets.push(bulletMatch[1]);
+        } else {
+            flushBullets(index);
+            elements.push(
+                <p key={`p-${index}`} className="text-sm/relaxed break-words">
+                    {renderInline(trimmed)}
+                </p>,
+            );
+        }
+    });
+
+    flushBullets('end');
+
+    return <div className="space-y-1.5">{elements}</div>;
+}
+
 function TurnBubble({
     turn,
     tasks,
@@ -522,15 +612,15 @@ function TurnBubble({
 }) {
     if (turn.role === 'user') {
         return (
-            <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm break-words text-primary-foreground">
+            <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2 text-sm break-words whitespace-pre-wrap text-primary-foreground">
                 {turn.text}
             </p>
         );
     }
 
     return (
-        <div className="w-fit max-w-[95%] space-y-2 rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm">
-            <p className="break-words">{turn.text}</p>
+        <div className="w-fit max-w-[95%] space-y-2 rounded-2xl rounded-bl-sm bg-muted px-3.5 py-2.5 text-sm">
+            <FormattedAiMessage text={turn.text} />
 
             {turn.plan !== undefined && turn.plan.operations.length > 0 && (
                 <>

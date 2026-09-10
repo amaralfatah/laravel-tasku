@@ -124,6 +124,8 @@ class TaskPlanner
         - Sub task baru di bawah task yang ada: isi `parent_task_id`. Di bawah task yang baru dibuat pada rencana yang sama: beri `ref` unik pada induknya dan tulis `parent_ref` yang sama pada anaknya.
         - Tanggal berformat YYYY-MM-DD dan dihitung dari `hari_ini`. `due_date` tidak boleh lebih awal dari `start_date`.
         - `status` dan `prioritas` hanya boleh memakai kunci yang ada di konteks.
+        - Jika pengguna meminta informasi, bertanya status, atau mencari task (misalnya deadline terdekat, task yang belum selesai, atau siapa PIC task tertentu), jawab pertanyaan tersebut secara jelas dan terstruktur di `summary`, dengan `operations` tetap [].
+        - Format `summary`: Tulis dalam bahasa Indonesia yang ringkas, rapi, dan mudah dibaca. Jika menyajikan daftar task atau poin, pisahkan setiap butir ke baris baru menggunakan bullet markdown (`\n- ...`), jangan menggabungkan butir-butir daftar ke dalam satu baris kalimat.
         - Kalau perintahnya tidak jelas atau tidak bisa dikerjakan, kembalikan `operations` kosong dan jelaskan alasannya di `summary`.
 
         Konteks proyek:
