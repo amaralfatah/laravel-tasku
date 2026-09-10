@@ -72,8 +72,8 @@ const OPERATION_STYLE: Record<
 
 const EXAMPLES = [
     'Buat task rilis v2 dengan sub task uji regresi dan catatan rilis',
-    'Tandai selesai semua task dokumentasi',
-    'Ubah deadline task pertama jadi Jumat depan',
+    'Tandai semua task dokumentasi sebagai selesai',
+    'Ubah deadline task pertama menjadi Jumat depan',
 ];
 
 /**
@@ -232,9 +232,9 @@ export function TaskAiChat({
                 fail(
                     String(
                         errors.instruction ??
-                            errors.model ??
-                            Object.values(errors)[0] ??
-                            'Gagal menyusun rencana. Coba lagi.',
+                        errors.model ??
+                        Object.values(errors)[0] ??
+                        'Gagal menyusun rencana. Silakan coba lagi.',
                     ),
                 ),
             onHttpException: (response) => {
@@ -243,7 +243,7 @@ export function TaskAiChat({
                 return false;
             },
             onNetworkError: () => {
-                fail('Tidak bisa menghubungi server.');
+                fail('Tidak dapat menghubungi server.');
 
                 return false;
             },
@@ -261,7 +261,7 @@ export function TaskAiChat({
                     ...current,
                     {
                         role: 'assistant',
-                        text: plan.summary || 'Rencananya seperti ini.',
+                        text: plan.summary || 'Berikut rencana perubahannya.',
                         plan,
                     },
                 ]);
@@ -394,9 +394,7 @@ export function TaskAiChat({
                         {turns.length === 0 && (
                             <div className="space-y-3">
                                 <p className="text-sm text-muted-foreground">
-                                    Ceritakan perubahan yang kamu mau.
-                                    Rencananya ditampilkan dulu — tidak ada yang
-                                    tersimpan sebelum kamu menekan Terapkan.
+                                    Mau bikin task baru?.
                                 </p>
 
                                 <ul className="space-y-1.5">
@@ -449,7 +447,7 @@ export function TaskAiChat({
                             ref={composer}
                             rows={1}
                             value={form.data.instruction}
-                            placeholder="Tulis perintah…"
+                            placeholder="Tulis instruksi…"
                             className="max-h-28 min-h-9 resize-none py-2"
                             onChange={(event) =>
                                 form.setData('instruction', event.target.value)
@@ -585,8 +583,8 @@ function OperationRow({
         operation.op === 'create'
             ? (operation.title ?? '(tanpa judul)')
             : target === null
-              ? `#${operation.id}`
-              : `${target.reference} ${target.title}`;
+                ? `#${operation.id}`
+                : `${target.reference} ${target.title}`;
 
     const details = [
         // Only worth saying where the conversation crosses projects; on a
@@ -619,7 +617,7 @@ function OperationRow({
                 {details.length > 0 && (
                     <span className="text-muted-foreground">
                         {' '}
-                        — {details.join(', ')}
+                        ({details.join(', ')})
                     </span>
                 )}
             </span>
