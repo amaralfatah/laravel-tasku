@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { MoreHorizontal, Plus } from 'lucide-react';
+import { ProjectAvatar } from '@/components/project/project-avatar';
 import {
     SidebarGroup,
     SidebarGroupAction,
@@ -12,15 +13,6 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { toUrl } from '@/lib/utils';
 import { index as projectsIndex, show as projectShow } from '@/routes/projects';
 import type { SidebarProject } from '@/types';
-
-function initials(name: string): string {
-    return name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((word) => word[0]?.toUpperCase() ?? '')
-        .join('');
-}
 
 /** The `+` opens the create dialog the index page already owns. */
 const createProject = projectsIndex({ query: { create: 1 } });
@@ -74,16 +66,11 @@ export function NavProjects({ projects }: { projects: SidebarProject[] }) {
                                     prefetch
                                     aria-current={isActive ? 'page' : undefined}
                                 >
-                                    <span
-                                        aria-hidden
-                                        // Tinted from the row's own text
-                                        // colour, so the tile turns blue with
-                                        // the label on the active row instead
-                                        // of staying a grey chip on it.
-                                        className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-sidebar-foreground/15 text-[10px] font-semibold text-sidebar-foreground group-data-[active=true]/project:bg-sidebar-selected-foreground/20 group-data-[active=true]/project:text-sidebar-selected-foreground group-data-[collapsible=icon]:size-4 group-data-[collapsible=icon]:text-[8px]"
-                                    >
-                                        {initials(project.name)}
-                                    </span>
+                                    <ProjectAvatar
+                                        id={project.id}
+                                        name={project.name}
+                                        className="size-5 text-[10px] group-data-[collapsible=icon]:size-4 group-data-[collapsible=icon]:text-[8px]"
+                                    />
                                     <span>{project.name}</span>
                                 </Link>
                             </SidebarMenuButton>

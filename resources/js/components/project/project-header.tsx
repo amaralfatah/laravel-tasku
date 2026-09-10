@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { ChartGantt, Columns3, List, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { ProjectAvatar } from '@/components/project/project-avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { list, settings, show, timeline } from '@/routes/projects';
@@ -65,7 +66,12 @@ export function ProjectHeader({
     return (
         <div className="space-y-4">
             <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                    <ProjectAvatar
+                        id={project.id}
+                        name={project.name}
+                        className="size-7 rounded-md text-xs font-bold shadow-xs"
+                    />
                     <h1 className="min-w-0 truncate text-xl font-semibold">
                         {project.name}
                     </h1>
