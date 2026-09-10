@@ -6,6 +6,8 @@ export type AppLayoutProps = {
     breadcrumbs?: BreadcrumbItem[];
     /** Drop the reading-width cap, for pages that chart across a wide grid. */
     wide?: boolean;
+    /** Fit the page exactly within the viewport without body-level vertical scrolling. */
+    fitViewport?: boolean;
 };
 
 export type AppVariant = 'header' | 'sidebar';

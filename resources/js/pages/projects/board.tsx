@@ -322,81 +322,87 @@ export default function ProjectBoard({
         <>
             <Head title={project.name} />
 
-            <div className="min-w-0 space-y-6">
-                <ProjectHeader project={project} active="board" />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+                <div className="shrink-0">
+                    <ProjectHeader project={project} active="board" />
+                </div>
 
                 {/* Creating a task is done from the column it belongs in, so
                     the board has no second global "new task" button. The
                     assistant is not in this row either — it floats in the
                     corner, because a sentence may touch several columns and
                     the board stays readable behind it. */}
-                <TaskFilterBar
-                    filters={filters}
-                    assignees={assignees}
-                    statuses={statuses}
-                    priorities={priorities}
-                    onChange={applyFilters}
-                />
+                <div className="shrink-0">
+                    <TaskFilterBar
+                        filters={filters}
+                        assignees={assignees}
+                        statuses={statuses}
+                        priorities={priorities}
+                        onChange={applyFilters}
+                    />
+                </div>
 
-                <DndContext
-                    // Without a fixed id, dnd-kit numbers its aria-describedby
-                    // from a counter that restarts on the client, so the SSR
-                    // markup and the hydrated markup disagree.
-                    id="project-board"
-                    sensors={sensors}
-                    collisionDetection={closestCorners}
-                    // Columns change height while dragging, so their rects have
-                    // to be re-measured continuously or drops land in the gap.
-                    measuring={{
-                        droppable: { strategy: MeasuringStrategy.Always },
-                    }}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragCancel={() => {
-                        setDraggingId(null);
-                        setItems(snapshot.current);
-                    }}
-                    onDragEnd={handleDragEnd}
-                >
-                    {/* Jira's board is a row of fixed-width wells that
-                        scrolls sideways, not a grid that stretches: on a full
-                        width page an equal-share column made a card wider than
-                        the title it carries. */}
-                    <div className="flex w-full min-w-0 items-start gap-3 overflow-x-auto pb-2">
-                        {TASK_STATUS_ORDER.map((status) => (
-                            <BoardColumn
-                                key={status}
-                                status={status}
-                                tasks={columns[status]}
-                                canDrag={can.contribute}
-                                isDragging={draggingId !== null}
-                                onOpen={setOpenTaskId}
-                                onCreate={(column) =>
-                                    setCreating({
-                                        parent: null,
-                                        status: column,
-                                    })
-                                }
-                            />
-                        ))}
-                    </div>
-
-                    <DragOverlay
-                        dropAnimation={{
-                            duration: 180,
-                            easing: 'cubic-bezier(0.2, 0, 0, 1)',
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    <DndContext
+                        // Without a fixed id, dnd-kit numbers its aria-describedby
+                        // from a counter that restarts on the client, so the SSR
+                        // markup and the hydrated markup disagree.
+                        id="project-board"
+                        sensors={sensors}
+                        collisionDetection={closestCorners}
+                        // Columns change height while dragging, so their rects have
+                        // to be re-measured continuously or drops land in the gap.
+                        measuring={{
+                            droppable: { strategy: MeasuringStrategy.Always },
                         }}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragCancel={() => {
+                            setDraggingId(null);
+                            setItems(snapshot.current);
+                        }}
+                        onDragEnd={handleDragEnd}
                     >
-                        {draggingTask && (
-                            <TaskCard
-                                task={draggingTask}
-                                draggable={false}
-                                overlay
-                                onOpen={() => undefined}
-                            />
-                        )}
-                    </DragOverlay>
-                </DndContext>
+                        {/* Jira's board is a row of fixed-width wells that
+                            scrolls sideways, not a grid that stretches: on a full
+                            width page an equal-share column made a card wider than
+                            the title it carries. */}
+                        <div className="flex min-h-0 w-full min-w-0 flex-1 items-stretch gap-3 overflow-x-auto pb-2">
+                            {TASK_STATUS_ORDER.map((status) => (
+                                <BoardColumn
+                                    key={status}
+                                    status={status}
+                                    tasks={columns[status]}
+                                    canDrag={can.contribute}
+                                    isDragging={draggingId !== null}
+                                    onOpen={setOpenTaskId}
+                                    onCreate={(column) =>
+                                        setCreating({
+                                            parent: null,
+                                            status: column,
+                                        })
+                                    }
+                                />
+                            ))}
+                        </div>
+
+                        <DragOverlay
+                            dropAnimation={{
+                                duration: 180,
+                                easing: 'cubic-bezier(0.2, 0, 0, 1)',
+                            }}
+                        >
+                            {draggingTask && (
+                                <TaskCard
+                                    task={draggingTask}
+                                    draggable={false}
+                                    overlay
+                                    onOpen={() => undefined}
+                                />
+                            )}
+                        </DragOverlay>
+                    </DndContext>
+                </div>
             </div>
 
             <TaskDetailModal
@@ -477,12 +483,12 @@ function BoardColumn({
             className={cn(
                 // The sunken well: a step darker than the page, so the raised
                 // cards inside it read without needing borders.
-                'flex w-72 shrink-0 flex-col rounded bg-muted transition-colors',
+                'flex h-full min-h-0 w-72 shrink-0 flex-col rounded bg-muted transition-colors',
                 isOver && 'bg-primary/10',
             )}
             aria-label={TASK_STATUS_LABELS[status]}
         >
-            <header className="flex items-center gap-2 px-3 pt-3 pb-2">
+            <header className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-2">
                 <h2 className="text-sm font-medium text-muted-foreground">
                     {TASK_STATUS_LABELS[status]}
                 </h2>
@@ -498,7 +504,7 @@ function BoardColumn({
             >
                 <div
                     ref={setNodeRef}
-                    className="flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-1 md:max-h-[calc(100vh-19rem)]"
+                    className="flex min-h-0 min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-1"
                 >
                     {/* An empty column shows nothing but its "Buat" button,
                         exactly as it does on a Jira board. The drop target only
@@ -524,7 +530,7 @@ function BoardColumn({
                 <button
                     type="button"
                     onClick={() => onCreate(status)}
-                    className="m-2 mt-1 flex items-center gap-1.5 rounded px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="m-2 mt-auto flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                     <Plus className="size-4" aria-hidden="true" />
                     Buat
@@ -541,4 +547,5 @@ function BoardColumn({
 ProjectBoard.layout = ({ project }: PageProps) => ({
     breadcrumbs: projectCrumbs(project, show(project.id)),
     wide: true,
+    fitViewport: true,
 });
