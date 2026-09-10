@@ -10,6 +10,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { getSavedProjectFilter } from '@/lib/project-filters';
 import { toUrl } from '@/lib/utils';
 import { index as projectsIndex, show as projectShow } from '@/routes/projects';
 import type { SidebarProject } from '@/types';
@@ -52,6 +53,7 @@ export function NavProjects({ projects }: { projects: SidebarProject[] }) {
             <SidebarMenu>
                 {projects.map((project) => {
                     const isActive = isCurrentProject(project.id);
+                    const href = `${toUrl(projectShow(project.id))}${getSavedProjectFilter(project.id) ?? ''}`;
 
                     return (
                         <SidebarMenuItem key={project.id}>
@@ -62,7 +64,7 @@ export function NavProjects({ projects }: { projects: SidebarProject[] }) {
                                 className="group/project"
                             >
                                 <Link
-                                    href={projectShow(project.id)}
+                                    href={href}
                                     prefetch
                                     aria-current={isActive ? 'page' : undefined}
                                 >

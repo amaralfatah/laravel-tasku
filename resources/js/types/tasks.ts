@@ -27,12 +27,7 @@ export type TaskFilterState = {
 export type StatusCategory = 'todo' | 'in_progress' | 'done';
 
 export type TaskStatus =
-    | 'todo'
-    | 'in_progress'
-    | 'review'
-    | 'on_hold'
-    | 'done'
-    | 'cancelled';
+    'todo' | 'in_progress' | 'review' | 'on_hold' | 'done' | 'cancelled';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -130,7 +125,8 @@ export const STATUS_CATEGORY_COLORS: Record<StatusCategory, string> = {
  */
 export const STATUS_CATEGORY_BADGE: Record<StatusCategory, string> = {
     todo: 'border-muted-foreground/30 text-muted-foreground',
-    in_progress: 'border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10',
+    in_progress:
+        'border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10',
     done: 'border-green-500/40 text-green-600 dark:text-green-400 bg-green-500/10',
 };
 

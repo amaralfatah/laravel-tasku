@@ -56,6 +56,7 @@ export function getProjectColorPair(
 
     let hash = 0;
     const str = name || String(id);
+
     for (let i = 0; i < str.length; i++) {
         hash = (hash << 5) - hash + str.charCodeAt(i);
         hash |= 0;
@@ -80,7 +81,7 @@ export function ProjectAvatar({ id, name, className }: ProjectAvatarProps) {
                 backgroundImage: `linear-gradient(115deg, ${pair.dark} 0%, ${pair.dark} 47%, ${pair.light} 53%, ${pair.light} 100%)`,
             }}
             className={cn(
-                'relative flex size-5 shrink-0 select-none items-center justify-center overflow-hidden rounded font-bold text-white shadow-xs ring-1 ring-inset ring-black/15 dark:ring-white/15',
+                'relative flex size-5 shrink-0 items-center justify-center overflow-hidden rounded font-bold text-white shadow-xs ring-1 ring-black/15 select-none ring-inset dark:ring-white/15',
                 className,
             )}
         >

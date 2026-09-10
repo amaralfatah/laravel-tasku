@@ -178,7 +178,11 @@ export default function ProjectBoard({
     /** Order to fall back to when a drag is cancelled or the server rejects it. */
     const snapshot = useRef<TaskNode[]>(items);
 
-    const applyFilters = useTaskFilters(filters, show(project.id).url);
+    const applyFilters = useTaskFilters(
+        filters,
+        show(project.id).url,
+        project.id,
+    );
 
     // Re-sync with the server on every new page response. Done during render
     // rather than in an effect so the board never paints a stale order.
@@ -318,7 +322,7 @@ export default function ProjectBoard({
         <>
             <Head title={project.name} />
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
                 <ProjectHeader project={project} active="board" />
 
                 {/* Creating a task is done from the column it belongs in, so
@@ -358,7 +362,7 @@ export default function ProjectBoard({
                         scrolls sideways, not a grid that stretches: on a full
                         width page an equal-share column made a card wider than
                         the title it carries. */}
-                    <div className="flex items-start gap-3 overflow-x-auto pb-2">
+                    <div className="flex w-full min-w-0 items-start gap-3 overflow-x-auto pb-2">
                         {TASK_STATUS_ORDER.map((status) => (
                             <BoardColumn
                                 key={status}

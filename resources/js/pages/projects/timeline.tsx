@@ -123,7 +123,11 @@ export default function ProjectTimeline({
     const [createParent, setCreateParent] = useState<TaskNode | null>(null);
     const [createOpen, setCreateOpen] = useState(false);
 
-    const applyFilters = useTaskFilters(filters, timeline(project.id).url);
+    const applyFilters = useTaskFilters(
+        filters,
+        timeline(project.id).url,
+        project.id,
+    );
 
     // The download mirrors what is on screen: the same filters, the same zoom.
     const exportUrl = exportTimeline(project.id, {
@@ -225,7 +229,7 @@ export default function ProjectTimeline({
         <>
             <Head title={`Timeline ${project.name}`} />
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
                 <ProjectHeader project={project} active="timeline" />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -278,7 +282,7 @@ export default function ProjectTimeline({
                 ) : (
                     <div
                         ref={panelRef}
-                        className="overflow-x-auto rounded-lg border"
+                        className="w-full min-w-0 overflow-x-auto rounded-lg border"
                     >
                         <div
                             className="min-w-max"

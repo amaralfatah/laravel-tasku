@@ -567,6 +567,7 @@ function FormattedAiMessage({ text }: { text: string }) {
 
         if (trimmed === '') {
             flushBullets(index);
+
             return;
         }
 

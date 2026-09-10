@@ -57,7 +57,11 @@ export default function ProjectList({
     const [createParent, setCreateParent] = useState<TaskNode | null>(null);
     const [createOpen, setCreateOpen] = useState(false);
 
-    const applyFilters = useTaskFilters(filters, list(project.id).url);
+    const applyFilters = useTaskFilters(
+        filters,
+        list(project.id).url,
+        project.id,
+    );
 
     const childCounts = useMemo(() => {
         const counts = new Map<number, number>();
@@ -114,7 +118,7 @@ export default function ProjectList({
         <>
             <Head title={project.name} />
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
                 <ProjectHeader project={project} active="list" />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">

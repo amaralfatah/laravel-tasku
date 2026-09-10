@@ -1,9 +1,10 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ChartGantt, Columns3, List, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { ProjectAvatar } from '@/components/project/project-avatar';
 import { Badge } from '@/components/ui/badge';
+import { getSavedProjectFilter } from '@/lib/project-filters';
 import { cn } from '@/lib/utils';
 import { list, settings, show, timeline } from '@/routes/projects';
 import { PROJECT_STATUS_VARIANT } from '@/types/projects';
@@ -23,6 +24,10 @@ export function ProjectHeader({
     active: Tab;
 }) {
     const activeRef = useRef<HTMLAnchorElement>(null);
+    const { url } = usePage();
+    const query = url.includes('?')
+        ? url.slice(url.indexOf('?'))
+        : getSavedProjectFilter(project.id);
 
     // The row scrolls sideways on a phone, so the tab that is open can start
     // out half past the right edge — Pengaturan always did.
@@ -40,25 +45,25 @@ export function ProjectHeader({
             {
                 key: 'board',
                 label: 'Papan',
-                href: show(project.id).url,
+                href: `${show(project.id).url}${query}`,
                 icon: Columns3,
             },
             {
                 key: 'list',
                 label: 'Daftar',
-                href: list(project.id).url,
+                href: `${list(project.id).url}${query}`,
                 icon: List,
             },
             {
                 key: 'timeline',
                 label: 'Timeline',
-                href: timeline(project.id).url,
+                href: `${timeline(project.id).url}${query}`,
                 icon: ChartGantt,
             },
             {
                 key: 'settings',
                 label: 'Pengaturan',
-                href: settings(project.id).url,
+                href: `${settings(project.id).url}${query}`,
                 icon: Settings,
             },
         ];

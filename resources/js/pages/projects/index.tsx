@@ -25,6 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { getSavedProjectFilter } from '@/lib/project-filters';
 import {
     normalizeProjectKey,
     PROJECT_KEY_MAX_LENGTH,
@@ -341,7 +342,7 @@ export default function Projects({
                         {projects.map((project) => (
                             <li key={project.id}>
                                 <Link
-                                    href={show(project.id)}
+                                    href={`${show(project.id).url}${getSavedProjectFilter(project.id) ?? ''}`}
                                     className="flex h-full flex-col gap-2 rounded-xl border bg-card p-4 shadow-sm transition-[box-shadow,border-color,transform] duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                                 >
                                     <div className="flex items-start justify-between gap-2">
