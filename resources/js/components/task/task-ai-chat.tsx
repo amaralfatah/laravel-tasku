@@ -178,7 +178,9 @@ export function TaskAiChat({
             return;
         }
 
-        composer.current?.focus();
+        if (window.matchMedia('(min-width: 640px)').matches) {
+            composer.current?.focus();
+        }
 
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
@@ -308,172 +310,184 @@ export function TaskAiChat({
                 aria-expanded={open}
                 onClick={() => setOpen((was) => !was)}
                 className={cn(
-                    'fixed right-5 bottom-5 z-40 flex size-14 items-center justify-center rounded-full',
+                    'fixed z-40 flex items-center justify-center rounded-full',
+                    'size-12 bottom-4 right-4 sm:size-14 sm:right-5 sm:bottom-5',
+                    'bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] sm:bottom-5 sm:right-5',
                     'bg-primary text-primary-foreground shadow-lg shadow-black/20',
-                    'transition-[transform,box-shadow] duration-200 ease-out',
+                    'transition-[transform,box-shadow,opacity] duration-200 ease-out',
                     'hover:shadow-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
                     // Feedback on the press itself, not on release.
                     'active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
-                    open && 'scale-95 opacity-0',
+                    open && 'scale-95 opacity-0 pointer-events-none invisible',
                 )}
                 // The panel takes over the corner while it is open, so the
                 // button steps out of the way rather than sitting under it.
                 tabIndex={open ? -1 : 0}
             >
-                <Sparkles className="size-6" />
+                <Sparkles className="size-5 sm:size-6" />
             </button>
 
             {open && (
-                <div
-                    role="dialog"
-                    aria-label="Asisten task"
-                    className={cn(
-                        'fixed z-40 flex flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-2xl',
-                        'inset-x-3 bottom-3 max-h-[80vh] sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-104',
-                        // Grows out of the corner the button sits in.
-                        'origin-bottom-right animate-in duration-200 zoom-in-95 fade-in',
-                        'motion-reduce:animate-none',
-                    )}
-                >
-                    <header className="flex items-center gap-2 border-b px-4 py-3">
-                        <Sparkles className="size-4 text-primary" />
-                        <span className="text-sm font-medium">
-                            Asisten task
-                        </span>
-
-                        <Select
-                            value={form.data.model}
-                            onValueChange={(value) => {
-                                form.setData('model', value);
-
-                                try {
-                                    window.localStorage.setItem(
-                                        MODEL_STORAGE_KEY,
-                                        value,
-                                    );
-                                } catch {
-                                    // A browser refusing storage still gets to
-                                    // choose; it just starts over next time.
-                                }
-                            }}
-                        >
-                            <SelectTrigger
-                                size="sm"
-                                className="ml-auto w-auto border-none bg-transparent text-xs text-muted-foreground shadow-none"
-                                aria-label="Model AI"
-                            >
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent align="end">
-                                {models.map((model) => (
-                                    <SelectItem
-                                        key={model.value}
-                                        value={model.value}
-                                    >
-                                        {model.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8"
-                            aria-label="Tutup asisten"
-                            onClick={close}
-                        >
-                            <X className="size-4" />
-                        </Button>
-                    </header>
+                <>
+                    {/* Backdrop only on mobile (<sm) to prevent touches leaking to the board and allow tap-outside dismiss */}
+                    <div
+                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px] sm:hidden"
+                        onClick={close}
+                        aria-hidden="true"
+                    />
 
                     <div
-                        ref={thread}
-                        className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+                        role="dialog"
+                        aria-label="Asisten task"
+                        className={cn(
+                            'fixed z-40 flex flex-col overflow-hidden bg-popover text-popover-foreground shadow-2xl',
+                            'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl rounded-b-none border-t border-border',
+                            'sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-104 sm:max-h-[80vh] sm:rounded-2xl sm:border',
+                            // Grows out of the bottom on mobile, bottom-right corner on desktop.
+                            'origin-bottom sm:origin-bottom-right animate-in duration-200 zoom-in-95 fade-in',
+                            'motion-reduce:animate-none',
+                        )}
                     >
-                        {turns.length === 0 && (
-                            <div className="space-y-3">
-                                <p className="text-sm text-muted-foreground">
-                                    Mau bikin task baru?.
-                                </p>
+                        <header className="flex items-center gap-2 border-b px-4 py-3">
+                            <Sparkles className="size-4 shrink-0 text-primary" />
+                            <span className="shrink-0 text-sm font-medium">
+                                Asisten task
+                            </span>
 
-                                <ul className="space-y-1.5">
-                                    {EXAMPLES.map((example) => (
-                                        <li key={example}>
-                                            <button
-                                                type="button"
-                                                className="w-full rounded-lg border border-dashed px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:border-solid hover:bg-accent hover:text-accent-foreground"
-                                                onClick={() => {
-                                                    form.setData(
-                                                        'instruction',
-                                                        example,
-                                                    );
-                                                    composer.current?.focus();
-                                                }}
-                                            >
-                                                {example}
-                                            </button>
-                                        </li>
+                            <Select
+                                value={form.data.model}
+                                onValueChange={(value) => {
+                                    form.setData('model', value);
+
+                                    try {
+                                        window.localStorage.setItem(
+                                            MODEL_STORAGE_KEY,
+                                            value,
+                                        );
+                                    } catch {
+                                        // A browser refusing storage still gets to
+                                        // choose; it just starts over next time.
+                                    }
+                                }}
+                            >
+                                <SelectTrigger
+                                    size="sm"
+                                    className="ml-auto w-auto max-w-[130px] truncate border-none bg-transparent text-xs text-muted-foreground shadow-none sm:max-w-[180px]"
+                                    aria-label="Model AI"
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent align="end">
+                                    {models.map((model) => (
+                                        <SelectItem
+                                            key={model.value}
+                                            value={model.value}
+                                        >
+                                            {model.label}
+                                        </SelectItem>
                                     ))}
-                                </ul>
-                            </div>
-                        )}
+                                </SelectContent>
+                            </Select>
 
-                        {turns.map((turn, index) => (
-                            <TurnBubble
-                                key={index}
-                                turn={turn}
-                                tasks={tasks}
-                                projects={projects}
-                                assignees={assignees}
-                                statuses={statuses}
-                                applying={applying === index}
-                                disabled={applying !== null}
-                                onApply={() => applyPlan(index)}
-                                onDismiss={() => settle(index, 'dismissed')}
-                            />
-                        ))}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 shrink-0"
+                                aria-label="Tutup asisten"
+                                onClick={close}
+                            >
+                                <X className="size-4" />
+                            </Button>
+                        </header>
 
-                        {form.processing && (
-                            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Spinner className="size-4" />
-                                Menyusun rencana…
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="flex items-end gap-2 border-t p-3">
-                        <Textarea
-                            ref={composer}
-                            rows={1}
-                            value={form.data.instruction}
-                            placeholder="Tulis instruksi…"
-                            className="max-h-28 min-h-9 resize-none py-2"
-                            onChange={(event) =>
-                                form.setData('instruction', event.target.value)
-                            }
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter' && !event.shiftKey) {
-                                    event.preventDefault();
-                                    send();
-                                }
-                            }}
-                        />
-
-                        <Button
-                            size="icon"
-                            className="size-9 shrink-0 rounded-full"
-                            aria-label="Kirim"
-                            disabled={
-                                form.processing ||
-                                form.data.instruction.trim() === ''
-                            }
-                            onClick={send}
+                        <div
+                            ref={thread}
+                            className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
                         >
-                            <ArrowUp className="size-4" />
-                        </Button>
+                            {turns.length === 0 && (
+                                <div className="space-y-3">
+                                    <p className="text-sm text-muted-foreground">
+                                        Mau bikin task baru?.
+                                    </p>
+
+                                    <ul className="space-y-1.5">
+                                        {EXAMPLES.map((example) => (
+                                            <li key={example}>
+                                                <button
+                                                    type="button"
+                                                    className="w-full rounded-lg border border-dashed px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:border-solid hover:bg-accent hover:text-accent-foreground"
+                                                    onClick={() => {
+                                                        form.setData(
+                                                            'instruction',
+                                                            example,
+                                                        );
+                                                        composer.current?.focus();
+                                                    }}
+                                                >
+                                                    {example}
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {turns.map((turn, index) => (
+                                <TurnBubble
+                                    key={index}
+                                    turn={turn}
+                                    tasks={tasks}
+                                    projects={projects}
+                                    assignees={assignees}
+                                    statuses={statuses}
+                                    applying={applying === index}
+                                    disabled={applying !== null}
+                                    onApply={() => applyPlan(index)}
+                                    onDismiss={() => settle(index, 'dismissed')}
+                                />
+                            ))}
+
+                            {form.processing && (
+                                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Spinner className="size-4" />
+                                    Menyusun rencana…
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex items-end gap-2 border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
+                            <Textarea
+                                ref={composer}
+                                rows={1}
+                                value={form.data.instruction}
+                                placeholder="Tulis instruksi…"
+                                className="max-h-28 min-h-9 resize-none py-2"
+                                onChange={(event) =>
+                                    form.setData('instruction', event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' && !event.shiftKey) {
+                                        event.preventDefault();
+                                        send();
+                                    }
+                                }}
+                            />
+
+                            <Button
+                                size="icon"
+                                className="size-9 shrink-0 rounded-full"
+                                aria-label="Kirim"
+                                disabled={
+                                    form.processing ||
+                                    form.data.instruction.trim() === ''
+                                }
+                                onClick={send}
+                            >
+                                <ArrowUp className="size-4" />
+                            </Button>
+                        </div>
                     </div>
-                </div>
+                </>
             )}
         </>
     );
@@ -502,7 +516,7 @@ function TurnBubble({
 }) {
     if (turn.role === 'user') {
         return (
-            <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
+            <p className="ml-auto w-fit max-w-[85%] break-words rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
                 {turn.text}
             </p>
         );
@@ -510,7 +524,7 @@ function TurnBubble({
 
     return (
         <div className="w-fit max-w-[95%] space-y-2 rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm">
-            <p>{turn.text}</p>
+            <p className="break-words">{turn.text}</p>
 
             {turn.plan !== undefined && turn.plan.operations.length > 0 && (
                 <>
@@ -609,7 +623,7 @@ function OperationRow({
     return (
         <li className="flex items-start gap-2 text-xs">
             <Icon className={cn('mt-0.5 size-3.5 shrink-0', style.className)} />
-            <span>
+            <span className="min-w-0 break-words">
                 <span className={cn('font-medium', style.className)}>
                     {style.label}
                 </span>{' '}
