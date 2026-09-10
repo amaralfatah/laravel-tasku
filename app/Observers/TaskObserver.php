@@ -25,7 +25,7 @@ class TaskObserver
             return;
         }
 
-        $task->completed_at = $task->status === TaskStatus::Done ? now() : null;
+        $task->completed_at = $task->status?->isDone() ? now() : null;
     }
 
     public function created(Task $task): void

@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Actions\Notify;
-use App\Enums\TaskStatus;
 use App\Models\Scopes\WorkspaceScope;
 use App\Models\Task;
 use Illuminate\Console\Command;
@@ -31,7 +30,7 @@ class SendDueSoonNotifications extends Command
             ->whereNotNull('assignee_id')
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<=', now()->toDateString())
-            ->where('status', '!=', TaskStatus::Done)
+            ->notDone()
             ->chunkById(200, function ($tasks) use ($notify, &$sent): void {
                 foreach ($tasks as $task) {
                     if ($notify->dueSoon($task)) {

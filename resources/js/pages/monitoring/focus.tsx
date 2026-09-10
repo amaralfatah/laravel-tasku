@@ -21,6 +21,7 @@ import { update as updateTask } from '@/routes/tasks';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import {
+    STATUS_CATEGORY,
     TASK_PRIORITY_BADGE,
     TASK_PRIORITY_LABELS,
     TASK_PRIORITY_TEXT,
@@ -69,7 +70,7 @@ const SIGNALS: { key: SignalKey; label: string }[] = [
     { key: 'overdue', label: 'Telat' },
     { key: 'today', label: 'Hari ini' },
     { key: 'week', label: 'Minggu ini' },
-    { key: 'review', label: 'Menunggu review' },
+    { key: 'review', label: 'In Review' },
 ];
 
 /**
@@ -369,14 +370,14 @@ export default function MonitoringFocus({
     );
 
     const open = useMemo(
-        () => rows.filter((row) => row.task.status !== 'done'),
+        () => rows.filter((row) => STATUS_CATEGORY[row.task.status] !== 'done'),
         [rows],
     );
 
     const done = useMemo(
         () =>
             rows
-                .filter((row) => row.task.status === 'done')
+                .filter((row) => STATUS_CATEGORY[row.task.status] === 'done')
                 .sort((a, b) =>
                     (b.task.completed_at ?? '').localeCompare(
                         a.task.completed_at ?? '',
@@ -919,7 +920,7 @@ function TaskRow({
 }) {
     const [saving, setSaving] = useState(false);
 
-    const finished = task.status === 'done';
+    const finished = STATUS_CATEGORY[task.status] === 'done';
 
     /**
      * How far the entered percentage has drifted from the children's average.

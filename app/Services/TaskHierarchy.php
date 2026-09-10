@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\StatusCategory;
 use App\Enums\TaskStatus;
 use App\Models\Project;
 use App\Models\Task;
@@ -216,7 +217,7 @@ class TaskHierarchy
         // task selesai". A percentage sent with the status is the user's own
         // and is left to the contradiction rules below.
         if ($statusChanged
-            && $status === TaskStatus::InProgress
+            && $status->category() === StatusCategory::InProgress
             && ! array_key_exists('progress', $attributes)
             && $task->progress >= 100
         ) {
@@ -232,7 +233,7 @@ class TaskHierarchy
         $progress = (int) $attributes['progress'];
 
         // Progress and status must not contradict each other (TSK-16).
-        if ($status === TaskStatus::Todo && $progress > 0) {
+        if ($status->isTodo() && $progress > 0) {
             $attributes['status'] = TaskStatus::InProgress->value;
         }
 

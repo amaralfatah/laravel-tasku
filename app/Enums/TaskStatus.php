@@ -7,16 +7,48 @@ enum TaskStatus: string
     case Todo = 'todo';
     case InProgress = 'in_progress';
     case Review = 'review';
+    case OnHold = 'on_hold';
     case Done = 'done';
+    case Cancelled = 'cancelled';
 
     public function label(): string
     {
         return match ($this) {
             self::Todo => 'To Do',
-            self::InProgress => 'Dikerjakan',
-            self::Review => 'Menunggu review',
-            self::Done => 'Selesai',
+            self::InProgress => 'In Progress',
+            self::Review => 'In Review',
+            self::OnHold => 'On Hold',
+            self::Done => 'Done',
+            self::Cancelled => 'Cancelled',
         };
+    }
+
+    /**
+     * Category representing the higher-level lifecycle stage.
+     */
+    public function category(): StatusCategory
+    {
+        return match ($this) {
+            self::Todo => StatusCategory::Todo,
+            self::InProgress, self::Review, self::OnHold => StatusCategory::InProgress,
+            self::Done, self::Cancelled => StatusCategory::Done,
+        };
+    }
+
+    /**
+     * Whether this status belongs to the Done category.
+     */
+    public function isDone(): bool
+    {
+        return $this->category() === StatusCategory::Done;
+    }
+
+    /**
+     * Whether this status belongs to the Todo category.
+     */
+    public function isTodo(): bool
+    {
+        return $this->category() === StatusCategory::Todo;
     }
 
     /**
@@ -30,7 +62,7 @@ enum TaskStatus: string
         return match ($this) {
             self::Done, self::Review => 100,
             self::Todo => 0,
-            self::InProgress => null,
+            self::InProgress, self::OnHold, self::Cancelled => null,
         };
     }
 
@@ -40,6 +72,6 @@ enum TaskStatus: string
      */
     public function isFinishedWork(): bool
     {
-        return $this === self::Done || $this === self::Review;
+        return $this === self::Done || $this === self::Review || $this === self::Cancelled;
     }
 }

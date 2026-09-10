@@ -2,7 +2,7 @@
 
 namespace App\Queries;
 
-use App\Enums\TaskStatus;
+use App\Enums\StatusCategory;
 use App\Models\OrgUnit;
 use App\Models\Project;
 use App\Models\Task;
@@ -130,18 +130,23 @@ class DivisionSummaryQuery
     protected function taskCountsByUnit(): array
     {
         $today = now()->toDateString();
+        $doneValues = StatusCategory::Done->statusValues();
+        $inProgressValues = StatusCategory::InProgress->statusValues();
+
+        $doneIn = implode(',', array_fill(0, count($doneValues), '?'));
+        $inProgressIn = implode(',', array_fill(0, count($inProgressValues), '?'));
 
         return Task::query()
             ->join('projects', 'projects.id', '=', 'tasks.project_id')
             ->whereNull('projects.deleted_at')
             ->selectRaw('projects.org_unit_id as unit_id')
             ->selectRaw('count(*) as total')
-            ->selectRaw('count(*) filter (where tasks.status = ?) as done', [TaskStatus::Done->value])
-            ->selectRaw('count(*) filter (where tasks.status = ?) as in_progress', [TaskStatus::InProgress->value])
+            ->selectRaw("count(*) filter (where tasks.status in ({$doneIn})) as done", $doneValues)
+            ->selectRaw("count(*) filter (where tasks.status in ({$inProgressIn})) as in_progress", $inProgressValues)
             ->selectRaw(
                 // DIV-4: overdue is past due and not done.
-                'count(*) filter (where tasks.status <> ? and tasks.due_date is not null and tasks.due_date < ?) as overdue',
-                [TaskStatus::Done->value, $today],
+                "count(*) filter (where tasks.status not in ({$doneIn}) and tasks.due_date is not null and tasks.due_date < ?) as overdue",
+                [...$doneValues, $today],
             )
             ->selectRaw(
                 // DIV-5: no due date is never overdue, it is reported separately.

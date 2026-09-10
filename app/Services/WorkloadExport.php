@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\ExportZoom;
-use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Support\TimelineGrid;
 use Carbon\CarbonImmutable;
@@ -275,7 +274,7 @@ class WorkloadExport
             $number++;
         }
 
-        $done = $tasks->where('status', TaskStatus::Done)->count();
+        $done = $tasks->filter(fn (Task $task): bool => $task->status->isDone())->count();
 
         $counters = [
             ['Overall Progress', ($tasks->isEmpty() ? 0 : round((float) $tasks->avg('progress'), 2)) / 100, '0.00%'],
@@ -485,7 +484,7 @@ class WorkloadExport
         }
 
         $this->drawBar($sheet, $row, $left, min($lastColumn, self::COLUMN_TIMELINE + $grid->slot($end)),
-            $group->every(fn (Task $task): bool => $task->status === TaskStatus::Done));
+            $group->every(fn (Task $task): bool => $task->status->isDone()));
     }
 
     /**
@@ -518,7 +517,7 @@ class WorkloadExport
             $row,
             self::COLUMN_TIMELINE + $grid->slot($start),
             min($lastColumn, self::COLUMN_TIMELINE + $grid->slot($end)),
-            $task->status === TaskStatus::Done,
+            $task->status->isDone(),
         );
     }
 

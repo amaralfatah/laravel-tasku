@@ -92,7 +92,7 @@ class TaskPresenter
             'children_count' => $childCount,
             'done_children_count' => $children === null
                 ? 0
-                : $children->where('status', TaskStatus::Done)->count(),
+                : $children->filter(fn (Task $child): bool => $child->status->isDone())->count(),
             'is_overdue' => $task->isOverdue(),
             'submitted_at' => $task->submitted_at?->toIso8601String(),
             'reviewed_at' => $task->reviewed_at?->toIso8601String(),
@@ -107,12 +107,16 @@ class TaskPresenter
     /**
      * Status options for selects and board columns.
      *
-     * @return array<int, array{value: string, label: string}>
+     * @return array<int, array{value: string, label: string, category: string}>
      */
     public static function statusOptions(): array
     {
         return array_map(
-            fn (TaskStatus $status): array => ['value' => $status->value, 'label' => $status->label()],
+            fn (TaskStatus $status): array => [
+                'value' => $status->value,
+                'label' => $status->label(),
+                'category' => $status->category()->value,
+            ],
             TaskStatus::cases(),
         );
     }

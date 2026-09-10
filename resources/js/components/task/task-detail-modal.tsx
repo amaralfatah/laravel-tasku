@@ -79,6 +79,7 @@ import {
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import {
+    STATUS_CATEGORY,
     TASK_PRIORITY_BADGE,
     TASK_PRIORITY_CLASSES,
     TASK_PRIORITY_LABELS,
@@ -146,7 +147,8 @@ const SUBTASK_COMPARATORS: Record<
     },
 };
 
-const doneRank = (task: TaskNode): number => (task.status === 'done' ? 1 : 0);
+const doneRank = (task: TaskNode): number =>
+    STATUS_CATEGORY[task.status] === 'done' ? 1 : 0;
 
 /** No requester chosen. Most internal work has none. */
 const NO_REQUESTER = 'none';
@@ -1658,7 +1660,7 @@ function SubtaskRow({
     const canDrag = child.can_edit && sortable;
 
     /** Struck through once the work is done, the way the agenda's rows read. */
-    const finished = child.status === 'done';
+    const finished = STATUS_CATEGORY[child.status] === 'done';
 
     return (
         <li

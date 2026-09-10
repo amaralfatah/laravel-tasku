@@ -2,7 +2,7 @@
 
 namespace App\Queries;
 
-use App\Enums\TaskStatus;
+use App\Enums\StatusCategory;
 use App\Models\Task;
 use App\Models\WorkspaceMember;
 use App\Support\TaskOrder;
@@ -192,22 +192,24 @@ class MemberWorkloadQuery
 
         $today = now()->toDateString();
         $since = now()->subDays(30)->toDateString();
+        $doneValues = StatusCategory::Done->statusValues();
+        $doneIn = implode(',', array_fill(0, count($doneValues), '?'));
 
         return Task::query()
             ->whereIn('assignee_id', $userIds)
             ->selectRaw('assignee_id')
-            ->selectRaw('count(*) filter (where status <> ?) as active', [TaskStatus::Done->value])
+            ->selectRaw("count(*) filter (where status not in ({$doneIn})) as active", $doneValues)
             ->selectRaw(
-                'count(*) filter (where status <> ? and due_date is not null and due_date < ?) as overdue',
-                [TaskStatus::Done->value, $today],
+                "count(*) filter (where status not in ({$doneIn}) and due_date is not null and due_date < ?) as overdue",
+                [...$doneValues, $today],
             )
             ->selectRaw(
-                'count(*) filter (where status = ? and updated_at >= ?) as done_recently',
-                [TaskStatus::Done->value, $since],
+                "count(*) filter (where status in ({$doneIn}) and updated_at >= ?) as done_recently",
+                [...$doneValues, $since],
             )
             ->selectRaw(
-                'count(*) filter (where status <> ? and due_date is null) as unscheduled',
-                [TaskStatus::Done->value],
+                "count(*) filter (where status not in ({$doneIn}) and due_date is null) as unscheduled",
+                $doneValues,
             )
             ->groupBy('assignee_id')
             ->get()

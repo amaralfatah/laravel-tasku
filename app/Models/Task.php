@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToWorkspace;
+use App\Enums\StatusCategory;
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
 use App\Observers\TaskObserver;
@@ -174,6 +175,16 @@ class Task extends Model
     }
 
     /**
+     * Tasks that are not in the Done category.
+     *
+     * @param  Builder<Task>  $query
+     */
+    public function scopeNotDone(Builder $query): void
+    {
+        $query->whereNotIn('status', StatusCategory::Done->statusValues());
+    }
+
+    /**
      * Tasks that are late: past due and not finished (DIV-4).
      *
      * Tasks without a due date are never late; they are reported separately
@@ -185,13 +196,13 @@ class Task extends Model
     {
         $query->whereNotNull('due_date')
             ->whereDate('due_date', '<', now()->toDateString())
-            ->where('status', '!=', TaskStatus::Done);
+            ->notDone();
     }
 
     public function isOverdue(): bool
     {
         return $this->due_date !== null
-            && $this->status !== TaskStatus::Done
+            && ! $this->status->isDone()
             && $this->due_date->isBefore(now()->startOfDay());
     }
 

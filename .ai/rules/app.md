@@ -69,3 +69,10 @@ Dates are `CarbonImmutable` app-wide (`Date::use()` in AppServiceProvider), so t
 Week is not just the default, it is the layout people diff against older copies of `ContohLaporan.xlsx`: four columns a month, `W3 08-26` labels, week numbers written as integers. Its output must stay byte identical — `MonitoringExportTest` asserts the colours and positions, so run it after touching the grid.
 
 All three zooms draw the same three header rows (year, group, unit) so the rest of the sheet's geometry never moves; only the band labels and the column width change. `MonthWeek` still owns the four-per-month maths and the week labels, and `TimelineGrid` delegates to it for that zoom.
+
+## Two-layer task status architecture (Jira model)
+Tasks use a two-layer status architecture:
+1. Dynamic `TaskStatus` enum (`todo`, `in_progress`, `review`, `done`) represents individual workflow steps.
+2. Static `StatusCategory` enum (`todo`, `in_progress`, `done`) provides high-level lifecycle grouping for metrics, reports, queries, and filters.
+`TaskStatus` provides `category()`, `isDone()`, and `isTodo()` methods.
+Never use direct equality comparisons like `$task->status === TaskStatus::Done` when checking for completion or excluding completed tasks — use `$task->status->isDone()` or the `notDone()` / `overdue()` scopes on `Task` instead. In SQL aggregation queries, use `StatusCategory::Done->statusValues()` with `IN (...)` or `NOT IN (...)` rather than checking a single string status. On the frontend, use `STATUS_CATEGORY[status]` to group or test category completion.

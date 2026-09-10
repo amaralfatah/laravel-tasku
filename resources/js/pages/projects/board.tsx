@@ -38,7 +38,11 @@ import { move } from '@/routes/tasks';
 import { apply as aiApply, plan as aiPlan } from '@/routes/tasks/ai';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
-import { TASK_STATUS_LABELS, TASK_STATUS_ORDER } from '@/types/tasks';
+import {
+    STATUS_CATEGORY,
+    TASK_STATUS_LABELS,
+    TASK_STATUS_ORDER,
+} from '@/types/tasks';
 import type {
     ProjectSummary,
     TaskAssignee,
@@ -185,21 +189,24 @@ export default function ProjectBoard({
 
     // Only root tasks appear as cards (BRD-4).
     const columns = useMemo(() => {
-        const grouped: Record<TaskStatus, TaskNode[]> = {
-            todo: [],
-            in_progress: [],
-            review: [],
-            done: [],
-        };
+        const grouped = Object.fromEntries(
+            TASK_STATUS_ORDER.map((status) => [status, [] as TaskNode[]]),
+        ) as Record<TaskStatus, TaskNode[]>;
 
         for (const task of items) {
-            grouped[task.status].push(task);
+            if (grouped[task.status]) {
+                grouped[task.status].push(task);
+            }
         }
 
         // Selesai reads as a log rather than a queue: the task finished most
         // recently sits on top. Anything without a stamp falls to the bottom
         // and keeps its board order there.
-        grouped.done.sort((a, b) => finishedAt(b) - finishedAt(a));
+        for (const status of TASK_STATUS_ORDER) {
+            if (STATUS_CATEGORY[status] === 'done') {
+                grouped[status].sort((a, b) => finishedAt(b) - finishedAt(a));
+            }
+        }
 
         return grouped;
     }, [items]);

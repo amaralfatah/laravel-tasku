@@ -167,7 +167,9 @@ class PersonController extends Controller
             $tasks = array_values(array_filter(
                 $group['tasks'],
                 function (array $task) use ($cutoff, &$dropped): bool {
-                    if ($task['status'] !== TaskStatus::Done->value) {
+                    $status = TaskStatus::tryFrom($task['status']);
+
+                    if ($status === null || ! $status->isDone()) {
                         return true;
                     }
 

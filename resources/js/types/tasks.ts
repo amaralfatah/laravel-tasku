@@ -21,7 +21,18 @@ export type TaskFilterState = {
     overdue: boolean;
 };
 
-export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
+/**
+ * Static category grouping dynamic statuses (Jira model: To Do / In Progress / Done).
+ */
+export type StatusCategory = 'todo' | 'in_progress' | 'done';
+
+export type TaskStatus =
+    | 'todo'
+    | 'in_progress'
+    | 'review'
+    | 'on_hold'
+    | 'done'
+    | 'cancelled';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -77,17 +88,51 @@ export type TaskNode = {
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
     todo: 'To Do',
-    in_progress: 'Dikerjakan',
-    review: 'Menunggu review',
-    done: 'Selesai',
+    in_progress: 'In Progress',
+    review: 'In Review',
+    on_hold: 'On Hold',
+    done: 'Done',
+    cancelled: 'Cancelled',
 };
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [
     'todo',
     'in_progress',
     'review',
+    'on_hold',
     'done',
+    'cancelled',
 ];
+
+/**
+ * Mapping each task status to its static category.
+ */
+export const STATUS_CATEGORY: Record<TaskStatus, StatusCategory> = {
+    todo: 'todo',
+    in_progress: 'in_progress',
+    review: 'in_progress',
+    on_hold: 'in_progress',
+    done: 'done',
+    cancelled: 'done',
+};
+
+/**
+ * Category text colors (gray / blue / green) for board column headers.
+ */
+export const STATUS_CATEGORY_COLORS: Record<StatusCategory, string> = {
+    todo: 'text-muted-foreground',
+    in_progress: 'text-blue-600 dark:text-blue-400',
+    done: 'text-green-600 dark:text-green-400',
+};
+
+/**
+ * Category badge styles (border/text/bg) for chips and detail views.
+ */
+export const STATUS_CATEGORY_BADGE: Record<StatusCategory, string> = {
+    todo: 'border-muted-foreground/30 text-muted-foreground',
+    in_progress: 'border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10',
+    done: 'border-green-500/40 text-green-600 dark:text-green-400 bg-green-500/10',
+};
 
 export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
     low: 'Rendah',
@@ -127,7 +172,9 @@ export const TASK_STATUS_VARIANT: Record<
     todo: 'secondary',
     in_progress: 'default',
     review: 'outline',
+    on_hold: 'secondary',
     done: 'outline',
+    cancelled: 'outline',
 };
 
 /**

@@ -3,7 +3,7 @@
 namespace App\Queries;
 
 use App\Enums\ProjectStatus;
-use App\Enums\TaskStatus;
+use App\Enums\StatusCategory;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\Workspace;
@@ -134,6 +134,8 @@ class GroupSummaryQuery
     protected function taskCounts(array $ids): array
     {
         $today = now()->toDateString();
+        $doneValues = StatusCategory::Done->statusValues();
+        $doneIn = implode(',', array_fill(0, count($doneValues), '?'));
 
         return Task::withoutGlobalScopes()
             ->whereNull('tasks.deleted_at')
@@ -149,10 +151,10 @@ class GroupSummaryQuery
             ->groupBy('tasks.workspace_id')
             ->selectRaw('tasks.workspace_id')
             ->selectRaw('count(*) as tasks')
-            ->selectRaw('count(*) filter (where status = ?) as done', [TaskStatus::Done->value])
+            ->selectRaw("count(*) filter (where status in ({$doneIn})) as done", $doneValues)
             ->selectRaw(
-                'count(*) filter (where due_date is not null and due_date < ? and status != ?) as overdue',
-                [$today, TaskStatus::Done->value],
+                "count(*) filter (where due_date is not null and due_date < ? and status not in ({$doneIn})) as overdue",
+                [$today, ...$doneValues],
             )
             ->get()
             ->keyBy('workspace_id')

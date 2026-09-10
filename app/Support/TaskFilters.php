@@ -53,10 +53,7 @@ class TaskFilters
             // Work that has run past its date and is not finished: the one
             // filter a leader reaches for, since a healthy task needs no
             // attention and an overdue one always does.
-            ->when($this->overdue, fn (Builder $q) => $q
-                ->whereNotNull('due_date')
-                ->whereDate('due_date', '<', now()->toDateString())
-                ->where('status', '!=', TaskStatus::Done));
+            ->when($this->overdue, fn (Builder $q) => $q->overdue());
     }
 
     /**

@@ -213,6 +213,8 @@ class ImportSpreadsheet extends Command
         return match (mb_strtolower(trim((string) $value))) {
             'done', 'selesai', 'complete', 'completed' => TaskStatus::Done->value,
             'in progress', 'in_progress', 'dikerjakan', 'berjalan', 'progress' => TaskStatus::InProgress->value,
+            'on hold', 'on_hold', 'tertahan', 'hold' => TaskStatus::OnHold->value,
+            'cancelled', 'canceled', 'batal', 'dibatalkan' => TaskStatus::Cancelled->value,
             default => TaskStatus::Todo->value,
         };
     }
