@@ -27,7 +27,7 @@ export default function AppSidebarLayout({
                  */}
                 <div
                     className={cn(
-                        'mx-auto w-full flex-1 px-4 pt-6 pb-24 sm:py-6 sm:px-6 lg:px-8',
+                        'mx-auto w-full flex-1 px-4 pt-6 pb-24 sm:px-6 sm:py-6 lg:px-8',
                         !wide && 'max-w-7xl',
                     )}
                 >

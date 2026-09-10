@@ -234,9 +234,9 @@ export function TaskAiChat({
                 fail(
                     String(
                         errors.instruction ??
-                        errors.model ??
-                        Object.values(errors)[0] ??
-                        'Gagal menyusun rencana. Silakan coba lagi.',
+                            errors.model ??
+                            Object.values(errors)[0] ??
+                            'Gagal menyusun rencana. Silakan coba lagi.',
                     ),
                 ),
             onHttpException: (response) => {
@@ -311,14 +311,14 @@ export function TaskAiChat({
                 onClick={() => setOpen((was) => !was)}
                 className={cn(
                     'fixed z-40 flex items-center justify-center rounded-full',
-                    'size-12 bottom-4 right-4 sm:size-14 sm:right-5 sm:bottom-5',
-                    'bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] sm:bottom-5 sm:right-5',
+                    'right-4 bottom-4 size-12 sm:right-5 sm:bottom-5 sm:size-14',
+                    'right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:right-5 sm:bottom-5',
                     'bg-primary text-primary-foreground shadow-lg shadow-black/20',
                     'transition-[transform,box-shadow,opacity] duration-200 ease-out',
                     'hover:shadow-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
                     // Feedback on the press itself, not on release.
                     'active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100',
-                    open && 'scale-95 opacity-0 pointer-events-none invisible',
+                    open && 'pointer-events-none invisible scale-95 opacity-0',
                 )}
                 // The panel takes over the corner while it is open, so the
                 // button steps out of the way rather than sitting under it.
@@ -342,9 +342,9 @@ export function TaskAiChat({
                         className={cn(
                             'fixed z-40 flex flex-col overflow-hidden bg-popover text-popover-foreground shadow-2xl',
                             'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl rounded-b-none border-t border-border',
-                            'sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-104 sm:max-h-[80vh] sm:rounded-2xl sm:border',
+                            'sm:inset-x-auto sm:right-5 sm:bottom-5 sm:max-h-[80vh] sm:w-104 sm:rounded-2xl sm:border',
                             // Grows out of the bottom on mobile, bottom-right corner on desktop.
-                            'origin-bottom sm:origin-bottom-right animate-in duration-200 zoom-in-95 fade-in',
+                            'origin-bottom animate-in duration-200 zoom-in-95 fade-in sm:origin-bottom-right',
                             'motion-reduce:animate-none',
                         )}
                     >
@@ -463,10 +463,16 @@ export function TaskAiChat({
                                 placeholder="Tulis instruksi…"
                                 className="max-h-28 min-h-9 resize-none py-2"
                                 onChange={(event) =>
-                                    form.setData('instruction', event.target.value)
+                                    form.setData(
+                                        'instruction',
+                                        event.target.value,
+                                    )
                                 }
                                 onKeyDown={(event) => {
-                                    if (event.key === 'Enter' && !event.shiftKey) {
+                                    if (
+                                        event.key === 'Enter' &&
+                                        !event.shiftKey
+                                    ) {
                                         event.preventDefault();
                                         send();
                                     }
@@ -516,7 +522,7 @@ function TurnBubble({
 }) {
     if (turn.role === 'user') {
         return (
-            <p className="ml-auto w-fit max-w-[85%] break-words rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
+            <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm break-words text-primary-foreground">
                 {turn.text}
             </p>
         );
@@ -597,8 +603,8 @@ function OperationRow({
         operation.op === 'create'
             ? (operation.title ?? '(tanpa judul)')
             : target === null
-                ? `#${operation.id}`
-                : `${target.reference} ${target.title}`;
+              ? `#${operation.id}`
+              : `${target.reference} ${target.title}`;
 
     const details = [
         // Only worth saying where the conversation crosses projects; on a
