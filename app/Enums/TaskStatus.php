@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum TaskStatus: string
 {
+    case Backlog = 'backlog';
     case Todo = 'todo';
     case InProgress = 'in_progress';
     case Review = 'review';
@@ -14,6 +15,7 @@ enum TaskStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::Backlog => 'Backlog',
             self::Todo => 'To Do',
             self::InProgress => 'In Progress',
             self::Review => 'In Review',
@@ -29,7 +31,7 @@ enum TaskStatus: string
     public function category(): StatusCategory
     {
         return match ($this) {
-            self::Todo => StatusCategory::Todo,
+            self::Backlog, self::Todo => StatusCategory::Todo,
             self::InProgress, self::Review, self::OnHold => StatusCategory::InProgress,
             self::Done, self::Cancelled => StatusCategory::Done,
         };
@@ -61,7 +63,7 @@ enum TaskStatus: string
     {
         return match ($this) {
             self::Done, self::Review => 100,
-            self::Todo => 0,
+            self::Backlog, self::Todo => 0,
             self::InProgress, self::OnHold, self::Cancelled => null,
         };
     }

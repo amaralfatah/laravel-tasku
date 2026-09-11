@@ -211,6 +211,7 @@ class ImportSpreadsheet extends Command
     protected function status(mixed $value): string
     {
         return match (mb_strtolower(trim((string) $value))) {
+            'backlog', 'antrean', 'antrian' => TaskStatus::Backlog->value,
             'done', 'selesai', 'complete', 'completed' => TaskStatus::Done->value,
             'in progress', 'in_progress', 'dikerjakan', 'berjalan', 'progress' => TaskStatus::InProgress->value,
             'on hold', 'on_hold', 'tertahan', 'hold' => TaskStatus::OnHold->value,

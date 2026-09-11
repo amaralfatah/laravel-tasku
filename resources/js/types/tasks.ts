@@ -27,7 +27,13 @@ export type TaskFilterState = {
 export type StatusCategory = 'todo' | 'in_progress' | 'done';
 
 export type TaskStatus =
-    'todo' | 'in_progress' | 'review' | 'on_hold' | 'done' | 'cancelled';
+    | 'backlog'
+    | 'todo'
+    | 'in_progress'
+    | 'review'
+    | 'on_hold'
+    | 'done'
+    | 'cancelled';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -82,6 +88,7 @@ export type TaskNode = {
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+    backlog: 'Backlog',
     todo: 'To Do',
     in_progress: 'In Progress',
     review: 'In Review',
@@ -91,6 +98,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [
+    'backlog',
     'todo',
     'in_progress',
     'review',
@@ -103,6 +111,7 @@ export const TASK_STATUS_ORDER: TaskStatus[] = [
  * Mapping each task status to its static category.
  */
 export const STATUS_CATEGORY: Record<TaskStatus, StatusCategory> = {
+    backlog: 'todo',
     todo: 'todo',
     in_progress: 'in_progress',
     review: 'in_progress',
@@ -165,6 +174,7 @@ export const TASK_STATUS_VARIANT: Record<
     TaskStatus,
     'secondary' | 'default' | 'outline'
 > = {
+    backlog: 'outline',
     todo: 'secondary',
     in_progress: 'default',
     review: 'outline',
