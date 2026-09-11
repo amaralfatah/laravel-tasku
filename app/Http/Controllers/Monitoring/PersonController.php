@@ -11,6 +11,7 @@ use App\Models\WorkspaceMember;
 use App\Queries\MemberWorkloadQuery;
 use App\Services\Ai\PlanScope;
 use App\Services\Ai\TextModels;
+use App\Services\WorkloadExport;
 use App\Support\TaskPresenter;
 use App\Support\Tenancy;
 use Illuminate\Http\Request;
@@ -205,6 +206,13 @@ class PersonController extends Controller
      * this page crosses projects: someone may contribute to one of them and
      * only be able to read another.
      *
+     * The blocks keep the order `TaskOrder::tree()` put the rows in — by
+     * project id, then down the tree — and are deliberately not resorted by
+     * name. The page numbers each block by its position (`1.`, `2.`) and so
+     * does {@see WorkloadExport}, which reads the same
+     * collection; sorting one of them differently renumbers every task on
+     * screen against the file it is supposed to reproduce.
+     *
      * @param  Collection<int, Task>  $tasks
      * @return array<int, array<string, mixed>>
      */
@@ -228,8 +236,6 @@ class PersonController extends Controller
                 'tasks' => TaskPresenter::collection($group, $user, $canEdit, $project->key),
             ];
         }
-
-        usort($groups, fn (array $a, array $b): int => strcmp($a['project']['name'], $b['project']['name']));
 
         return $groups;
     }

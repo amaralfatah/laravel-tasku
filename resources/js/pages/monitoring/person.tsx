@@ -1,32 +1,20 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CalendarOff, ClipboardList, Download } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ClipboardList, Download } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { WorkloadSheet } from '@/components/monitoring/workload-sheet';
 import { PersonAiChat } from '@/components/task/person-ai-chat';
-import { ProgressBar } from '@/components/task/progress-bar';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
-import {
-    TimelineBar,
-    TimelineGridLines,
-    TimelineHeader,
-    TimelineToday,
-    ZOOM_LABELS,
-    useFillWidth,
-    useTimelineScale,
-} from '@/components/task/timeline-scale';
-import type { Zoom } from '@/components/task/timeline-scale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useInitials } from '@/hooks/use-initials';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
-import { formatDay, parseDate } from '@/lib/week';
+import { SHEET_ZOOM_LABELS, SHEET_ZOOMS } from '@/lib/sheet-grid';
+import type { SheetZoom } from '@/lib/sheet-grid';
 import { me, people, person as personRoute } from '@/routes/monitoring';
 import { exportMethod as exportPerson } from '@/routes/monitoring/person';
-import { show as showProject } from '@/routes/projects';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
 import type { TaskAssignee, TaskNode } from '@/types/tasks';
@@ -49,28 +37,14 @@ type Member = {
     org_unit: string | null;
 };
 
-const ZOOMS: Zoom[] = ['week', 'month', 'quarter'];
-
 /**
- * Sticky label column, in pixels.
+ * One person's work across every project (MON-2..MON-5).
  *
- * The desktop column is wider than a phone, which left no chart beside it at
- * all; the narrow one drops the progress bar and keeps reference plus title.
- * Applied as an inline width so the constant stays the single source of it.
- */
-const LABEL_WIDTH = 352;
-const LABEL_WIDTH_MOBILE = 176;
-
-/** Breathing room left of a bar scrolled into view, in pixels. */
-const GUTTER = 24;
-
-/** How long the panel takes to slide to a clicked row's bar, in milliseconds. */
-const SLIDE_MS = 420;
-
-/**
- * One person's work across every project (MON-2..MON-5), laid out as a
- * hierarchy on the left and a weekly bar chart on the right — the same shape
- * as the spreadsheet this replaces.
+ * The page is the per-programmer workbook rather than a view of its own: the
+ * sheet below the controls is `WorkloadExport`'s output drawn in the browser,
+ * so what is on screen and what downloads are the same document. See
+ * {@link WorkloadSheet} — the layout belongs to `ContohLaporan.xlsx` and is not
+ * this application's to restyle.
  */
 export default function MonitoringPerson({
     member,
@@ -96,47 +70,16 @@ export default function MonitoringPerson({
 }) {
     const getInitials = useInitials();
     const [openTaskId, setOpenTaskId] = useState<number | null>(null);
-    /** The row last scrolled to, kept tinted so the eye finds it again. */
-    const [focusedTaskId, setFocusedTaskId] = useState<number | null>(null);
-    /** The slide in flight, so a second click takes over the first. */
-    const slideFrame = useRef(0);
-
-    useEffect(() => () => cancelAnimationFrame(slideFrame.current), []);
     const [createParent, setCreateParent] = useState<TaskNode | null>(null);
     const [createGroup, setCreateGroup] = useState<ProjectGroup | null>(null);
     const [createOpen, setCreateOpen] = useState(false);
 
+    // The sheet's reference layout is the weekly grid — four columns a month,
+    // the one people diff against older copies of the report. The coarser
+    // levels exist so a plan running over several years fits on a screen.
+    const [zoom, setZoom] = useState<SheetZoom>('week');
+
     const canMonitor = usePage().props.tenancy.membership?.can_monitor ?? false;
-
-    const allTasks = useMemo(
-        () => tasks.flatMap((group) => group.tasks),
-        [tasks],
-    );
-
-    const ranges = useMemo(
-        () =>
-            allTasks.map((task) => ({
-                start: task.start_date,
-                end: task.due_date,
-            })),
-        [allTasks],
-    );
-
-    // Opens at week: a month column packs a fortnight of work into a few
-    // pixels, and reading someone's load means reading which weeks are full.
-    // The wider levels stay one button away.
-    const [zoom, setZoom] = useState<Zoom>('week');
-
-    const isMobile = useIsMobile();
-    const labelWidth = isMobile ? LABEL_WIDTH_MOBILE : LABEL_WIDTH;
-
-    const [panelRef, fillWidth] = useFillWidth<HTMLDivElement>(labelWidth);
-
-    const scale = useTimelineScale(ranges, zoom, fillWidth);
-
-    const unscheduled = allTasks.filter(
-        (task) => !task.start_date || !task.due_date,
-    );
 
     /**
      * The open task, with the assignee list of the project it belongs to and
@@ -144,8 +87,8 @@ export default function MonitoringPerson({
      * project page.
      *
      * The family is read from the same block, which holds this member's tasks
-     * and no others. That is the hierarchy the chart already indents by, so
-     * the modal agrees with the rows behind it.
+     * and no others. That is the hierarchy the sheet already indents by, so the
+     * modal agrees with the rows behind it.
      */
     const open = useMemo(() => {
         const group = tasks.find((item) =>
@@ -169,8 +112,8 @@ export default function MonitoringPerson({
               };
     }, [tasks, openTaskId]);
 
-    // The download mirrors what is on screen, so the range filter and the
-    // zoom both ride along.
+    // The download mirrors what is on screen, so the range filter and the zoom
+    // both ride along.
     const exportUrl = exportPerson(member.id, {
         query: {
             from: filters.from ?? undefined,
@@ -178,66 +121,6 @@ export default function MonitoringPerson({
             zoom,
         },
     }).url;
-
-    /**
-     * Bring a row's bar into view when its row is clicked.
-     *
-     * Someone's work spans every project they touch, so a bar is often far off
-     * screen from the row that names it. The panel is slid so the bar starts
-     * just past the sticky label column, which is what the reader is looking
-     * for after clicking the row.
-     *
-     * The slide is animated here rather than through `scrollTo({ behavior:
-     * 'smooth' })`, which browsers drop to an instant jump wherever the OS
-     * asks for reduced motion — and a jump across a year of weeks reads as the
-     * chart having been replaced rather than moved.
-     */
-    const scrollToRange = (task: TaskNode) => {
-        const panel = panelRef.current;
-        const start = parseDate(task.start_date);
-
-        if (!panel || !start) {
-            return;
-        }
-
-        setFocusedTaskId(task.id);
-
-        const from = panel.scrollLeft;
-        const to = Math.max(
-            0,
-            Math.min(
-                scale.offsetOf(start) - GUTTER,
-                panel.scrollWidth - panel.clientWidth,
-            ),
-        );
-
-        cancelAnimationFrame(slideFrame.current);
-
-        if (from === to) {
-            return;
-        }
-
-        // Timed from the first animation frame rather than the click, so a
-        // frame the browser was late to deliver does not eat the slide.
-        let startedAt = 0;
-
-        const step = (now: number) => {
-            startedAt = startedAt || now;
-
-            const progress = Math.min(1, (now - startedAt) / SLIDE_MS);
-
-            // Ease out: quick off the mark, settling on the target, so the
-            // distance travelled reads without the wait feeling long.
-            panel.scrollLeft =
-                from + (to - from) * (1 - Math.pow(1 - progress, 3));
-
-            if (progress < 1) {
-                slideFrame.current = requestAnimationFrame(step);
-            }
-        };
-
-        slideFrame.current = requestAnimationFrame(step);
-    };
 
     const applyRange = (patch: { from?: string | null; to?: string | null }) =>
         router.get(
@@ -352,7 +235,7 @@ export default function MonitoringPerson({
                         role="group"
                         aria-label="Tingkat zoom"
                     >
-                        {ZOOMS.map((level) => (
+                        {SHEET_ZOOMS.map((level) => (
                             <Button
                                 key={level}
                                 size="sm"
@@ -361,7 +244,7 @@ export default function MonitoringPerson({
                                 aria-pressed={zoom === level}
                                 onClick={() => setZoom(level)}
                             >
-                                {ZOOM_LABELS[level]}
+                                {SHEET_ZOOM_LABELS[level]}
                             </Button>
                         ))}
                     </div>
@@ -379,190 +262,11 @@ export default function MonitoringPerson({
                         </p>
                     </div>
                 ) : (
-                    <div
-                        ref={panelRef}
-                        className="overflow-x-auto rounded-lg border"
-                    >
-                        <div
-                            className="min-w-max"
-                            style={{
-                                // Left column is sticky while the weeks scroll (TML-2).
-                                width: `${labelWidth + scale.width}px`,
-                            }}
-                        >
-                            <div className="flex border-b bg-secondary">
-                                {/* Opaque like the project rows below it: the
-                                    week columns scroll underneath this cell,
-                                    and a tint shows them through. */}
-                                <div
-                                    className="sticky left-0 z-10 shrink-0 border-r bg-secondary px-3 py-2 text-xs font-medium text-muted-foreground"
-                                    style={{ width: `${labelWidth}px` }}
-                                >
-                                    {isMobile
-                                        ? 'Task · Judul'
-                                        : 'Task · Judul · Progress'}
-                                </div>
-                                <TimelineHeader scale={scale} />
-                            </div>
-
-                            {tasks.map((group, index) => (
-                                <div
-                                    key={group.project.id}
-                                    className={cn(
-                                        // The page crosses projects, so where one
-                                        // ends has to read at a glance — a tinted
-                                        // row alone was lost among the task rows.
-                                        index > 0 && 'border-t-4 border-border',
-                                    )}
-                                >
-                                    <div className="flex border-b bg-secondary">
-                                        <div
-                                            className="sticky left-0 z-10 shrink-0 border-r bg-secondary px-3 py-2"
-                                            style={{
-                                                width: `${labelWidth}px`,
-                                            }}
-                                        >
-                                            <Link
-                                                href={showProject(
-                                                    group.project.id,
-                                                )}
-                                                className="block truncate text-sm font-semibold tracking-wide uppercase hover:underline"
-                                            >
-                                                {group.project.name}
-                                            </Link>
-                                        </div>
-                                        <div
-                                            style={{
-                                                width: `${scale.width}px`,
-                                            }}
-                                        />
-                                    </div>
-
-                                    {group.tasks.map((task) => (
-                                        <div
-                                            key={task.id}
-                                            className={cn(
-                                                'group flex cursor-pointer border-b transition-colors duration-150 last:border-b-0 hover:bg-accent',
-                                                focusedTaskId === task.id &&
-                                                    'bg-accent/60',
-                                            )}
-                                            onClick={() => scrollToRange(task)}
-                                        >
-                                            <div
-                                                className={cn(
-                                                    // Opaque, since the week
-                                                    // columns scroll under it.
-                                                    'sticky left-0 z-10 flex shrink-0 items-center gap-2 border-r px-3 py-1.5 transition-colors duration-150 group-hover:bg-accent',
-                                                    focusedTaskId === task.id
-                                                        ? 'bg-accent'
-                                                        : 'bg-background',
-                                                )}
-                                                style={{
-                                                    width: `${labelWidth}px`,
-                                                    paddingLeft: `${12 + task.depth * 14}px`,
-                                                }}
-                                            >
-                                                <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                                                    {task.reference}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    title={task.title}
-                                                    className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-                                                    onClick={() =>
-                                                        setOpenTaskId(task.id)
-                                                    }
-                                                >
-                                                    {task.title}
-                                                </button>
-                                                {/* The narrow label column has
-                                                    no room for it; the bar's
-                                                    own fill already carries
-                                                    progress on the chart. */}
-                                                {!isMobile && (
-                                                    <span className="w-24 shrink-0">
-                                                        <ProgressBar
-                                                            value={
-                                                                task.progress
-                                                            }
-                                                            rollup={
-                                                                task.rollup_progress
-                                                            }
-                                                            showLabel
-                                                        />
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div
-                                                className="relative h-9"
-                                                style={{
-                                                    width: `${scale.width}px`,
-                                                }}
-                                            >
-                                                <TimelineGridLines
-                                                    scale={scale}
-                                                />
-                                                <TimelineToday scale={scale} />
-                                                <TimelineBar
-                                                    scale={scale}
-                                                    start={task.start_date}
-                                                    end={task.due_date}
-                                                    progress={task.progress}
-                                                    overdue={task.is_overdue}
-                                                    highlight={
-                                                        focusedTaskId ===
-                                                        task.id
-                                                    }
-                                                    label={`${task.title}: ${formatDay(task.start_date)} sampai ${formatDay(task.due_date)}, progress ${task.progress}%`}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {unscheduled.length > 0 && (
-                    <section className="space-y-2">
-                        <h2 className="flex items-center gap-2 text-sm font-medium">
-                            <CalendarOff
-                                className="size-4 text-muted-foreground"
-                                aria-hidden="true"
-                            />
-                            Belum dijadwalkan ({unscheduled.length})
-                        </h2>
-
-                        <ul className="divide-y rounded-lg border text-sm">
-                            {unscheduled.map((task) => (
-                                <li
-                                    key={task.id}
-                                    className="flex items-center gap-3 px-3 py-2"
-                                >
-                                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                                        {task.reference}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        className="min-w-0 flex-1 truncate text-left hover:underline"
-                                        onClick={() => setOpenTaskId(task.id)}
-                                    >
-                                        {task.title}
-                                    </button>
-                                    <span
-                                        className={cn(
-                                            'shrink-0 text-xs',
-                                            'text-muted-foreground',
-                                        )}
-                                    >
-                                        {task.progress}%
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
+                    <WorkloadSheet
+                        groups={tasks}
+                        zoom={zoom}
+                        onOpenTask={setOpenTaskId}
+                    />
                 )}
             </div>
 

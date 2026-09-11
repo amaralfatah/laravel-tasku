@@ -308,8 +308,12 @@ class WorkloadExport
     }
 
     /**
-     * The four fixed columns, merged down the month and week rows, plus the
+     * The four fixed columns, merged down all three header rows, plus the
      * column widths.
+     *
+     * They run the full height rather than stopping under the year band, so the
+     * header closes as one block — the blank cell above TASK read as a gap torn
+     * out of the top left corner of the sheet.
      *
      * Nothing is frozen: the reference workbook freezes no pane either, and a
      * split hides the first timeline weeks behind the frozen half.
@@ -327,11 +331,11 @@ class WorkloadExport
         ];
 
         foreach ($labels as $column => $label) {
-            $sheet->mergeCells($this->area($column, $monthRow, $column, $weekRow));
-            $sheet->setCellValue([$column, $monthRow], $label);
+            $sheet->mergeCells($this->area($column, $row, $column, $weekRow));
+            $sheet->setCellValue([$column, $row], $label);
         }
 
-        $sheet->getStyle($this->area(self::COLUMN_TASK, $monthRow, self::COLUMN_TASK, $weekRow))
+        $sheet->getStyle($this->area(self::COLUMN_TASK, $row, self::COLUMN_TASK, $weekRow))
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setIndent(1);
 
         $sheet->getColumnDimension('A')->setWidth(4.82);
@@ -350,17 +354,10 @@ class WorkloadExport
             ],
         ]);
 
-        // The year row carries nothing above the fixed columns, so only the
-        // timeline half of it is banded.
-        foreach ([
-            $this->area(self::COLUMN_TIMELINE, $row, $last, $row),
-            $this->area(self::COLUMN_TASK, $monthRow, $last, $weekRow),
-        ] as $range) {
-            $sheet->getStyle($range)->applyFromArray([
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => self::HEADER]],
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => self::RULE]]],
-            ]);
-        }
+        $sheet->getStyle($this->area(self::COLUMN_TASK, $row, $last, $weekRow))->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => self::HEADER]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => self::RULE]]],
+        ]);
 
         $sheet->getStyle($this->area(self::COLUMN_TIMELINE, $weekRow, $last, $weekRow))
             ->getFont()->setBold(false);
