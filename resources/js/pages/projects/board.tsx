@@ -21,7 +21,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Head, router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import { ProjectHeader } from '@/components/project/project-header';
@@ -89,8 +89,33 @@ function rootOrder(tasks: TaskNode[]): TaskNode[] {
         .sort((a, b) => a.position - b.position);
 }
 
+/**
+ * When a card was finished, for ordering and for folding the old ones away.
+ *
+ * `completed_at` is the real answer, but imported work and rows closed before
+ * the column existed carry none. Those fall back to `updated_at` — the last
+ * time anyone touched the card — rather than to zero, which sent a card closed
+ * last year and one closed this morning to the same place.
+ */
 function finishedAt(task: TaskNode): number {
-    return task.completed_at ? Date.parse(task.completed_at) : 0;
+    const stamp = task.completed_at ?? task.updated_at;
+
+    return stamp ? Date.parse(stamp) : 0;
+}
+
+/**
+ * Cards finished before this moment are folded away by default.
+ *
+ * Selesai and Dibatalkan only ever grow, so a quarter of closed work buries
+ * the card that closed this morning. A month back is the same horizon the
+ * sidebar uses for finished projects.
+ */
+function archiveCutoff(): number {
+    const cutoff = new Date();
+
+    cutoff.setMonth(cutoff.getMonth() - 1);
+
+    return cutoff.getTime();
 }
 
 function isStatus(value: unknown): value is TaskStatus {
@@ -477,12 +502,42 @@ function BoardColumn({
     // has nothing to collide with and cards cannot be dropped into it at all.
     const { setNodeRef, isOver } = useDroppable({ id: status });
     const [composing, setComposing] = useState(false);
+    /** Whether the column's older finished cards are unfolded. */
+    const [showArchived, setShowArchived] = useState(false);
     /**
      * What was typed into the composer, kept out here so closing it — by
      * clicking away, or with Escape — does not throw the sentence away. Reopening
      * the column's composer hands it back.
      */
     const [draft, setDraft] = useState('');
+
+    // Only the done categories fold: a task can sit in To Do for a year and
+    // still be the thing that needs doing.
+    const archived = useMemo(() => {
+        if (STATUS_CATEGORY[status] !== 'done') {
+            return [] as TaskNode[];
+        }
+
+        const cutoff = archiveCutoff();
+
+        return tasks.filter((task) => {
+            const finished = finishedAt(task);
+
+            // A card with no usable stamp at all stays in sight: silence is
+            // not evidence that the work is old.
+            return finished > 0 && finished < cutoff;
+        });
+    }, [status, tasks]);
+
+    // The column is already newest first, so the folded cards are its tail and
+    // unfolding them keeps that order.
+    const shown = useMemo(
+        () =>
+            archived.length === 0 || showArchived
+                ? tasks
+                : tasks.filter((task) => !archived.includes(task)),
+        [archived, showArchived, tasks],
+    );
 
     return (
         <section
@@ -508,7 +563,7 @@ function BoardColumn({
 
             <SortableContext
                 id={status}
-                items={tasks.map((task) => task.id)}
+                items={shown.map((task) => task.id)}
                 strategy={verticalListSortingStrategy}
             >
                 <div
@@ -518,13 +573,13 @@ function BoardColumn({
                     {/* An empty column shows nothing but its "Buat" button,
                         exactly as it does on a Jira board. The drop target only
                         announces itself once something is being dragged. */}
-                    {tasks.length === 0 && isDragging && (
+                    {shown.length === 0 && isDragging && (
                         <p className="rounded border border-dashed border-primary/40 px-1 py-5 text-center text-xs text-primary">
                             Lepas di sini
                         </p>
                     )}
 
-                    {tasks.map((task) => (
+                    {shown.map((task) => (
                         <TaskCard
                             key={task.id}
                             task={task}
@@ -532,6 +587,26 @@ function BoardColumn({
                             onOpen={() => onOpen(task.id)}
                         />
                     ))}
+
+                    {archived.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowArchived((open) => !open)}
+                            aria-expanded={showArchived}
+                            className="flex items-center justify-center gap-1 rounded px-1.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                            <ChevronDown
+                                className={cn(
+                                    'size-3.5 transition-transform',
+                                    showArchived && 'rotate-180',
+                                )}
+                                aria-hidden="true"
+                            />
+                            {showArchived
+                                ? 'Sembunyikan yang lama'
+                                : `${archived.length} selesai lebih dari sebulan`}
+                        </button>
+                    )}
 
                     {composing && (
                         <TaskComposer
