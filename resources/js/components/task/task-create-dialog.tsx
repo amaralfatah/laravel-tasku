@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/hooks/use-initials';
+import { today } from '@/lib/today';
 import { cn } from '@/lib/utils';
 import { store } from '@/routes/tasks';
 import type { Option } from '@/types/members';
@@ -122,7 +123,8 @@ export function TaskCreateDialog({
         status,
         assignee_id: selfAssigneeId,
         priority: 'medium' as TaskPriority,
-        start_date: null as string | null,
+        /** A new task starts today unless the filer says otherwise. */
+        start_date: today() as string | null,
         due_date: null as string | null,
         requester_id: null as number | null,
     });
@@ -134,7 +136,8 @@ export function TaskCreateDialog({
         status,
         assignee_id: selfAssigneeId,
         priority: 'medium' as TaskPriority,
-        start_date: null as string | null,
+        /** A new task starts today unless the filer says otherwise. */
+        start_date: today() as string | null,
         due_date: null as string | null,
         requester_id: null as number | null,
     });

@@ -180,6 +180,8 @@ test('dropping a card on the board moves it to the given status and sibling inde
     expect($tasks[2]->refresh()->status->value)->toBe('in_progress');
 });
 
+// The board's inline composer files exactly this: a title, the column it was
+// typed in, and today as the start date.
 test('creating from a board column lands the task in that column', function () {
     [$member, $unit] = projectWorkspace(WorkspaceRole::Manager);
     $project = Project::factory()->in($unit)->create();
@@ -190,12 +192,14 @@ test('creating from a board column lands the task in that column', function () {
         ->post(route('tasks.store', $project), [
             'title' => 'Langsung dikerjakan',
             'status' => 'in_progress',
+            'start_date' => today()->toDateString(),
         ])
         ->assertRedirect();
 
     $task = Task::withoutGlobalScopes()->where('title', 'Langsung dikerjakan')->firstOrFail();
 
-    expect($task->status->value)->toBe('in_progress');
+    expect($task->status->value)->toBe('in_progress')
+        ->and($task->start_date->toDateString())->toBe(today()->toDateString());
 });
 
 test('the leader above still runs a project an ODS started', function () {

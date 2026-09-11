@@ -20,21 +20,24 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import InputError from '@/components/input-error';
 import { ProjectHeader } from '@/components/project/project-header';
 import { TaskAiChat } from '@/components/task/task-ai-chat';
 import { TaskCard } from '@/components/task/task-card';
 import { TaskCreateDialog } from '@/components/task/task-create-dialog';
 import { TaskDetailModal } from '@/components/task/task-detail-modal';
 import { TaskFilterBar } from '@/components/task/task-filters';
+import { Textarea } from '@/components/ui/textarea';
 import { useFocusedTask } from '@/hooks/use-focused-task';
 import { useTaskFilters } from '@/hooks/use-task-filters';
 import { projectCrumbs } from '@/lib/project-crumbs';
+import { today } from '@/lib/today';
 import { cn } from '@/lib/utils';
 import { show } from '@/routes/projects';
-import { move } from '@/routes/tasks';
+import { move, store } from '@/routes/tasks';
 import { apply as aiApply, plan as aiPlan } from '@/routes/tasks/ai';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
@@ -164,8 +167,9 @@ export default function ProjectBoard({
 }: PageProps) {
     const [openTaskId, setOpenTaskId] = useFocusedTask(focusTaskId);
     /**
-     * What the create dialog is creating: a root task in the column whose
-     * "Buat" button was pressed, or a sub task of the open task.
+     * What the create dialog is creating: a sub task of the open task. A card
+     * on the board itself is typed into the column instead, so the dialog is
+     * only reached from the detail modal.
      */
     const [creating, setCreating] = useState<{
         parent: TaskNode | null;
@@ -367,21 +371,16 @@ export default function ProjectBoard({
                             scrolls sideways, not a grid that stretches: on a full
                             width page an equal-share column made a card wider than
                             the title it carries. */}
-                        <div className="flex min-h-0 w-full min-w-0 flex-1 items-stretch gap-3 overflow-x-auto pb-2">
+                        <div className="flex min-h-0 w-full min-w-0 flex-1 items-start gap-3 overflow-x-auto pb-2">
                             {TASK_STATUS_ORDER.map((status) => (
                                 <BoardColumn
                                     key={status}
+                                    projectId={project.id}
                                     status={status}
                                     tasks={columns[status]}
                                     canDrag={can.contribute}
                                     isDragging={draggingId !== null}
                                     onOpen={setOpenTaskId}
-                                    onCreate={(column) =>
-                                        setCreating({
-                                            parent: null,
-                                            status: column,
-                                        })
-                                    }
                                 />
                             ))}
                         </div>
@@ -460,30 +459,40 @@ export default function ProjectBoard({
 }
 
 function BoardColumn({
+    projectId,
     status,
     tasks,
     canDrag,
     isDragging,
     onOpen,
-    onCreate,
 }: {
+    projectId: number;
     status: TaskStatus;
     tasks: TaskNode[];
     canDrag: boolean;
     isDragging: boolean;
     onOpen: (id: number) => void;
-    onCreate: (status: TaskStatus) => void;
 }) {
     // The column is a droppable in its own right; without it an empty column
     // has nothing to collide with and cards cannot be dropped into it at all.
     const { setNodeRef, isOver } = useDroppable({ id: status });
+    const [composing, setComposing] = useState(false);
+    /**
+     * What was typed into the composer, kept out here so closing it — by
+     * clicking away, or with Escape — does not throw the sentence away. Reopening
+     * the column's composer hands it back.
+     */
+    const [draft, setDraft] = useState('');
 
     return (
         <section
             className={cn(
                 // The sunken well: a step darker than the page, so the raised
-                // cards inside it read without needing borders.
-                'flex h-full min-h-0 w-72 shrink-0 flex-col rounded bg-muted transition-colors',
+                // cards inside it read without needing borders. It hugs its
+                // cards the way Jira's does — a near empty column stays short
+                // instead of drawing a tall well down the whole page — and only
+                // grows until it hits the viewport, where the list scrolls.
+                'flex max-h-full min-h-0 w-72 shrink-0 flex-col rounded bg-muted transition-colors',
                 isOver && 'bg-primary/10',
             )}
             aria-label={TASK_STATUS_LABELS[status]}
@@ -504,7 +513,7 @@ function BoardColumn({
             >
                 <div
                     ref={setNodeRef}
-                    className="flex min-h-0 min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-1"
+                    className="flex min-h-16 flex-col gap-2 overflow-y-auto px-2 pb-1"
                 >
                     {/* An empty column shows nothing but its "Buat" button,
                         exactly as it does on a Jira board. The drop target only
@@ -523,14 +532,24 @@ function BoardColumn({
                             onOpen={() => onOpen(task.id)}
                         />
                     ))}
+
+                    {composing && (
+                        <TaskComposer
+                            projectId={projectId}
+                            status={status}
+                            draft={draft}
+                            onDraft={setDraft}
+                            onClose={() => setComposing(false)}
+                        />
+                    )}
                 </div>
             </SortableContext>
 
-            {canDrag && (
+            {canDrag && !composing && (
                 <button
                     type="button"
-                    onClick={() => onCreate(status)}
-                    className="m-2 mt-auto flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    onClick={() => setComposing(true)}
+                    className="m-2 flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                     <Plus className="size-4" aria-hidden="true" />
                     Buat
@@ -541,6 +560,137 @@ function BoardColumn({
                 </button>
             )}
         </section>
+    );
+}
+
+/**
+ * Jira's inline card composer: a card-shaped box at the foot of the column
+ * that takes a title and nothing else. Everything a task can carry is set on
+ * the card afterwards, so filing one costs a sentence and an Enter rather
+ * than a modal over the board the person is reading.
+ */
+function TaskComposer({
+    projectId,
+    status,
+    draft,
+    onDraft,
+    onClose,
+}: {
+    projectId: number;
+    status: TaskStatus;
+    draft: string;
+    onDraft: (title: string) => void;
+    onClose: () => void;
+}) {
+    const field = useRef<HTMLTextAreaElement>(null);
+    const box = useRef<HTMLDivElement>(null);
+    const form = useForm({
+        title: draft,
+        status,
+        /** Same default as the full dialog: work starts the day it is filed. */
+        start_date: today(),
+    });
+
+    // Closing on the press itself rather than on the field's blur: a press on a
+    // card is swallowed by dnd-kit's pointer sensor, which calls
+    // `preventDefault` and so never moves focus — the first click did nothing
+    // and only the second one closed the box. Capture phase, for the same
+    // reason: the sensor stops the event before it bubbles.
+    useEffect(() => {
+        const closeOnOutsidePress = (event: PointerEvent): void => {
+            if (!box.current?.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+
+        document.addEventListener('pointerdown', closeOnOutsidePress, true);
+
+        return () =>
+            document.removeEventListener(
+                'pointerdown',
+                closeOnOutsidePress,
+                true,
+            );
+    }, [onClose]);
+
+    const submit = (): void => {
+        // A second Enter while the first is still in flight would file the
+        // card twice, since the field is not cleared until the server answers.
+        if (form.processing) {
+            return;
+        }
+
+        if (form.data.title.trim() === '') {
+            onClose();
+
+            return;
+        }
+
+        form.post(store(projectId).url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                // The composer stays open for the next card, the way Jira's
+                // does — a column is usually filled in one sitting.
+                form.setData('title', '');
+                form.clearErrors();
+                onDraft('');
+                field.current?.focus();
+            },
+        });
+    };
+
+    return (
+        // `mb-1` tops the list's own `pb-1` up to the 8px the column keeps on
+        // its sides: with the "Buat" button hidden, nothing else holds the
+        // composer off the bottom of the well.
+        <div
+            ref={box}
+            className="mb-1 rounded border border-primary/60 bg-card p-2"
+        >
+            <Textarea
+                ref={field}
+                autoFocus
+                rows={2}
+                value={form.data.title}
+                placeholder="Apa yang perlu dikerjakan?"
+                aria-label={`Judul task baru di kolom ${TASK_STATUS_LABELS[status]}`}
+                className="min-h-0 resize-none border-0 bg-transparent p-1 text-sm focus-visible:outline-none"
+                onChange={(event) => {
+                    form.setData('title', event.target.value);
+                    onDraft(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                    // Enter files the card; a title is one line, so the key
+                    // that ends it is the key that submits. Escape backs out.
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        submit();
+                    }
+
+                    // Escape is the deliberate "never mind", so it throws the
+                    // draft away where clicking elsewhere keeps it.
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        onDraft('');
+                        onClose();
+                    }
+                }}
+                // Tabbing out leaves the composer too, but a blur from the
+                // window itself must not: switching apps mid sentence and
+                // coming back to a closed box reads as a lost draft.
+                onBlur={(event) => {
+                    if (
+                        !form.processing &&
+                        event.relatedTarget !== null &&
+                        !box.current?.contains(event.relatedTarget)
+                    ) {
+                        onClose();
+                    }
+                }}
+            />
+
+            <InputError message={form.errors.title} className="px-1" />
+        </div>
     );
 }
 
