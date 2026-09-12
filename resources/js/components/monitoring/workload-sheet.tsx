@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
     buildSheetGrid,
     columnLetter,
@@ -82,6 +83,19 @@ const PALETTE = [
     'dark:[--sheet-frame:#2c2c2e] dark:[--sheet-frame-ink:#8b8d91] dark:[--sheet-frame-rule:#45474c]',
     'dark:[--sheet-select:rgba(110,200,80,0.18)] dark:[--sheet-frame-active:#3c5a40]',
 ].join(' ');
+
+/**
+ * Below `md` the four fixed columns are released and only the row-number
+ * gutter stays pinned.
+ *
+ * Pinned, the four of them are 626px wide — wider than any phone — so they
+ * cover the viewport whole and the timeline slides underneath them unseen: the
+ * sheet does scroll, but nothing on screen moves, which reads as a table that
+ * cannot be scrolled at all. The gutter is 42px and keeps the reader's place.
+ * `static!` because `pinned()` writes `position` inline, and a class cannot
+ * outrank that otherwise.
+ */
+const UNPIN_NARROW = 'max-md:[&_[data-pin=column]]:static!';
 
 /**
  * The row-number gutter down the left edge, in pixels. Not a column of the
@@ -174,14 +188,18 @@ function columnPicked(selection: Selection, from: number, span = 1): boolean {
 /**
  * The wash a picked cell carries, laid over whatever fill it already has —
  * a bar, the header band or plain paper all keep showing through.
+ *
+ * `none` rather than an absent key: dropping `backgroundImage` on a rerender
+ * while the cell's own fill is set is what React warns about, and the cells
+ * this is spread onto set their fill through `backgroundColor` for the same
+ * reason — the `background` shorthand would clear this wash outright.
  */
 function picked(active: boolean): CSSProperties {
-    return active
-        ? {
-              backgroundImage:
-                  'linear-gradient(var(--sheet-select), var(--sheet-select))',
-          }
-        : {};
+    return {
+        backgroundImage: active
+            ? 'linear-gradient(var(--sheet-select), var(--sheet-select))'
+            : 'none',
+    };
 }
 
 export type SheetProjectGroup = {
@@ -215,6 +233,8 @@ export function WorkloadSheet({
     /** The row or column picked off the frame; clicking it again clears it. */
     const [selection, setSelection] = useState<Selection>(null);
     const panel = useRef<HTMLDivElement>(null);
+    /** Below `md` the fixed columns scroll away with the rest — see {@link UNPIN_NARROW}. */
+    const isNarrow = useIsMobile();
     /** The slide in flight, so a second click takes over the first. */
     const slide = useRef(0);
 
@@ -264,9 +284,10 @@ export function WorkloadSheet({
         const to = Math.max(
             0,
             Math.min(
-                // The fixed columns are pinned, so the bar clears them at
-                // exactly its own offset into the timeline.
-                slot * grid.width - SLIDE_GUTTER,
+                // Pinned, the fixed columns are cleared at exactly the bar's
+                // own offset into the timeline; released, the timeline starts
+                // past them and their width has to be scrolled off first.
+                (isNarrow ? FIXED_WIDTH : 0) + slot * grid.width - SLIDE_GUTTER,
                 element.scrollWidth - element.clientWidth,
             ),
         );
@@ -313,7 +334,7 @@ export function WorkloadSheet({
     return (
         <div
             ref={panel}
-            className={`overflow-x-auto border bg-[var(--sheet-paper)] text-[var(--sheet-ink)] ${PALETTE}`}
+            className={`overflow-x-auto border bg-[var(--sheet-paper)] text-[var(--sheet-ink)] ${UNPIN_NARROW} ${PALETTE}`}
         >
             <div style={{ width: `${width}px` }}>
                 {/* The two blocks the workbook opens with — `PROJECT
@@ -422,6 +443,7 @@ function SheetHeader({
                                 ? { ...pinned(FRAME_LEFT[index]), zIndex: 3 }
                                 : {}),
                         }}
+                        data-pin={index < FIXED_COLUMNS ? 'column' : undefined}
                     >
                         <FrameButton
                             label={`Pilih kolom ${columnLetter(index + 1)}`}
@@ -447,6 +469,7 @@ function SheetHeader({
                 <th
                     rowSpan={3}
                     className="pl-2 text-left"
+                    data-pin="column"
                     style={{
                         ...headerCell(true),
                         ...pinned(TASK_LEFT),
@@ -457,6 +480,7 @@ function SheetHeader({
                 </th>
                 <th
                     rowSpan={3}
+                    data-pin="column"
                     style={{
                         ...headerCell(false),
                         ...pinned(PROGRESS_LEFT),
@@ -467,6 +491,7 @@ function SheetHeader({
                 </th>
                 <th
                     rowSpan={3}
+                    data-pin="column"
                     style={{
                         ...headerCell(false),
                         ...pinned(START_LEFT),
@@ -477,6 +502,7 @@ function SheetHeader({
                 </th>
                 <th
                     rowSpan={3}
+                    data-pin="column"
                     style={{
                         ...headerCell(false),
                         ...pinned(END_LEFT),
@@ -582,7 +608,7 @@ function SheetRow({
     ): CSSProperties => ({
         ...bodyCell(lastRow, first),
         ...pinned(pin),
-        background: paper,
+        backgroundColor: paper,
         fontWeight: weight,
         ...picked(isRowPicked || columnPicked(selection, column)),
     });
@@ -615,6 +641,7 @@ function SheetRow({
 
             <td
                 className="pr-1 text-[13px] leading-[15px]"
+                data-pin="column"
                 style={{
                     ...fixed(0, TASK_LEFT, true),
                     // The same indent step the project tree and the timeline
@@ -644,6 +671,7 @@ function SheetRow({
 
             <td
                 className="px-1 text-right text-[13px] tabular-nums"
+                data-pin="column"
                 style={fixed(1, PROGRESS_LEFT)}
             >
                 {percent(row.progress)}
@@ -653,6 +681,7 @@ function SheetRow({
                 two lines; the column is sized to hold it whole. */}
             <td
                 className="px-1 text-[13px] whitespace-nowrap tabular-nums"
+                data-pin="column"
                 style={fixed(2, START_LEFT)}
             >
                 {grid.label(row.start)}
@@ -660,6 +689,7 @@ function SheetRow({
 
             <td
                 className="px-1 text-[13px] whitespace-nowrap tabular-nums"
+                data-pin="column"
                 style={fixed(3, END_LEFT)}
             >
                 {grid.label(row.end)}
@@ -670,7 +700,7 @@ function SheetRow({
                     key={index}
                     style={{
                         ...bodyCell(lastRow),
-                        background:
+                        backgroundColor:
                             fillOf(row, index, left, right, todaySlot) ?? paper,
                         ...picked(
                             isRowPicked ||
@@ -910,7 +940,7 @@ function pinned(left: number): CSSProperties {
 
 function headerCell(first: boolean): CSSProperties {
     return {
-        background: HEADER,
+        backgroundColor: HEADER,
         fontWeight: 700,
         fontSize: '13px',
         textAlign: 'center',
