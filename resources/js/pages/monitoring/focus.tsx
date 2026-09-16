@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { daysBetween, formatDay, parseDate } from '@/lib/week';
+import { partitionAgendaRows } from '@/pages/monitoring/agenda';
 import { me, person as personRoute } from '@/routes/monitoring';
 import { index as projectsIndex, show as showProject } from '@/routes/projects';
 import { update as updateTask } from '@/routes/tasks';
@@ -260,8 +261,13 @@ function greetingFor(hour: number): string {
 }
 
 /** The one line under the greeting: only the counts that are not zero. */
-function summarise(counts: Record<SignalKey, number>, total: number): string {
+function summarise(
+    counts: Record<SignalKey, number>,
+    activeTotal: number,
+    onHoldTotal: number,
+): string {
     const parts: string[] = [];
+    const total = activeTotal + onHoldTotal;
 
     if (counts.overdue > 0) {
         parts.push(`${counts.overdue} telat`);
@@ -273,6 +279,10 @@ function summarise(counts: Record<SignalKey, number>, total: number): string {
 
     if (counts.review > 0) {
         parts.push(`${counts.review} menunggu review`);
+    }
+
+    if (onHoldTotal > 0) {
+        parts.push(`${onHoldTotal} On Hold`);
     }
 
     return parts.length === 0
@@ -288,10 +298,8 @@ function summarise(counts: Record<SignalKey, number>, total: number): string {
  * look"; the first screen after signing in has to answer "what do I do now",
  * and those are not the same page.
  *
- * Structure comes from the headings and the hairlines under them, nothing
- * more. This design system has no card, fill or shadow to group with, and a
- * decorative rail down the left was tried and read as debris in the dark
- * theme while costing a phone the width of its titles.
+ * Jira-style grouped lists keep the work dense and scannable: one neutral
+ * surface for the live agenda, and another for work outside the active flow.
  */
 export default function MonitoringFocus({
     member,
@@ -332,6 +340,7 @@ export default function MonitoringFocus({
     const [signal, setSignal] = useState<SignalKey | null>(() =>
         readSignal(page.url),
     );
+    const [showOnHold, setShowOnHold] = useState(false);
     const [showDone, setShowDone] = useState(false);
     const [showAllUnscheduled, setShowAllUnscheduled] = useState(false);
 
@@ -369,21 +378,18 @@ export default function MonitoringFocus({
         [tasks],
     );
 
-    const open = useMemo(
-        () => rows.filter((row) => STATUS_CATEGORY[row.task.status] !== 'done'),
-        [rows],
-    );
+    const sections = useMemo(() => partitionAgendaRows(rows), [rows]);
+    const open = sections.active;
+    const onHold = useMemo(() => nest(sections.onHold), [sections.onHold]);
 
     const done = useMemo(
         () =>
-            rows
-                .filter((row) => STATUS_CATEGORY[row.task.status] === 'done')
-                .sort((a, b) =>
-                    (b.task.completed_at ?? '').localeCompare(
-                        a.task.completed_at ?? '',
-                    ),
+            [...sections.done].sort((a, b) =>
+                (b.task.completed_at ?? '').localeCompare(
+                    a.task.completed_at ?? '',
                 ),
-        [rows],
+            ),
+        [sections.done],
     );
 
     const counts = useMemo(() => {
@@ -493,7 +499,7 @@ export default function MonitoringFocus({
                 A phone still stacks the greeting and the filters before the
                 first task, so the gaps between them are a step tighter there
                 than on a screen that has room to breathe. */}
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-6">
                 {/* The greeting and the filters share a line, the way Jira
                     puts the tabs of its own landing page on the line of the
                     section heading rather than in a band of their own. Three
@@ -510,13 +516,14 @@ export default function MonitoringFocus({
                             further apart the bigger they get. A phone holds a
                             step less of it: at 30px the greeting outweighed
                             the two tasks underneath it. */}
-                        <h1 className="truncate text-xl font-semibold tracking-tight sm:text-3xl">
-                            {greetingFor(now.getHours())}, {member.name}.
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            Task saya
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {open.length === 0
+                            {greetingFor(now.getHours())}, {member.name}.{' '}
+                            {open.length === 0 && onHold.length === 0
                                 ? 'Tidak ada task terbuka.'
-                                : summarise(counts, open.length)}
+                                : summarise(counts, open.length, onHold.length)}
                         </p>
                     </div>
 
@@ -564,8 +571,8 @@ export default function MonitoringFocus({
                     </div>
                 )}
 
-                {open.length === 0 ? (
-                    <div className="rounded-lg border border-border p-12 text-center">
+                {open.length === 0 && onHold.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-card p-12 text-center">
                         <Sunrise
                             className="mx-auto mb-3 size-8 text-muted-foreground"
                             aria-hidden="true"
@@ -583,8 +590,8 @@ export default function MonitoringFocus({
                             <Link href={projectsIndex()}>Lihat proyek</Link>
                         </Button>
                     </div>
-                ) : visible.length === 0 ? (
-                    <div className="rounded-lg border border-border p-12 text-center">
+                ) : open.length > 0 && visible.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-card p-12 text-center">
                         <Inbox
                             className="mx-auto mb-3 size-8 text-muted-foreground"
                             aria-hidden="true"
@@ -603,8 +610,8 @@ export default function MonitoringFocus({
                         </Button>
                     </div>
                 ) : (
-                    <div className="space-y-6">
-                        {visible.map((bucket, index) => {
+                    <div className="overflow-hidden rounded-lg border border-border bg-card">
+                        {visible.map((bucket) => {
                             const rowsHere = buckets.get(bucket.key) ?? [];
                             const folded =
                                 bucket.key === 'unscheduled' &&
@@ -617,17 +624,14 @@ export default function MonitoringFocus({
                             return (
                                 <section
                                     key={bucket.key}
-                                    className="animate-in duration-300 fill-mode-backwards fade-in slide-in-from-bottom-2"
-                                    style={{
-                                        animationDelay: `${index * 40}ms`,
-                                    }}
+                                    className="border-b border-border last:border-b-0"
                                 >
                                     {/* The two headings that carry a warning say
                                     it in the word itself, so no dot or rail is
                                     needed to mark them apart. */}
                                     <h2
                                         id={`bucket-${bucket.key}`}
-                                        className="flex items-baseline gap-2"
+                                        className="flex items-baseline gap-2 bg-muted/50 px-3 py-2"
                                     >
                                         <span
                                             className={cn(
@@ -645,7 +649,7 @@ export default function MonitoringFocus({
 
                                     <ul
                                         aria-labelledby={`bucket-${bucket.key}`}
-                                        className="mt-1 divide-y divide-border border-t border-border"
+                                        className="divide-y divide-border border-t border-border"
                                     >
                                         {shown.map(
                                             ({
@@ -671,7 +675,7 @@ export default function MonitoringFocus({
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="mt-1 text-muted-foreground"
+                                            className="w-full justify-start rounded-none border-t border-border px-3 text-muted-foreground"
                                             onClick={() =>
                                                 setShowAllUnscheduled(true)
                                             }
@@ -688,68 +692,122 @@ export default function MonitoringFocus({
                     </div>
                 )}
 
-                {(done.length > 0 || olderDone > 0) && (
-                    <section>
-                        {/* Nothing to unfold when the window is empty, so the
+                {(onHold.length > 0 || done.length > 0 || olderDone > 0) && (
+                    <div className="overflow-hidden rounded-lg border border-border bg-card">
+                        {onHold.length > 0 && (
+                            <section className="border-b border-border last:border-b-0">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="min-h-11 w-full justify-start rounded-none px-3 text-muted-foreground"
+                                    aria-expanded={showOnHold}
+                                    onClick={() =>
+                                        setShowOnHold((value) => !value)
+                                    }
+                                >
+                                    <ChevronDown
+                                        className={cn(
+                                            'transition-transform duration-200',
+                                            showOnHold && 'rotate-180',
+                                        )}
+                                        aria-hidden="true"
+                                    />
+                                    {onHold.length} task On Hold
+                                </Button>
+
+                                {showOnHold && (
+                                    <ul className="divide-y divide-border border-t border-border">
+                                        {onHold.map(
+                                            ({
+                                                row: { task, group },
+                                                depth,
+                                            }) => (
+                                                <TaskRow
+                                                    key={task.id}
+                                                    task={task}
+                                                    project={group.project}
+                                                    statuses={statuses}
+                                                    depth={depth}
+                                                    meta={dueLabel(task, now)}
+                                                    onOpen={() =>
+                                                        setOpenTaskId(task.id)
+                                                    }
+                                                />
+                                            ),
+                                        )}
+                                    </ul>
+                                )}
+                            </section>
+                        )}
+
+                        {(done.length > 0 || olderDone > 0) && (
+                            <section className="border-b border-border last:border-b-0">
+                                {/* Nothing to unfold when the window is empty, so the
                             note below stands on its own rather than under a
                             toggle that reads "0 selesai". */}
-                        {done.length > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground"
-                                aria-expanded={showDone}
-                                onClick={() => setShowDone((value) => !value)}
-                            >
-                                <ChevronDown
-                                    className={cn(
-                                        'transition-transform duration-200',
-                                        showDone && 'rotate-180',
-                                    )}
-                                    aria-hidden="true"
-                                />
-                                {done.length} selesai dalam {doneWindowDays}{' '}
-                                hari terakhir
-                            </Button>
-                        )}
-
-                        {showDone && (
-                            <ul className="mt-2 divide-y divide-border border-t border-border">
-                                {done.map(({ task, group }) => (
-                                    <TaskRow
-                                        key={task.id}
-                                        task={task}
-                                        project={group.project}
-                                        statuses={statuses}
-                                        meta={
-                                            task.completed_at === null
-                                                ? ''
-                                                : formatDay(
-                                                      task.completed_at.slice(
-                                                          0,
-                                                          10,
-                                                      ),
-                                                  )
+                                {done.length > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="min-h-11 w-full justify-start rounded-none px-3 text-muted-foreground"
+                                        aria-expanded={showDone}
+                                        onClick={() =>
+                                            setShowDone((value) => !value)
                                         }
-                                        onOpen={() => setOpenTaskId(task.id)}
-                                    />
-                                ))}
-                            </ul>
-                        )}
+                                    >
+                                        <ChevronDown
+                                            className={cn(
+                                                'transition-transform duration-200',
+                                                showDone && 'rotate-180',
+                                            )}
+                                            aria-hidden="true"
+                                        />
+                                        {done.length} selesai dalam{' '}
+                                        {doneWindowDays} hari terakhir
+                                    </Button>
+                                )}
 
-                        {olderDone > 0 && (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                                {olderDone} lainnya ada di{' '}
-                                <Link
-                                    href={personRoute(member.id)}
-                                    className="underline hover:text-foreground"
-                                >
-                                    timeline
-                                </Link>
-                                .
-                            </p>
+                                {showDone && (
+                                    <ul className="divide-y divide-border border-t border-border">
+                                        {done.map(({ task, group }) => (
+                                            <TaskRow
+                                                key={task.id}
+                                                task={task}
+                                                project={group.project}
+                                                statuses={statuses}
+                                                meta={
+                                                    task.completed_at === null
+                                                        ? ''
+                                                        : formatDay(
+                                                              task.completed_at.slice(
+                                                                  0,
+                                                                  10,
+                                                              ),
+                                                          )
+                                                }
+                                                onOpen={() =>
+                                                    setOpenTaskId(task.id)
+                                                }
+                                            />
+                                        ))}
+                                    </ul>
+                                )}
+
+                                {olderDone > 0 && (
+                                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                                        {olderDone} lainnya ada di{' '}
+                                        <Link
+                                            href={personRoute(member.id)}
+                                            className="underline hover:text-foreground"
+                                        >
+                                            timeline
+                                        </Link>
+                                        .
+                                    </p>
+                                )}
+                            </section>
                         )}
-                    </section>
+                    </div>
                 )}
             </div>
 
@@ -946,7 +1004,7 @@ function TaskRow({
         // wherever it is read. Only the left padding moves: the fixed tracks
         // stay where they are, and the title column gives up the width.
         <li
-            className="relative grid min-h-11 grid-cols-1 gap-y-0.5 px-2 py-2 hover:bg-accent sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0"
+            className="relative grid min-h-11 grid-cols-1 gap-y-0.5 px-3 py-2 hover:bg-muted/50 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_5rem_8.5rem_2.75rem_6rem] sm:items-center sm:gap-x-3 sm:gap-y-0"
             style={
                 depth === 0 ? undefined : { paddingLeft: `${8 + depth * 14}px` }
             }
