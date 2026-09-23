@@ -20,7 +20,7 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -37,7 +37,7 @@ import { projectCrumbs } from '@/lib/project-crumbs';
 import { today } from '@/lib/today';
 import { cn } from '@/lib/utils';
 import { show } from '@/routes/projects';
-import { move, store } from '@/routes/tasks';
+import { move, store, update } from '@/routes/tasks';
 import { apply as aiApply, plan as aiPlan } from '@/routes/tasks/ai';
 import type { Option } from '@/types/members';
 import type { RequesterOption } from '@/types/requesters';
@@ -190,7 +190,18 @@ export default function ProjectBoard({
     aiModel,
     can,
 }: PageProps) {
+    const { auth } = usePage().props;
     const [openTaskId, setOpenTaskId] = useFocusedTask(focusTaskId);
+    /**
+     * Who an inline card falls to: the person filing it, the same as the full
+     * dialog's "Otomatis". Someone who is not on the project stays unassigned,
+     * because only project members may carry a task (TSK-4).
+     */
+    const selfAssigneeId = assignees.some(
+        (member) => member.id === auth.user?.id,
+    )
+        ? (auth.user?.id ?? null)
+        : null;
     /**
      * What the create dialog is creating: a sub task of the open task. A card
      * on the board itself is typed into the column instead, so the dialog is
@@ -403,6 +414,7 @@ export default function ProjectBoard({
                                     projectId={project.id}
                                     status={status}
                                     tasks={columns[status]}
+                                    selfAssigneeId={selfAssigneeId}
                                     canDrag={can.contribute}
                                     isDragging={draggingId !== null}
                                     onOpen={setOpenTaskId}
@@ -487,6 +499,7 @@ function BoardColumn({
     projectId,
     status,
     tasks,
+    selfAssigneeId,
     canDrag,
     isDragging,
     onOpen,
@@ -494,6 +507,7 @@ function BoardColumn({
     projectId: number;
     status: TaskStatus;
     tasks: TaskNode[];
+    selfAssigneeId: number | null;
     canDrag: boolean;
     isDragging: boolean;
     onOpen: (id: number) => void;
@@ -510,6 +524,19 @@ function BoardColumn({
      * the column's composer hands it back.
      */
     const [draft, setDraft] = useState('');
+
+    /**
+     * Take a card from the board itself. The server answers with the whole
+     * page, so the column re-renders with the new avatar; no optimistic copy
+     * to unwind if the write is refused.
+     */
+    const assignSelf = (taskId: number): void => {
+        router.patch(
+            update(taskId).url,
+            { assignee_id: selfAssigneeId },
+            { preserveScroll: true, preserveState: true },
+        );
+    };
 
     // Only the done categories fold: a task can sit in To Do for a year and
     // still be the thing that needs doing.
@@ -585,6 +612,11 @@ function BoardColumn({
                             task={task}
                             draggable={canDrag && task.can_edit}
                             onOpen={() => onOpen(task.id)}
+                            onAssignSelf={
+                                selfAssigneeId !== null && task.can_edit
+                                    ? () => assignSelf(task.id)
+                                    : undefined
+                            }
                         />
                     ))}
 
@@ -612,6 +644,7 @@ function BoardColumn({
                         <TaskComposer
                             projectId={projectId}
                             status={status}
+                            selfAssigneeId={selfAssigneeId}
                             draft={draft}
                             onDraft={setDraft}
                             onClose={() => setComposing(false)}
@@ -647,12 +680,14 @@ function BoardColumn({
 function TaskComposer({
     projectId,
     status,
+    selfAssigneeId,
     draft,
     onDraft,
     onClose,
 }: {
     projectId: number;
     status: TaskStatus;
+    selfAssigneeId: number | null;
     draft: string;
     onDraft: (title: string) => void;
     onClose: () => void;
@@ -662,6 +697,8 @@ function TaskComposer({
     const form = useForm({
         title: draft,
         status,
+        /** Same default as the full dialog's "Otomatis": the filer takes it. */
+        assignee_id: selfAssigneeId,
         /** Same default as the full dialog: work starts the day it is filed. */
         start_date: today(),
     });

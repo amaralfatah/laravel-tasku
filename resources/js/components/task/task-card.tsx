@@ -6,6 +6,7 @@ import {
     SquareCheckBig,
     TriangleAlert,
     User,
+    UserPlus,
 } from 'lucide-react';
 import { useRef } from 'react';
 import type {
@@ -37,12 +38,18 @@ export function TaskCard({
     draggable,
     overlay = false,
     onOpen,
+    onAssignSelf,
 }: {
     task: TaskNode;
     draggable: boolean;
     /** Rendered inside the DragOverlay rather than in a column. */
     overlay?: boolean;
     onOpen: () => void;
+    /**
+     * Takes the card, Jira's "Assign to me". Left out when the reader may not
+     * edit the task or is not on the project, and the placeholder stays inert.
+     */
+    onAssignSelf?: () => void;
 }) {
     const getInitials = useInitials();
     const pressedAt = useRef<{ x: number; y: number } | null>(null);
@@ -200,6 +207,24 @@ export function TaskCard({
                                 Penanggung jawab: {task.assignee.name}
                             </span>
                         </Avatar>
+                    ) : onAssignSelf ? (
+                        // Jira's "Assign to me": the empty avatar slot is the
+                        // button, so taking a card costs one click on the board
+                        // rather than a trip through the detail sheet.
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onAssignSelf();
+                            }}
+                            title="Tugaskan ke saya"
+                            className="flex size-6 items-center justify-center rounded-full bg-foreground/10 text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        >
+                            <UserPlus className="size-3.5" aria-hidden="true" />
+                            <span className="sr-only">
+                                Tugaskan {task.reference} ke saya
+                            </span>
+                        </button>
                     ) : (
                         <span
                             className="flex size-6 items-center justify-center rounded-full bg-foreground/10"
