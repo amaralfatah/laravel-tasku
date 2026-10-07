@@ -4,7 +4,8 @@
 # single process replaces the usual nginx + php-fpm pair.
 FROM dunglas/frankenphp:1-php8.3 AS base
 
-RUN install-php-extensions pdo_pgsql gd zip intl bcmath opcache pcntl
+# Cap parallel compile jobs: one per core OOMs on many-core builders.
+RUN IPE_PROCESSOR_COUNT=4 install-php-extensions pdo_pgsql gd zip intl bcmath opcache pcntl
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
