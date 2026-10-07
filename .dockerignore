@@ -1,0 +1,29 @@
+# Keep the build context to what the image actually needs. Dependencies and
+# build output are produced inside the image, never copied from the host.
+.git
+.github
+.ai
+.agents
+.claude
+.codex
+.neon
+.env
+.env.*
+!.env.example
+node_modules
+vendor
+tests
+docs
+ContohLaporan.xlsx
+public/build
+public/hot
+public/storage
+resources/js/actions
+resources/js/routes
+resources/js/wayfinder
+bootstrap/cache/*.php
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/pail
