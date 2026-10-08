@@ -139,7 +139,7 @@ test('a super admin cannot accept a workspace invitation', function () {
 test('an existing member cannot be promoted to super admin', function () {
     $member = WorkspaceMember::factory()->for(Workspace::factory())->create();
 
-    $this->artisan('tasku:super-admin', ['email' => $member->user->email])
+    $this->artisan('headway:super-admin', ['email' => $member->user->email])
         ->assertFailed();
 
     expect($member->user->fresh()->is_super_admin)->toBeFalse();

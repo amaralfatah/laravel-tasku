@@ -152,7 +152,7 @@ test('a loop in the export is cut instead of hanging the import', function () {
 test('the command writes the whole forest with correct paths and depths', function () {
     fakeCds(cdsSample());
 
-    $this->artisan('tasku:import-org-structure')
+    $this->artisan('headway:import-org-structure')
         ->assertSuccessful();
 
     $units = OrgUnit::withoutGlobalScopes()->get()->keyBy('external_id');
@@ -193,13 +193,13 @@ test('prune removes units a previous import created that SAP no longer sends', f
 
     $units = fn () => OrgUnit::withoutGlobalScopes();
 
-    $this->artisan('tasku:import-org-structure', [
+    $this->artisan('headway:import-org-structure', [
         '--all' => true,
     ])->assertSuccessful();
 
     expect($units()->count())->toBe(7);
 
-    $this->artisan('tasku:import-org-structure', [
+    $this->artisan('headway:import-org-structure', [
         '--prune' => true,
     ])->assertSuccessful();
 
@@ -221,7 +221,7 @@ test('prune keeps a retired unit that still holds a project', function () {
         'services.sap.pass' => 'secret',
     ]);
 
-    $this->artisan('tasku:import-org-structure', [
+    $this->artisan('headway:import-org-structure', [
         '--all' => true,
     ])->assertSuccessful();
 
@@ -231,7 +231,7 @@ test('prune keeps a retired unit that still holds a project', function () {
 
     Project::factory()->in($fragment)->create();
 
-    $this->artisan('tasku:import-org-structure', [
+    $this->artisan('headway:import-org-structure', [
         '--prune' => true,
     ])->assertSuccessful();
 
@@ -258,11 +258,11 @@ test('a second import updates in place instead of duplicating the tree', functio
         'services.sap.pass' => 'secret',
     ]);
 
-    $this->artisan('tasku:import-org-structure')->assertSuccessful();
+    $this->artisan('headway:import-org-structure')->assertSuccessful();
 
     $before = OrgUnit::withoutGlobalScopes()->pluck('id', 'external_id');
 
-    $this->artisan('tasku:import-org-structure')->assertSuccessful();
+    $this->artisan('headway:import-org-structure')->assertSuccessful();
 
     $after = OrgUnit::withoutGlobalScopes()->get()->keyBy('external_id');
 
@@ -276,7 +276,7 @@ test('units created by hand are left alone by the import', function () {
 
     $manual = OrgUnit::factory()->create(['name' => 'Divisi Internal']);
 
-    $this->artisan('tasku:import-org-structure')->assertSuccessful();
+    $this->artisan('headway:import-org-structure')->assertSuccessful();
 
     $manual->refresh();
 
@@ -288,7 +288,7 @@ test('units created by hand are left alone by the import', function () {
 test('a dry run reports the shape without writing anything', function () {
     fakeCds(cdsSample());
 
-    $this->artisan('tasku:import-org-structure', ['--dry-run' => true])
+    $this->artisan('headway:import-org-structure', ['--dry-run' => true])
         ->expectsOutputToContain('4 unit dipakai')
         ->assertSuccessful();
 
@@ -304,7 +304,7 @@ test('the import stops when the bridge answers with an error', function () {
         'services.sap.pass' => 'secret',
     ]);
 
-    $this->artisan('tasku:import-org-structure')->assertFailed();
+    $this->artisan('headway:import-org-structure')->assertFailed();
 
     expect(OrgUnit::withoutGlobalScopes()->count())->toBe(0);
 });
@@ -316,5 +316,5 @@ test('the import stops when SAP credentials are missing', function () {
         'services.sap.pass' => null,
     ]);
 
-    $this->artisan('tasku:import-org-structure')->assertFailed();
+    $this->artisan('headway:import-org-structure')->assertFailed();
 });

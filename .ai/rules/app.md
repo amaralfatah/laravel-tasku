@@ -28,12 +28,12 @@ Any narrow column select on a `Project` relation must include `workspace_id`, `o
 ## Super admin never enters a workspace (SA-4)
 A super admin is a platform operator with no membership anywhere — no row, and no virtual one either. `EnsureWorkspaceAccess` redirects them to `workspaces.index` for any `workspace` route, so `Tenancy::member()` is never a super admin and no policy needs a super-admin branch. Their only pages are `workspaces.*` (which carry no tenant context and scope their own queries with `withoutGlobalScopes()`) plus settings, which run `workspace:optional`.
 
-Keep the invariant closed on both ends: `InvitationAcceptController::store()` refuses a super admin, and `tasku:super-admin` refuses to promote an account that still holds a membership.
+Keep the invariant closed on both ends: `InvitationAcceptController::store()` refuses a super admin, and `headway:super-admin` refuses to promote an account that still holds a membership.
 
 Never reintroduce a virtual membership to give them access — it handed them BOD-1, and `hasFullScope()` then opened every project and task in the platform.
 
 ## Org units come from SAP and are too many to list
-`tasku:import-org-structure --workspace=<id> [--prune]` mirrors the SAP CDS view `ZA_HRIS_ORGZ` into `org_units`.
+`headway:import-org-structure --workspace=<id> [--prune]` mirrors the SAP CDS view `ZA_HRIS_ORGZ` into `org_units`.
 
 The view carries 52 roots, but 51 are fragments SAP sends no parent edge for (`KEBUN 2 PAN`, `DISTRIK TANDUN`, four units named `-`). The import keeps only the subtree of `OrgStructureImporter::HOLDING` ('10000000', PT PERKEBUNANAN NUSANTARA I), drops the holding itself so its operating companies become the roots, and then drops the `EXCLUDED` list — the retired PTPN I/II/IV-XIV entities the restructuring folded into PalmCo, SupportingCo and SGN. `PTPN III (PERSERO)` is deliberately not excluded. Result: 9 roots, 13,863 units, 11 levels (depth 0-10). `--all` imports the raw forest and skips both the trim and the exclusions; `--root=` picks another holding. `OrgUnit::MAX_DEPTH` is 11 — the imported depth plus one level of headroom.
 
@@ -48,7 +48,7 @@ Consequences to keep in mind:
 - `WorkspaceMember::hasFullScope()` is no longer "anything": BOD-1 still has to pass `covers()`, which looks the unit up through the workspace subtree.
 - Validation of a unit id from the browser goes through `ScopesValidationToWorkspace::existsAsOrgUnit()`, never a bare `exists:org_units,id` (the operator's own requests are the exception).
 - Shaping the structure — `/organization` plus every `org-units` write — is super-admin only and lives in `routes/organization.php`, outside the `workspace` middleware. The one action a leader keeps is `org-units.search`, scoped to their branch, which feeds the member and project unit pickers.
-- `tasku:import-org-structure` and `orgunit:rebuild-path` take no `--workspace`; they write the one tree.
+- `headway:import-org-structure` and `orgunit:rebuild-path` take no `--workspace`; they write the one tree.
 
 ## The Excel export grid is four weeks per month, the UI timeline is not
 `App\Support\MonthWeek` draws a fixed grid: four columns per month, so days 29-31 fall in W4. That is deliberate — it reproduces the old per-programmer workbook, whose START/END columns read `W3 08-26`. The frontend helper `resources/js/lib/week.ts` lays out real weeks and therefore allows a fifth one; the two are not interchangeable, do not "fix" one to match the other.

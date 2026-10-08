@@ -13,4 +13,4 @@ Consequences to keep:
 - The "workspace keeps at least one Owner" rule lives in `App\Actions\ChangeMemberRole`, shared by `MemberController` (behind `WorkspaceMemberPolicy`) and the operator console (no policy at all). `WorkspaceMemberPolicy::isLastTopRole()` delegates to it. Do not re-inline that query anywhere — the tenant-scoped version returns nothing for the operator.
 - Replacing an Owner is appoint-then-demote. The reverse order is refused by design.
 - `users.is_active` is enforced twice and needs both: `EnsureActiveAccount` in the `web` group ends sessions already open, `Fortify::authenticateUsing` refuses new logins. `UserFactory` states `is_active` explicitly because `actingAs()` uses the model the factory returns, and a missing attribute reads as deactivated.
-- `is_super_admin` is deliberately not editable in the UI; promotion stays with `tasku:super-admin`.
+- `is_super_admin` is deliberately not editable in the UI; promotion stays with `headway:super-admin`.

@@ -25,7 +25,7 @@ use Throwable;
  */
 class ImportSpreadsheet extends Command
 {
-    protected $signature = 'tasku:import-spreadsheet
+    protected $signature = 'headway:import-spreadsheet
                             {file : Path to the CSV file}
                             {--project= : Target project id}
                             {--dry-run : Parse and report without writing}';

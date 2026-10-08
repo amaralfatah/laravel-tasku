@@ -10,7 +10,7 @@ services:
     healthCheckPath: /up
     envVars:
       - key: APP_NAME
-        value: Tasku
+        value: Headway
       - key: APP_KEY
         sync: false
       - key: APP_URL

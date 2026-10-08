@@ -17,7 +17,7 @@ use Throwable;
  */
 class ImportOrgStructure extends Command
 {
-    protected $signature = 'tasku:import-org-structure
+    protected $signature = 'headway:import-org-structure
                             {--root= : SAP object id of the holding whose children become the roots, defaults to PT PERKEBUNANAN NUSANTARA I}
                             {--all : Import every root the view carries, including the fragments SAP sends no parent for}
                             {--prune : Delete units an earlier import created that the view no longer carries}
